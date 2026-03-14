@@ -5,6 +5,7 @@
 *.pyc
 build/
 .pio/
+.vscode/
 __pycache__/
 size-report.md
 size-report.json
