@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-- no unreleased entries yet
+- update GitHub Actions workflow dependencies to current major versions
+- replace the release publish action with GitHub CLI commands to avoid Node 20 deprecation warnings
+- verify required files are present in the release zip before uploading assets
+- fix publishing notes to match the current CI checks
 
 ## 0.1.1
 

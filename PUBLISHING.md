@@ -17,7 +17,7 @@ arduino-lint --compliance strict --library-manager submit .
 
 If the library is not listed in Arduino Library Manager yet, direct users to the tagged release zip from GitHub Releases.
 
-The CI workflow only runs generic Arduino library lint checks. Keep `--library-manager submit` as a manual gate until you are ready to apply for indexing.
+The CI workflow currently runs documentation link checks, host-side tests, size regression, and representative PlatformIO builds. Keep `arduino-lint --library-manager submit` as a manual gate until you are ready to apply for indexing.
 
 ## PlatformIO Registry
 

@@ -12,9 +12,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -66,11 +66,46 @@ jobs:
       - name: Create release archive
         run: git archive --format=zip --prefix="slmp4e-connect-cpp-minimal-${{ github.ref_name }}/" --output "slmp4e-connect-cpp-minimal-${{ github.ref_name }}.zip" HEAD
 
-      - uses: softprops/action-gh-release@v2
-        with:
-          body_path: release-notes.md
-          files: |
-            slmp4e-connect-cpp-minimal-${{ github.ref_name }}.zip
-            coverage-summary.txt
-            size-report.md
-            size-report.json
+      - name: Verify release archive contents
+        run: |
+          python - <<'PY'
+          import zipfile
+
+          tag = "${{ github.ref_name }}"
+          archive = f"slmp4e-connect-cpp-minimal-{tag}.zip"
+          prefix = f"slmp4e-connect-cpp-minimal-{tag}/"
+
+          with zipfile.ZipFile(archive) as zf:
+              names = zf.namelist()
+
+          checks = {
+              "src/": any(name.startswith(prefix + "src/") for name in names),
+              "examples/": any(name.startswith(prefix + "examples/") for name in names),
+              "library.properties": prefix + "library.properties" in names,
+              "library.json": prefix + "library.json" in names,
+          }
+          missing = [name for name, ok in checks.items() if not ok]
+          if missing:
+              raise SystemExit("release archive is missing: " + ", ".join(missing))
+          print("release archive contents: ok")
+          PY
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          files=(
+            "slmp4e-connect-cpp-minimal-${TAG_NAME}.zip"
+            "coverage-summary.txt"
+            "size-report.md"
+            "size-report.json"
+          )
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release edit "$TAG_NAME" --notes-file release-notes.md
+            gh release upload "$TAG_NAME" "${files[@]}" --clobber
+          else
+            gh release create "$TAG_NAME" "${files[@]}" --title "$TAG_NAME" --notes-file release-notes.md --verify-tag
+          fi
