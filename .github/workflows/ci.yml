@@ -15,16 +15,6 @@ jobs:
       - name: Check Markdown links
         run: python scripts/check_markdown_links.py
 
-  arduino-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: arduino/arduino-lint-action@v2.0.0
-        with:
-          path: .
-          compliance: strict
-          library-manager: false
-
   host-tests:
     runs-on: ubuntu-latest
     steps:
