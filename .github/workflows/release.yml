@@ -1,0 +1,73 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install tools
+        run: pip install platformio gcovr
+
+      - name: Verify library version matches tag
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          tag = "${{ github.ref_name }}"
+          expected = tag[1:] if tag.startswith("v") else tag
+          props = Path("library.properties").read_text(encoding="utf-8")
+          for line in props.splitlines():
+              if line.startswith("version="):
+                  actual = line.split("=", 1)[1].strip()
+                  break
+          else:
+              raise SystemExit("version= not found in library.properties")
+          if actual != expected:
+              raise SystemExit(f"tag version mismatch: tag={expected} library.properties={actual}")
+          PY
+
+      - name: Run host tests
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Isrc tests/slmp4e_minimal_tests.cpp src/slmp4e_minimal.cpp -o /tmp/slmp4e_minimal_tests
+          /tmp/slmp4e_minimal_tests
+
+      - name: Run socket integration test
+        run: python scripts/run_socket_integration.py --compiler g++
+
+      - name: Generate coverage summary
+        run: |
+          g++ -std=c++17 -Wall -Wextra --coverage -Isrc tests/slmp4e_minimal_tests.cpp src/slmp4e_minimal.cpp -o /tmp/slmp4e_minimal_tests_cov
+          /tmp/slmp4e_minimal_tests_cov
+          gcovr --root . --filter src --txt-summary > coverage-summary.txt
+
+      - name: Run size regression
+        run: python scripts/size_report.py --project-dir . --baseline scripts/size_baseline.json --pio pio --markdown-out size-report.md --json-out size-report.json
+
+      - name: Build release smoke targets
+        run: |
+          pio run -e esp32dev-session
+          pio run -e pico
+
+      - name: Generate release notes
+        run: python scripts/release_notes.py --changelog CHANGELOG.md --version "${{ github.ref_name }}" --output release-notes.md
+
+      - name: Create release archive
+        run: git archive --format=zip --prefix="slmp4e-connect-cpp-minimal-${{ github.ref_name }}/" --output "slmp4e-connect-cpp-minimal-${{ github.ref_name }}.zip" HEAD
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          files: |
+            slmp4e-connect-cpp-minimal-${{ github.ref_name }}.zip
+            coverage-summary.txt
+            size-report.md
+            size-report.json

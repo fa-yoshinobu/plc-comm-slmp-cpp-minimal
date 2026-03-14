@@ -1,0 +1,15 @@
+*.o
+*.obj
+*.gcda
+*.gcno
+*.pyc
+build/
+.pio/
+__pycache__/
+size-report.md
+size-report.json
+coverage-summary.txt
+coverage.xml
+coverage.html
+release-notes.md
+slmp4e-connect-cpp-minimal-*.zip

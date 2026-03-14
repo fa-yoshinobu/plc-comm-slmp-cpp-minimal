@@ -1,0 +1,102 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build host tests
+        run: g++ -std=c++17 -Wall -Wextra -Isrc tests/slmp4e_minimal_tests.cpp src/slmp4e_minimal.cpp -o /tmp/slmp4e_minimal_tests
+      - name: Run host tests
+        run: /tmp/slmp4e_minimal_tests
+      - name: Run socket integration test
+        run: python scripts/run_socket_integration.py --compiler g++
+
+  host-sanitizers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build host tests with sanitizers
+        run: g++ -std=c++17 -Wall -Wextra -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -Isrc tests/slmp4e_minimal_tests.cpp src/slmp4e_minimal.cpp -o /tmp/slmp4e_minimal_tests_san
+      - name: Run sanitizer tests
+        env:
+          ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: /tmp/slmp4e_minimal_tests_san
+
+  host-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install gcovr
+        run: pip install gcovr
+      - name: Build host tests with coverage
+        run: g++ -std=c++17 -Wall -Wextra --coverage -Isrc tests/slmp4e_minimal_tests.cpp src/slmp4e_minimal.cpp -o /tmp/slmp4e_minimal_tests_cov
+      - name: Run coverage tests
+        run: /tmp/slmp4e_minimal_tests_cov
+      - name: Generate coverage reports
+        run: |
+          gcovr --root . --filter src --txt-summary > coverage-summary.txt
+          gcovr --root . --filter src --xml-pretty -o coverage.xml
+          gcovr --root . --filter src --html-details coverage.html
+      - name: Publish coverage summary
+        run: cat coverage-summary.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: host-coverage
+          path: |
+            coverage-summary.txt
+            coverage.xml
+            coverage.html
+
+  size-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install PlatformIO
+        run: pip install platformio
+      - name: Run size regression report
+        run: python scripts/size_report.py --project-dir . --baseline scripts/size_baseline.json --pio pio --markdown-out size-report.md --json-out size-report.json
+      - name: Publish size summary
+        run: cat size-report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: size-report
+          path: |
+            size-report.md
+            size-report.json
+
+  platformio:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          - esp32dev
+          - esp32dev-random-block
+          - esp32dev-dynamic-bits
+          - esp32dev-session
+          - pico
+          - nanorp2040connect
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install PlatformIO
+        run: pip install platformio
+      - name: Build ${{ matrix.env }}
+        run: pio run -e ${{ matrix.env }}

@@ -1,0 +1,18 @@
+{
+  "model": "Q03UDVCPU",
+  "model_code": "0x1234",
+  "password": "123456",
+  "words": {
+    "D100": 1234,
+    "D101": 5678,
+    "D300": 4660,
+    "D301": 22136
+  },
+  "bits": {
+    "M100": true,
+    "M102": true,
+    "M200": true,
+    "M202": true,
+    "Y20": false
+  }
+}
