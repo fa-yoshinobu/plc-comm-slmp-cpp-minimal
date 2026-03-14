@@ -13,6 +13,7 @@ This file tracks real-board coverage that is still pending after the host-side a
 | `esp32-s3-devkitc-1` | `WiFiClient` | `platformio/esp32dev_smoke.cpp` | pending | compile verified, board runtime not yet verified |
 | `esp32-c3-devkitm-1` | `WiFiClient` | `platformio/esp32dev_smoke.cpp` | pending | compile verified, board runtime not yet verified |
 | `pico` + W5500 | `EthernetClient` | `examples/rp2040_w5500_read_words` | pending | verify SPI wiring, DHCP or static IP, direct read |
+| `wiznet_5500_evb_pico2` | `EthernetClient` | `examples/w5500_evb_pico2_read_words` | pending | compile target added with Arduino-Pico core, board runtime not yet verified |
 | `nanorp2040connect` | `WiFiNINA` | ESP32-style session flow | pending | compile verified, board runtime not yet verified |
 | real Mitsubishi PLC | TCP | any supported sketch | pending | verify real end codes, timing, and access rules beyond mock server coverage |
 
@@ -21,6 +22,7 @@ This file tracks real-board coverage that is still pending after the host-side a
 - `hardware: validate esp32dev direct read against real PLC`
 - `hardware: validate esp32dev reconnect and remote password flow`
 - `hardware: validate rp2040 w5500 direct read example`
+- `hardware: validate W5500-EVB-Pico2 direct read example`
 - `hardware: validate nano rp2040 connect with WiFiNINA transport`
 - `hardware: verify real PLC end-code behavior against documented strings`
 

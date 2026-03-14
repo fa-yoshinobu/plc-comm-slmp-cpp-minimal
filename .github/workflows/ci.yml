@@ -100,6 +100,7 @@ jobs:
           - esp32dev-dynamic-bits
           - esp32dev-session
           - pico
+          - wiznet_5500_evb_pico2
           - nanorp2040connect
     steps:
       - uses: actions/checkout@v6

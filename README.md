@@ -24,6 +24,7 @@ Target boards:
 
 - ESP32
 - RP2040
+- RP2350
 
 ## Install
 
@@ -52,6 +53,7 @@ Notes:
 - ESP32 + random/block access: start with `examples/esp32_random_block`
 - ESP32 + dynamic bit walk: start with `examples/esp32_dynamic_bits`
 - RP2040 + W5500 + `EthernetClient`: start with `examples/rp2040_w5500_read_words`
+- W5500-EVB-Pico2 + onboard W5500 + `EthernetClient`: start with `examples/w5500_evb_pico2_read_words`
 - Nano RP2040 Connect + `WiFiNINA`: use the same core API shape as the ESP32 examples, but pass `WiFiClient` from `WiFiNINA`
 - Pico W class boards: start from the RP2040 example and swap `EthernetClient` for the Wi-Fi client class provided by your core package
 
@@ -61,6 +63,7 @@ For the smallest bring-up path, wire up networking first and then copy one of th
 
 - ESP32: `examples/esp32_read_words/esp32_read_words.ino`
 - RP2040 + W5500: `examples/rp2040_w5500_read_words/rp2040_w5500_read_words.ino`
+- W5500-EVB-Pico2: `examples/w5500_evb_pico2_read_words/w5500_evb_pico2_read_words.ino`
 
 The minimal session shape is:
 
@@ -101,7 +104,7 @@ Main functions:
 
 ## Why this shape
 
-For ESP32 and RP2040, the compact version should keep only the protocol core that is stable and small:
+For ESP32, RP2040, and RP2350, the compact version should keep only the protocol core that is stable and small:
 
 - transport abstraction
 - 4E request/response encoding
@@ -110,7 +113,7 @@ For ESP32 and RP2040, the compact version should keep only the protocol core tha
 
 Good points:
 
-- compact enough for ESP32 / RP2040 class boards
+- compact enough for ESP32 / RP2040 / RP2350 class boards
 - no dynamic allocation inside the client
 - the caller can choose buffer size based on use case
 - optional helpers stay small if you do not call them
@@ -181,6 +184,7 @@ For request/response inspection:
 - `examples/esp32_dynamic_bits`: ESP32 dynamic `M100..M500` write example with odd-number filtering
 - `examples/esp32_password_read_loop`: ESP32 reconnect + password + periodic read example
 - `examples/rp2040_w5500_read_words`: RP2040 + W5500 Ethernet example
+- `examples/w5500_evb_pico2_read_words`: W5500-EVB-Pico2 onboard Ethernet example with an interactive serial debug console and human-evaluated write verification
 - `tests/slmp4e_minimal_tests.cpp`: host-side mock transport tests
 
 ## Memory model
@@ -355,13 +359,13 @@ char request_hex[160] = {};
 slmp4e::formatHexBytes(plc.lastRequestFrame(), plc.lastRequestFrameLength(), request_hex, sizeof(request_hex));
 ```
 
-## ESP32 / RP2040 note
+## ESP32 / RP2040 / RP2350 note
 
 The protocol code is board-agnostic.
 
 On ESP32, pass a `WiFiClient`.
 
-On RP2040, pass any Arduino-compatible `Client` implementation that your board support package provides, for example:
+On RP2040 or RP2350, pass any Arduino-compatible `Client` implementation that your board support package provides, for example:
 
 - `WiFiClient` on Pico W class boards
 - `EthernetClient` on W5x00 based boards
@@ -376,6 +380,7 @@ Only the network stack changes. The `slmp4e::Slmp4eClient` API stays the same.
 - Use `examples/esp32_password_read_loop` if you want reconnect, password unlock, `readTypeName()`, and periodic polling in one sketch.
   Edit `examples/esp32_password_read_loop/config.h` for Wi-Fi, PLC host, password, and poll settings.
 - Use `examples/rp2040_w5500_read_words` for RP2040 boards paired with a W5500 Ethernet module.
+- Use `examples/w5500_evb_pico2_read_words` for the RP2350-based W5500-EVB-Pico2 board with the onboard W5500 chip. It prints command help on `Serial`, supports interactive read/write debugging commands, and has `verifyw` / `verifyb` plus `judge ok|ng` for operator-validated write checks.
 - For Pico W, keep the RP2040 side but swap `EthernetClient` for the Wi-Fi client class provided by your core package.
 
 ## PlatformIO
@@ -389,6 +394,7 @@ Smoke-build environments are included in `platformio.ini`:
 - `esp32-s3-devkitc-1`
 - `esp32-c3-devkitm-1`
 - `pico`
+- `wiznet_5500_evb_pico2`
 - `nanorp2040connect`
 
 Function-size probe environments are also included:
@@ -412,6 +418,7 @@ Build with:
 & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e esp32-s3-devkitc-1
 & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e esp32-c3-devkitm-1
 & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e pico
+& "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e wiznet_5500_evb_pico2
 & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e nanorp2040connect
 & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e esp32dev-size-debug
 & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e esp32dev-size-all
@@ -423,6 +430,8 @@ This build compiles:
 - `platformio/esp32dev_smoke.cpp`
 
 The `pico` environment uses `platformio/pico_w5500_smoke.cpp` and links `arduino-libraries/Ethernet` for a W5500-based RP2040 check.
+
+The `wiznet_5500_evb_pico2` environment uses `platformio/w5500_evb_pico2_smoke.cpp` and pulls the Arduino-Pico core through `maxgerhardt/platform-raspberrypi.git` so the RP2350 `wiznet_5500_evb_pico2` board definition and `EthernetCompat` support are available.
 
 The `nanorp2040connect` environment uses `platformio/nanorp2040connect_smoke.cpp` and links `arduino-libraries/WiFiNINA`.
 
@@ -440,7 +449,7 @@ It runs:
 - host-side sanitizer tests on `g++` with `ASan` / `UBSan`
 - host-side coverage report generation for `src/*`
 - PlatformIO size regression comparison against `scripts/size_baseline.json`
-- PlatformIO builds for representative ESP32 and RP2040 environments
+- PlatformIO builds for representative ESP32, RP2040, and RP2350 environments
 
 These environments are intended to verify the library compiles cleanly under PlatformIO before flashing a board-specific sketch.
 
@@ -452,7 +461,7 @@ On a `v*` tag, the workflow:
 
 - verifies `library.properties` matches the tag version
 - runs host tests, coverage, and size regression
-- builds representative ESP32 and RP2040 smoke targets
+- builds representative ESP32, RP2040, and RP2350 smoke targets
 - generates release notes from `CHANGELOG.md`
 - publishes a zip archive plus coverage and size artifacts
 

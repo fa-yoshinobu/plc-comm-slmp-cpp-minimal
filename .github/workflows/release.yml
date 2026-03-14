@@ -59,6 +59,7 @@ jobs:
         run: |
           pio run -e esp32dev-session
           pio run -e pico
+          pio run -e wiznet_5500_evb_pico2
 
       - name: Generate release notes
         run: python scripts/release_notes.py --changelog CHANGELOG.md --version "${{ github.ref_name }}" --output release-notes.md

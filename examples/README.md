@@ -9,9 +9,11 @@ Use this file as the quick entry point for example sketches.
 | Dynamic bit walk | `esp32_dynamic_bits` | ESP32 + `WiFiClient` | dynamic `M100..M500` writes with odd-address filtering |
 | Reconnect + password | `esp32_password_read_loop` | ESP32 + `WiFiClient` | reconnect loop, password unlock, type-name read, periodic polling, `config.h` for deployment settings |
 | RP2040 Ethernet basic read | `rp2040_w5500_read_words` | RP2040 + `EthernetClient` | same core API with W5500 transport |
+| W5500-EVB-Pico2 basic read | `w5500_evb_pico2_read_words` | RP2350 + onboard W5500 + `EthernetClient` | Arduino-Pico `EthernetCompat` bring-up plus `connect()`, `readTypeName()`, `readWords()`, and an interactive serial debug console with human-evaluated write verification |
 
 Suggested order:
 
 1. Start with `esp32_read_words`.
 2. Move to `esp32_password_read_loop` if you need a more complete session pattern with a separate `config.h`.
 3. Use `esp32_random_block` or `esp32_dynamic_bits` for specialized access patterns.
+4. Use `w5500_evb_pico2_read_words` if you are on the WIZnet RP2350 Ethernet board.

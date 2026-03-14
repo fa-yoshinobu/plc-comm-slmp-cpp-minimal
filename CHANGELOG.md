@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- add a `W5500-EVB-Pico2` example sketch and PlatformIO smoke target using Arduino-Pico `EthernetCompat`
+- add an interactive serial debug console to the `W5500-EVB-Pico2` example for ad-hoc PLC reads, writes, and frame dumps
+- add operator-validated write verification commands (`verifyw`, `verifyb`, `judge`) to the `W5500-EVB-Pico2` serial console
 - update GitHub Actions workflow dependencies to current major versions
 - replace the release publish action with GitHub CLI commands to avoid Node 20 deprecation warnings
 - verify required files are present in the release zip before uploading assets
