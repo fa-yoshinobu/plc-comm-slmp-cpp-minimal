@@ -1,6 +1,6 @@
 # SLMP4E Connect C++ Minimal
 
-[![release](https://img.shields.io/github/v/release/fa-yoshinobu/slmp4e-connect-cpp-minimal?label=release)](https://github.com/fa-yoshinobu/slmp4e-connect-cpp-minimal/releases/latest) [![CI](https://img.shields.io/github/actions/workflow/status/fa-yoshinobu/slmp4e-connect-cpp-minimal/ci.yml?branch=main&label=CI&logo=github)](https://github.com/fa-yoshinobu/slmp4e-connect-cpp-minimal/actions/workflows/ci.yml) [![license](https://img.shields.io/github/license/fa-yoshinobu/slmp4e-connect-cpp-minimal?label=license)](./LICENSE) [![python](https://img.shields.io/badge/python-3.10%2B-blue)](#host-tests)
+[![release](https://img.shields.io/github/v/release/fa-yoshinobu/slmp4e-connect-cpp-minimal?label=release)](https://github.com/fa-yoshinobu/slmp4e-connect-cpp-minimal/releases/latest) [![CI](https://img.shields.io/github/actions/workflow/status/fa-yoshinobu/slmp4e-connect-cpp-minimal/ci.yml?branch=main&label=CI&logo=github)](https://github.com/fa-yoshinobu/slmp4e-connect-cpp-minimal/actions/workflows/ci.yml) [![license](https://img.shields.io/github/license/fa-yoshinobu/slmp4e-connect-cpp-minimal?label=license)](./LICENSE) [![C++](https://img.shields.io/badge/language-C%2B%2B-00599C)](#host-tests)
 
 This is the microcontroller-oriented C++ version of:
 
