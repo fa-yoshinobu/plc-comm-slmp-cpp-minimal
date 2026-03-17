@@ -2,13 +2,33 @@
 
 #include <string.h>
 
+#ifdef ARDUINO
+#include <Arduino.h>
+#else
+#include <chrono>
+static uint32_t millis() {
+    auto now = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+}
+#endif
+
 namespace slmp4e {
+
+static uint32_t getTimeMs() {
+    return millis();
+}
+
 namespace {
 
-constexpr uint8_t kRequestSubheader0 = 0x54;
-constexpr uint8_t kRequestSubheader1 = 0x00;
-constexpr uint8_t kResponseSubheader0 = 0xD4;
-constexpr uint8_t kResponseSubheader1 = 0x00;
+constexpr uint8_t kRequestSubheader4E0 = 0x54;
+constexpr uint8_t kRequestSubheader4E1 = 0x00;
+constexpr uint8_t kResponseSubheader4E0 = 0xD4;
+constexpr uint8_t kResponseSubheader4E1 = 0x00;
+
+constexpr uint8_t kRequestSubheader3E0 = 0x50;
+constexpr uint8_t kRequestSubheader3E1 = 0x00;
+constexpr uint8_t kResponseSubheader3E0 = 0xD0;
+constexpr uint8_t kResponseSubheader3E1 = 0x00;
 
 constexpr uint16_t kCommandReadTypeName = 0x0101;
 constexpr uint16_t kCommandDeviceRead = 0x0401;
@@ -23,9 +43,13 @@ constexpr uint16_t kCommandRemotePasswordLock = 0x1631;
 constexpr uint16_t kSubcommandWord = 0x0002;
 constexpr uint16_t kSubcommandBit = 0x0003;
 
-constexpr size_t kRequestHeaderSize = 19;
-constexpr size_t kResponseHeaderWithoutDataSize = 15;
-constexpr size_t kResponsePrefixSize = 13;
+constexpr size_t kRequestHeaderSize4E = 19;
+constexpr size_t kResponsePrefixSize4E = 13;
+constexpr size_t kResponseHeaderWithoutDataSize4E = 15;
+
+constexpr size_t kRequestHeaderSize3E = 15;
+constexpr size_t kResponsePrefixSize3E = 9;
+constexpr size_t kResponseHeaderWithoutDataSize3E = 11;
 
 inline void writeLe16(uint8_t* out, uint16_t value) {
     out[0] = static_cast<uint8_t>(value & 0xFF);
@@ -53,9 +77,7 @@ inline size_t packedBitBytes(size_t bit_count) {
 }
 
 inline size_t encodeDeviceSpec(const DeviceAddress& device, uint8_t* out, size_t capacity) {
-    if (capacity < 6) {
-        return 0;
-    }
+    if (capacity < 6) return 0;
     writeLe32(out, device.number);
     writeLe16(out + 4, static_cast<uint16_t>(device.code));
     return 6;
@@ -190,13 +212,22 @@ Slmp4eClient::Slmp4eClient(
       rx_buffer_(rx_buffer),
       rx_capacity_(rx_capacity),
       target_(),
+      frame_type_(FrameType::Frame4E),
       monitoring_timer_(0x0010),
       timeout_ms_(3000),
       serial_(0),
       last_error_(Error::Ok),
       last_end_code_(0),
       last_request_length_(0),
-      last_response_length_(0) {}
+      last_response_length_(0),
+      state_(State::Idle),
+      bytes_transferred_(0),
+      last_activity_ms_(0),
+      async_ctx_{} {}
+
+bool Slmp4eClient::isBusy() const {
+    return state_ != State::Idle;
+}
 
 bool Slmp4eClient::connect(const char* host, uint16_t port) {
     if (host == nullptr || port == 0) {
@@ -225,6 +256,14 @@ void Slmp4eClient::setTarget(const TargetAddress& target) {
 
 const TargetAddress& Slmp4eClient::target() const {
     return target_;
+}
+
+void Slmp4eClient::setFrameType(FrameType frame_type) {
+    frame_type_ = frame_type;
+}
+
+FrameType Slmp4eClient::frameType() const {
+    return frame_type_;
 }
 
 void Slmp4eClient::setMonitoringTimer(uint16_t monitoring_timer) {
@@ -267,39 +306,340 @@ size_t Slmp4eClient::lastResponseFrameLength() const {
     return last_response_length_;
 }
 
-Error Slmp4eClient::readTypeName(TypeNameInfo& out) {
+Error Slmp4eClient::startAsync(AsyncContext::Type type, size_t payload_length, uint32_t now_ms) {
+    if (isBusy()) {
+        setError(Error::Busy);
+        return last_error_;
+    }
+    if (!transport_.connected()) {
+        setError(Error::NotConnected);
+        return last_error_;
+    }
+
+    size_t request_header_size = (frame_type_ == FrameType::Frame4E) ? kRequestHeaderSize4E : kRequestHeaderSize3E;
+    if (tx_capacity_ < request_header_size + payload_length) {
+        setError(Error::BufferTooSmall);
+        return last_error_;
+    }
+
+    uint16_t command = 0;
+    uint16_t subcommand = 0;
+    switch (type) {
+        case AsyncContext::Type::ReadTypeName:
+            command = kCommandReadTypeName;
+            subcommand = 0x0000;
+            break;
+        case AsyncContext::Type::ReadWords:
+        case AsyncContext::Type::ReadDWords:
+        case AsyncContext::Type::ReadBits:
+            command = kCommandDeviceRead;
+            subcommand = (type == AsyncContext::Type::ReadBits) ? kSubcommandBit : kSubcommandWord;
+            break;
+        case AsyncContext::Type::WriteWords:
+        case AsyncContext::Type::WriteDWords:
+        case AsyncContext::Type::WriteBits:
+            command = kCommandDeviceWrite;
+            subcommand = (type == AsyncContext::Type::WriteBits) ? kSubcommandBit : kSubcommandWord;
+            break;
+        case AsyncContext::Type::ReadRandom:
+            command = kCommandDeviceReadRandom;
+            subcommand = kSubcommandWord;
+            break;
+        case AsyncContext::Type::WriteRandomWords:
+            command = kCommandDeviceWriteRandom;
+            subcommand = kSubcommandWord;
+            break;
+        case AsyncContext::Type::WriteRandomBits:
+            command = kCommandDeviceWriteRandom;
+            subcommand = kSubcommandBit;
+            break;
+        case AsyncContext::Type::ReadBlock:
+            command = kCommandDeviceReadBlock;
+            subcommand = kSubcommandWord;
+            break;
+        case AsyncContext::Type::WriteBlock:
+            command = kCommandDeviceWriteBlock;
+            subcommand = kSubcommandWord;
+            break;
+        case AsyncContext::Type::PasswordUnlock:
+            command = kCommandRemotePasswordUnlock;
+            subcommand = 0x0000;
+            break;
+        case AsyncContext::Type::PasswordLock:
+            command = kCommandRemotePasswordLock;
+            subcommand = 0x0000;
+            break;
+        default:
+            setError(Error::InvalidArgument);
+            return last_error_;
+    }
+
+    uint16_t serial = serial_;
+    serial_ = static_cast<uint16_t>(serial_ + 1U);
+
+    if (payload_length > 0) {
+        memmove(tx_buffer_ + request_header_size, tx_buffer_, payload_length);
+    }
+
+    if (frame_type_ == FrameType::Frame4E) {
+        tx_buffer_[0] = kRequestSubheader4E0;
+        tx_buffer_[1] = kRequestSubheader4E1;
+        writeLe16(tx_buffer_ + 2, serial);
+        tx_buffer_[4] = 0x00;
+        tx_buffer_[5] = 0x00;
+        tx_buffer_[6] = target_.network;
+        tx_buffer_[7] = target_.station;
+        writeLe16(tx_buffer_ + 8, target_.module_io);
+        tx_buffer_[10] = target_.multidrop;
+        writeLe16(tx_buffer_ + 11, static_cast<uint16_t>(6U + payload_length));
+        writeLe16(tx_buffer_ + 13, monitoring_timer_);
+        writeLe16(tx_buffer_ + 15, command);
+        writeLe16(tx_buffer_ + 17, subcommand);
+    } else {
+        tx_buffer_[0] = kRequestSubheader3E0;
+        tx_buffer_[1] = kRequestSubheader3E1;
+        tx_buffer_[2] = target_.network;
+        tx_buffer_[3] = target_.station;
+        writeLe16(tx_buffer_ + 4, target_.module_io);
+        tx_buffer_[6] = target_.multidrop;
+        writeLe16(tx_buffer_ + 7, static_cast<uint16_t>(6U + payload_length));
+        writeLe16(tx_buffer_ + 9, monitoring_timer_);
+        writeLe16(tx_buffer_ + 11, command);
+        writeLe16(tx_buffer_ + 13, subcommand);
+    }
+
+    last_request_length_ = request_header_size + payload_length;
+    state_ = State::Sending;
+    bytes_transferred_ = 0;
+    last_activity_ms_ = now_ms;
+    async_ctx_.type = type;
+
+    setError(Error::Ok);
+    return last_error_;
+}
+
+void Slmp4eClient::update(uint32_t now_ms) {
+    if (state_ == State::Idle) return;
+
+    if (now_ms - last_activity_ms_ >= timeout_ms_) {
+        setError(Error::TransportError);
+        state_ = State::Idle;
+        return;
+    }
+
+    size_t response_prefix_size = (frame_type_ == FrameType::Frame4E) ? kResponsePrefixSize4E : kResponsePrefixSize3E;
+
+    if (state_ == State::Sending) {
+        size_t written = transport_.write(tx_buffer_ + bytes_transferred_, last_request_length_ - bytes_transferred_);
+        if (written > 0) {
+            bytes_transferred_ += written;
+            last_activity_ms_ = now_ms;
+            if (bytes_transferred_ == last_request_length_) {
+                state_ = State::ReceivingPrefix;
+                bytes_transferred_ = 0;
+            }
+        }
+    } else if (state_ == State::ReceivingPrefix) {
+        size_t read = transport_.read(rx_buffer_ + bytes_transferred_, response_prefix_size - bytes_transferred_);
+        if (read > 0) {
+            bytes_transferred_ += read;
+            last_activity_ms_ = now_ms;
+            if (bytes_transferred_ == response_prefix_size) {
+                uint16_t response_data_length = 0;
+                if (frame_type_ == FrameType::Frame4E) {
+                    if (rx_buffer_[0] != kResponseSubheader4E0 || rx_buffer_[1] != kResponseSubheader4E1) {
+                        setError(Error::ProtocolError);
+                        state_ = State::Idle;
+                        return;
+                    }
+                    uint16_t serial = (frame_type_ == FrameType::Frame4E) ? readLe16(tx_buffer_ + 2) : 0;
+                    if (readLe16(rx_buffer_ + 2) != serial) {
+                        setError(Error::ProtocolError);
+                        state_ = State::Idle;
+                        return;
+                    }
+                    response_data_length = readLe16(rx_buffer_ + 11);
+                } else {
+                    if (rx_buffer_[0] != kResponseSubheader3E0 || rx_buffer_[1] != kResponseSubheader3E1) {
+                        setError(Error::ProtocolError);
+                        state_ = State::Idle;
+                        return;
+                    }
+                    response_data_length = readLe16(rx_buffer_ + 7);
+                }
+
+                if (response_data_length < 2U) {
+                    setError(Error::ProtocolError);
+                    state_ = State::Idle;
+                    return;
+                }
+                last_response_length_ = response_prefix_size + response_data_length;
+                if (rx_capacity_ < last_response_length_) {
+                    setError(Error::BufferTooSmall);
+                    state_ = State::Idle;
+                    return;
+                }
+                state_ = State::ReceivingBody;
+                bytes_transferred_ = 0;
+            }
+        }
+    } else if (state_ == State::ReceivingBody) {
+        size_t to_read = last_response_length_ - (response_prefix_size + bytes_transferred_);
+        size_t read = transport_.read(rx_buffer_ + response_prefix_size + bytes_transferred_, to_read);
+        if (read > 0) {
+            bytes_transferred_ += read;
+            last_activity_ms_ = now_ms;
+            if (response_prefix_size + bytes_transferred_ == last_response_length_) {
+                state_ = State::Idle;
+                completeAsync();
+            }
+        }
+    }
+}
+
+void Slmp4eClient::completeAsync() {
+    size_t response_prefix_size = (frame_type_ == FrameType::Frame4E) ? kResponsePrefixSize4E : kResponsePrefixSize3E;
+    uint16_t end_code = readLe16(rx_buffer_ + response_prefix_size);
+    if (end_code != 0) {
+        setError(Error::PlcError, end_code);
+        return;
+    }
+
+    const uint8_t* response_data = rx_buffer_ + response_prefix_size + 2U;
+    size_t response_length = last_response_length_ - (response_prefix_size + 2U);
+
+    switch (async_ctx_.type) {
+        case AsyncContext::Type::ReadTypeName: {
+            TypeNameInfo& out = *async_ctx_.data.readTypeName.out;
+            size_t model_length = response_length < 16 ? response_length : 16;
+            memcpy(out.model, response_data, model_length);
+            out.model[model_length] = '\0';
+            while (model_length > 0 && (out.model[model_length - 1] == ' ' || out.model[model_length - 1] == '\0')) {
+                out.model[model_length - 1] = '\0';
+                --model_length;
+            }
+            if (response_length >= 18) {
+                out.model_code = readLe16(response_data + 16);
+                out.has_model_code = true;
+            }
+            break;
+        }
+        case AsyncContext::Type::ReadWords: {
+            uint16_t* values = static_cast<uint16_t*>(async_ctx_.data.common.values);
+            uint16_t points = async_ctx_.data.common.points;
+            if (response_length != static_cast<size_t>(points) * 2U) {
+                setError(Error::ProtocolError);
+                return;
+            }
+            for (uint16_t i = 0; i < points; ++i) {
+                values[i] = readLe16(response_data + (static_cast<size_t>(i) * 2U));
+            }
+            break;
+        }
+        case AsyncContext::Type::ReadDWords: {
+            uint32_t* values = static_cast<uint32_t*>(async_ctx_.data.common.values);
+            uint16_t points = async_ctx_.data.common.points;
+            if (response_length != static_cast<size_t>(points) * 4U) {
+                setError(Error::ProtocolError);
+                return;
+            }
+            for (uint16_t i = 0; i < points; ++i) {
+                values[i] = readLe32(response_data + (static_cast<size_t>(i) * 4U));
+            }
+            break;
+        }
+        case AsyncContext::Type::ReadBits: {
+            bool* values = static_cast<bool*>(async_ctx_.data.common.values);
+            uint16_t points = async_ctx_.data.common.points;
+            size_t expected_bytes = packedBitBytes(points);
+            if (response_length < expected_bytes) {
+                setError(Error::ProtocolError);
+                return;
+            }
+            size_t bit_index = 0;
+            for (size_t i = 0; i < expected_bytes && bit_index < points; ++i) {
+                values[bit_index++] = ((response_data[i] >> 4) & 0x1U) != 0;
+                if (bit_index < points) {
+                    values[bit_index++] = (response_data[i] & 0x1U) != 0;
+                }
+            }
+            break;
+        }
+        case AsyncContext::Type::ReadRandom: {
+            uint16_t* word_values = async_ctx_.data.readRandom.word_values;
+            uint16_t word_count = async_ctx_.data.readRandom.word_count;
+            uint32_t* dword_values = async_ctx_.data.readRandom.dword_values;
+            uint16_t dword_count = async_ctx_.data.readRandom.dword_count;
+            size_t expected_length = (word_count * 2U) + (dword_count * 4U);
+            if (response_length != expected_length) {
+                setError(Error::ProtocolError);
+                return;
+            }
+            size_t offset = 0;
+            for (size_t i = 0; i < word_count; ++i) {
+                word_values[i] = readLe16(response_data + offset);
+                offset += 2U;
+            }
+            for (size_t i = 0; i < dword_count; ++i) {
+                dword_values[i] = readLe32(response_data + offset);
+                offset += 4U;
+            }
+            break;
+        }
+        case AsyncContext::Type::ReadBlock: {
+            uint16_t* word_values = async_ctx_.data.readBlock.word_values;
+            size_t total_word_points = async_ctx_.data.readBlock.total_word_points;
+            uint16_t* bit_values = async_ctx_.data.readBlock.bit_values;
+            size_t total_bit_points = async_ctx_.data.readBlock.total_bit_points;
+            size_t expected_length = (total_word_points + total_bit_points) * 2U;
+            if (response_length != expected_length) {
+                setError(Error::ProtocolError);
+                return;
+            }
+            size_t offset = 0;
+            for (size_t i = 0; i < total_word_points; ++i) {
+                word_values[i] = readLe16(response_data + offset);
+                offset += 2U;
+            }
+            for (size_t i = 0; i < total_bit_points; ++i) {
+                bit_values[i] = readLe16(response_data + offset);
+                offset += 2U;
+            }
+            break;
+        }
+        default:
+            if (response_length != 0) {
+                setError(Error::ProtocolError);
+                return;
+            }
+            break;
+    }
+    setError(Error::Ok);
+}
+
+Error Slmp4eClient::beginReadTypeName(TypeNameInfo& out, uint32_t now_ms) {
     out.model[0] = '\0';
     out.model_code = 0;
     out.has_model_code = false;
-
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(kCommandReadTypeName, 0x0000, nullptr, 0, response_data, response_length);
-    if (error != Error::Ok) {
-        return error;
-    }
-
-    size_t model_length = response_length < 16 ? response_length : 16;
-    memcpy(out.model, response_data, model_length);
-    out.model[model_length] = '\0';
-
-    while (model_length > 0 && (out.model[model_length - 1] == ' ' || out.model[model_length - 1] == '\0')) {
-        out.model[model_length - 1] = '\0';
-        --model_length;
-    }
-
-    if (response_length >= 18) {
-        out.model_code = readLe16(response_data + 16);
-        out.has_model_code = true;
-    }
-    return Error::Ok;
+    async_ctx_.data.readTypeName.out = &out;
+    return startAsync(AsyncContext::Type::ReadTypeName, 0, now_ms);
 }
 
-Error Slmp4eClient::readWords(
+Error Slmp4eClient::readTypeName(TypeNameInfo& out) {
+    Error err = beginReadTypeName(out, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
+    }
+    return last_error_;
+}
+
+Error Slmp4eClient::beginReadWords(
     const DeviceAddress& device,
     uint16_t points,
     uint16_t* values,
-    size_t value_capacity
+    size_t value_capacity,
+    uint32_t now_ms
 ) {
     if (values == nullptr || points == 0 || value_capacity < points) {
         setError(Error::InvalidArgument);
@@ -320,25 +660,31 @@ Error Slmp4eClient::readWords(
     }
     writeLe16(tx_buffer_ + 6, points);
 
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(kCommandDeviceRead, kSubcommandWord, tx_buffer_, 8, response_data, response_length);
-    if (error != Error::Ok) {
-        return error;
-    }
-    if (response_length != static_cast<size_t>(points) * 2U) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
+    async_ctx_.data.common.values = values;
+    async_ctx_.data.common.points = points;
+    return startAsync(AsyncContext::Type::ReadWords, 8, now_ms);
+}
 
-    for (uint16_t i = 0; i < points; ++i) {
-        values[i] = readLe16(response_data + (static_cast<size_t>(i) * 2U));
+Error Slmp4eClient::readWords(
+    const DeviceAddress& device,
+    uint16_t points,
+    uint16_t* values,
+    size_t value_capacity
+) {
+    Error err = beginReadWords(device, points, values, value_capacity, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
     }
-    setError(Error::Ok);
     return last_error_;
 }
 
-Error Slmp4eClient::writeWords(const DeviceAddress& device, const uint16_t* values, size_t count) {
+Error Slmp4eClient::beginWriteWords(
+    const DeviceAddress& device,
+    const uint16_t* values,
+    size_t count,
+    uint32_t now_ms
+) {
     if (values == nullptr || count == 0 || count > 0xFFFFU) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -363,28 +709,25 @@ Error Slmp4eClient::writeWords(const DeviceAddress& device, const uint16_t* valu
         writeLe16(tx_buffer_ + 8 + (i * 2U), values[i]);
     }
 
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(
-        kCommandDeviceWrite,
-        kSubcommandWord,
-        tx_buffer_,
-        payload_length,
-        response_data,
-        response_length
-    );
-    if (error != Error::Ok) {
-        return error;
+    return startAsync(AsyncContext::Type::WriteWords, payload_length, now_ms);
+}
+
+Error Slmp4eClient::writeWords(const DeviceAddress& device, const uint16_t* values, size_t count) {
+    Error err = beginWriteWords(device, values, count, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
     }
-    if (response_length != 0) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
-    setError(Error::Ok);
     return last_error_;
 }
 
-Error Slmp4eClient::readBits(const DeviceAddress& device, uint16_t points, bool* values, size_t value_capacity) {
+Error Slmp4eClient::beginReadBits(
+    const DeviceAddress& device,
+    uint16_t points,
+    bool* values,
+    size_t value_capacity,
+    uint32_t now_ms
+) {
     if (values == nullptr || points == 0 || value_capacity < points) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -404,31 +747,26 @@ Error Slmp4eClient::readBits(const DeviceAddress& device, uint16_t points, bool*
     }
     writeLe16(tx_buffer_ + 6, points);
 
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(kCommandDeviceRead, kSubcommandBit, tx_buffer_, 8, response_data, response_length);
-    if (error != Error::Ok) {
-        return error;
-    }
+    async_ctx_.data.common.values = values;
+    async_ctx_.data.common.points = points;
+    return startAsync(AsyncContext::Type::ReadBits, 8, now_ms);
+}
 
-    size_t expected_bytes = packedBitBytes(points);
-    if (response_length < expected_bytes) {
-        setError(Error::ProtocolError);
-        return last_error_;
+Error Slmp4eClient::readBits(const DeviceAddress& device, uint16_t points, bool* values, size_t value_capacity) {
+    Error err = beginReadBits(device, points, values, value_capacity, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
     }
-
-    size_t bit_index = 0;
-    for (size_t i = 0; i < expected_bytes && bit_index < points; ++i) {
-        values[bit_index++] = ((response_data[i] >> 4) & 0x1U) != 0;
-        if (bit_index < points) {
-            values[bit_index++] = (response_data[i] & 0x1U) != 0;
-        }
-    }
-    setError(Error::Ok);
     return last_error_;
 }
 
-Error Slmp4eClient::writeBits(const DeviceAddress& device, const bool* values, size_t count) {
+Error Slmp4eClient::beginWriteBits(
+    const DeviceAddress& device,
+    const bool* values,
+    size_t count,
+    uint32_t now_ms
+) {
     if (values == nullptr || count == 0 || count > 0xFFFFU) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -460,32 +798,24 @@ Error Slmp4eClient::writeBits(const DeviceAddress& device, const bool* values, s
         tx_buffer_[8 + i] = static_cast<uint8_t>(high | low);
     }
 
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(
-        kCommandDeviceWrite,
-        kSubcommandBit,
-        tx_buffer_,
-        payload_length,
-        response_data,
-        response_length
-    );
-    if (error != Error::Ok) {
-        return error;
+    return startAsync(AsyncContext::Type::WriteBits, payload_length, now_ms);
+}
+
+Error Slmp4eClient::writeBits(const DeviceAddress& device, const bool* values, size_t count) {
+    Error err = beginWriteBits(device, values, count, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
     }
-    if (response_length != 0) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
-    setError(Error::Ok);
     return last_error_;
 }
 
-Error Slmp4eClient::readDWords(
+Error Slmp4eClient::beginReadDWords(
     const DeviceAddress& device,
     uint16_t points,
     uint32_t* values,
-    size_t value_capacity
+    size_t value_capacity,
+    uint32_t now_ms
 ) {
     if (values == nullptr || points == 0 || value_capacity < points || points > 0x7FFFU) {
         setError(Error::InvalidArgument);
@@ -506,25 +836,31 @@ Error Slmp4eClient::readDWords(
     }
     writeLe16(tx_buffer_ + 6, static_cast<uint16_t>(points * 2U));
 
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(kCommandDeviceRead, kSubcommandWord, tx_buffer_, 8, response_data, response_length);
-    if (error != Error::Ok) {
-        return error;
-    }
-    if (response_length != static_cast<size_t>(points) * 4U) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
+    async_ctx_.data.common.values = values;
+    async_ctx_.data.common.points = points;
+    return startAsync(AsyncContext::Type::ReadDWords, 8, now_ms);
+}
 
-    for (uint16_t i = 0; i < points; ++i) {
-        values[i] = readLe32(response_data + (static_cast<size_t>(i) * 4U));
+Error Slmp4eClient::readDWords(
+    const DeviceAddress& device,
+    uint16_t points,
+    uint32_t* values,
+    size_t value_capacity
+) {
+    Error err = beginReadDWords(device, points, values, value_capacity, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
     }
-    setError(Error::Ok);
     return last_error_;
 }
 
-Error Slmp4eClient::writeDWords(const DeviceAddress& device, const uint32_t* values, size_t count) {
+Error Slmp4eClient::beginWriteDWords(
+    const DeviceAddress& device,
+    const uint32_t* values,
+    size_t count,
+    uint32_t now_ms
+) {
     if (values == nullptr || count == 0 || count > 0x7FFFU) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -549,24 +885,15 @@ Error Slmp4eClient::writeDWords(const DeviceAddress& device, const uint32_t* val
         writeLe32(tx_buffer_ + 8 + (i * 4U), values[i]);
     }
 
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(
-        kCommandDeviceWrite,
-        kSubcommandWord,
-        tx_buffer_,
-        payload_length,
-        response_data,
-        response_length
-    );
-    if (error != Error::Ok) {
-        return error;
+    return startAsync(AsyncContext::Type::WriteDWords, payload_length, now_ms);
+}
+
+Error Slmp4eClient::writeDWords(const DeviceAddress& device, const uint32_t* values, size_t count) {
+    Error err = beginWriteDWords(device, values, count, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
     }
-    if (response_length != 0) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
-    setError(Error::Ok);
     return last_error_;
 }
 
@@ -594,7 +921,7 @@ Error Slmp4eClient::writeOneDWord(const DeviceAddress& device, uint32_t value) {
     return writeDWords(device, &value, 1);
 }
 
-Error Slmp4eClient::readRandom(
+Error Slmp4eClient::beginReadRandom(
     const DeviceAddress* word_devices,
     size_t word_count,
     uint16_t* word_values,
@@ -602,7 +929,8 @@ Error Slmp4eClient::readRandom(
     const DeviceAddress* dword_devices,
     size_t dword_count,
     uint32_t* dword_values,
-    size_t dword_value_capacity
+    size_t dword_value_capacity,
+    uint32_t now_ms
 ) {
     if ((word_count == 0 && dword_count == 0) || word_count > 0xFFU || dword_count > 0xFFU) {
         setError(Error::InvalidArgument);
@@ -625,7 +953,8 @@ Error Slmp4eClient::readRandom(
         return last_error_;
     }
 
-    size_t payload_length = 2U + ((word_count + dword_count) * 6U);
+    size_t spec_size = 6U;
+    size_t payload_length = 2U + ((word_count + dword_count) * spec_size);
     if (tx_capacity_ < payload_length) {
         setError(Error::BufferTooSmall);
         return last_error_;
@@ -640,57 +969,60 @@ Error Slmp4eClient::readRandom(
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        offset += 6U;
+        offset += spec_size;
     }
     for (size_t i = 0; i < dword_count; ++i) {
         if (encodeDeviceSpec(dword_devices[i], tx_buffer_ + offset, tx_capacity_ - offset) == 0) {
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        offset += 6U;
+        offset += spec_size;
     }
 
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(
-        kCommandDeviceReadRandom,
-        kSubcommandWord,
-        tx_buffer_,
-        payload_length,
-        response_data,
-        response_length
+    async_ctx_.data.readRandom.word_values = word_values;
+    async_ctx_.data.readRandom.word_count = static_cast<uint16_t>(word_count);
+    async_ctx_.data.readRandom.dword_values = dword_values;
+    async_ctx_.data.readRandom.dword_count = static_cast<uint16_t>(dword_count);
+
+    return startAsync(AsyncContext::Type::ReadRandom, payload_length, now_ms);
+}
+
+Error Slmp4eClient::readRandom(
+    const DeviceAddress* word_devices,
+    size_t word_count,
+    uint16_t* word_values,
+    size_t word_value_capacity,
+    const DeviceAddress* dword_devices,
+    size_t dword_count,
+    uint32_t* dword_values,
+    size_t dword_value_capacity
+) {
+    Error err = beginReadRandom(
+        word_devices,
+        word_count,
+        word_values,
+        word_value_capacity,
+        dword_devices,
+        dword_count,
+        dword_values,
+        dword_value_capacity,
+        getTimeMs()
     );
-    if (error != Error::Ok) {
-        return error;
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
     }
-
-    size_t expected_length = (word_count * 2U) + (dword_count * 4U);
-    if (response_length != expected_length) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
-
-    offset = 0;
-    for (size_t i = 0; i < word_count; ++i) {
-        word_values[i] = readLe16(response_data + offset);
-        offset += 2U;
-    }
-    for (size_t i = 0; i < dword_count; ++i) {
-        dword_values[i] = readLe32(response_data + offset);
-        offset += 4U;
-    }
-
-    setError(Error::Ok);
     return last_error_;
 }
 
-Error Slmp4eClient::writeRandomWords(
+Error Slmp4eClient::beginWriteRandomWords(
     const DeviceAddress* word_devices,
     const uint16_t* word_values,
     size_t word_count,
     const DeviceAddress* dword_devices,
     const uint32_t* dword_values,
-    size_t dword_count
+    size_t dword_count,
+    uint32_t now_ms
 ) {
     if ((word_count == 0 && dword_count == 0) || word_count > 0xFFU || dword_count > 0xFFU) {
         setError(Error::InvalidArgument);
@@ -713,8 +1045,10 @@ Error Slmp4eClient::writeRandomWords(
         return last_error_;
     }
 
-    size_t payload_length = 2U + (word_count * 8U) + (dword_count * 10U);
-    if (tx_capacity_ < payload_length) {
+    size_t spec_size = 6U;
+    size_t payload_length = 2U + (word_count * (spec_size + 2U)) + (dword_count * (spec_size + 4U));
+    size_t request_header_size = (frame_type_ == FrameType::Frame4E) ? kRequestHeaderSize4E : kRequestHeaderSize3E;
+    if (tx_capacity_ < request_header_size + payload_length) {
         setError(Error::BufferTooSmall);
         return last_error_;
     }
@@ -728,41 +1062,51 @@ Error Slmp4eClient::writeRandomWords(
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        writeLe16(tx_buffer_ + offset + 6U, word_values[i]);
-        offset += 8U;
+        writeLe16(tx_buffer_ + offset + spec_size, word_values[i]);
+        offset += spec_size + 2U;
     }
     for (size_t i = 0; i < dword_count; ++i) {
         if (encodeDeviceSpec(dword_devices[i], tx_buffer_ + offset, tx_capacity_ - offset) == 0) {
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        writeLe32(tx_buffer_ + offset + 6U, dword_values[i]);
-        offset += 10U;
+        writeLe32(tx_buffer_ + offset + spec_size, dword_values[i]);
+        offset += spec_size + 4U;
     }
 
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(
-        kCommandDeviceWriteRandom,
-        kSubcommandWord,
-        tx_buffer_,
-        payload_length,
-        response_data,
-        response_length
+    return startAsync(AsyncContext::Type::WriteRandomWords, payload_length, now_ms);
+}
+
+Error Slmp4eClient::writeRandomWords(
+    const DeviceAddress* word_devices,
+    const uint16_t* word_values,
+    size_t word_count,
+    const DeviceAddress* dword_devices,
+    const uint32_t* dword_values,
+    size_t dword_count
+) {
+    Error err = beginWriteRandomWords(
+        word_devices,
+        word_values,
+        word_count,
+        dword_devices,
+        dword_values,
+        dword_count,
+        getTimeMs()
     );
-    if (error != Error::Ok) {
-        return error;
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
     }
-    if (response_length != 0) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
-
-    setError(Error::Ok);
     return last_error_;
 }
 
-Error Slmp4eClient::writeRandomBits(const DeviceAddress* bit_devices, const bool* bit_values, size_t bit_count) {
+Error Slmp4eClient::beginWriteRandomBits(
+    const DeviceAddress* bit_devices,
+    const bool* bit_values,
+    size_t bit_count,
+    uint32_t now_ms
+) {
     if (bit_count == 0 || bit_count > 0xFFU || bit_devices == nullptr || bit_values == nullptr) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -774,8 +1118,10 @@ Error Slmp4eClient::writeRandomBits(const DeviceAddress* bit_devices, const bool
         return last_error_;
     }
 
-    size_t payload_length = 1U + (bit_count * 8U);
-    if (tx_capacity_ < payload_length) {
+    size_t spec_size = 6U;
+    size_t payload_length = 1U + (bit_count * (spec_size + 2U));
+    size_t request_header_size = (frame_type_ == FrameType::Frame4E) ? kRequestHeaderSize4E : kRequestHeaderSize3E;
+    if (tx_capacity_ < request_header_size + payload_length) {
         setError(Error::BufferTooSmall);
         return last_error_;
     }
@@ -788,33 +1134,23 @@ Error Slmp4eClient::writeRandomBits(const DeviceAddress* bit_devices, const bool
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        writeLe16(tx_buffer_ + offset + 6U, bit_values[i] ? 1U : 0U);
-        offset += 8U;
+        writeLe16(tx_buffer_ + offset + spec_size, bit_values[i] ? 1U : 0U);
+        offset += spec_size + 2U;
     }
 
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(
-        kCommandDeviceWriteRandom,
-        kSubcommandBit,
-        tx_buffer_,
-        payload_length,
-        response_data,
-        response_length
-    );
-    if (error != Error::Ok) {
-        return error;
-    }
-    if (response_length != 0) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
+    return startAsync(AsyncContext::Type::WriteRandomBits, payload_length, now_ms);
+}
 
-    setError(Error::Ok);
+Error Slmp4eClient::writeRandomBits(const DeviceAddress* bit_devices, const bool* bit_values, size_t bit_count) {
+    Error err = beginWriteRandomBits(bit_devices, bit_values, bit_count, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
+    }
     return last_error_;
 }
 
-Error Slmp4eClient::readBlock(
+Error Slmp4eClient::beginReadBlock(
     const DeviceBlockRead* word_blocks,
     size_t word_block_count,
     const DeviceBlockRead* bit_blocks,
@@ -822,7 +1158,8 @@ Error Slmp4eClient::readBlock(
     uint16_t* word_values,
     size_t word_value_capacity,
     uint16_t* bit_values,
-    size_t bit_value_capacity
+    size_t bit_value_capacity,
+    uint32_t now_ms
 ) {
     if ((word_block_count == 0 && bit_block_count == 0) || word_block_count > 0xFFU || bit_block_count > 0xFFU) {
         setError(Error::InvalidArgument);
@@ -847,8 +1184,10 @@ Error Slmp4eClient::readBlock(
         return last_error_;
     }
 
-    size_t payload_length = 2U + ((word_block_count + bit_block_count) * 8U);
-    if (tx_capacity_ < payload_length) {
+    size_t spec_size = 6U;
+    size_t payload_length = 2U + ((word_block_count + bit_block_count) * (spec_size + 2U));
+    size_t request_header_size = (frame_type_ == FrameType::Frame4E) ? kRequestHeaderSize4E : kRequestHeaderSize3E;
+    if (tx_capacity_ < request_header_size + payload_length) {
         setError(Error::BufferTooSmall);
         return last_error_;
     }
@@ -858,61 +1197,66 @@ Error Slmp4eClient::readBlock(
 
     size_t offset = 2U;
     for (size_t i = 0; i < word_block_count; ++i) {
-        if (encodeDeviceSpec(word_blocks[i].device, tx_buffer_ + offset, tx_capacity_ - offset) == 0) {
+        size_t written = encodeDeviceSpec(word_blocks[i].device, tx_buffer_ + offset, tx_capacity_ - offset);
+        if (written == 0) {
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        writeLe16(tx_buffer_ + offset + 6U, word_blocks[i].points);
-        offset += 8U;
+        writeLe16(tx_buffer_ + offset + written, word_blocks[i].points);
+        offset += written + 2U;
     }
     for (size_t i = 0; i < bit_block_count; ++i) {
-        if (encodeDeviceSpec(bit_blocks[i].device, tx_buffer_ + offset, tx_capacity_ - offset) == 0) {
+        size_t written = encodeDeviceSpec(bit_blocks[i].device, tx_buffer_ + offset, tx_capacity_ - offset);
+        if (written == 0) {
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        writeLe16(tx_buffer_ + offset + 6U, bit_blocks[i].points);
-        offset += 8U;
+        writeLe16(tx_buffer_ + offset + written, bit_blocks[i].points);
+        offset += written + 2U;
     }
 
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(
-        kCommandDeviceReadBlock,
-        kSubcommandWord,
-        tx_buffer_,
-        payload_length,
-        response_data,
-        response_length
+    async_ctx_.data.readBlock.word_values = word_values;
+    async_ctx_.data.readBlock.total_word_points = total_word_points;
+    async_ctx_.data.readBlock.bit_values = bit_values;
+    async_ctx_.data.readBlock.total_bit_points = total_bit_points;
+
+    return startAsync(AsyncContext::Type::ReadBlock, payload_length, now_ms);
+}
+
+Error Slmp4eClient::readBlock(
+    const DeviceBlockRead* word_blocks,
+    size_t word_block_count,
+    const DeviceBlockRead* bit_blocks,
+    size_t bit_block_count,
+    uint16_t* word_values,
+    size_t word_value_capacity,
+    uint16_t* bit_values,
+    size_t bit_value_capacity
+) {
+    Error err = beginReadBlock(
+        word_blocks,
+        word_block_count,
+        bit_blocks,
+        bit_block_count,
+        word_values,
+        word_value_capacity,
+        bit_values,
+        bit_value_capacity,
+        getTimeMs()
     );
-    if (error != Error::Ok) {
-        return error;
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
     }
-
-    size_t expected_length = (total_word_points + total_bit_points) * 2U;
-    if (response_length != expected_length) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
-
-    offset = 0;
-    for (size_t i = 0; i < total_word_points; ++i) {
-        word_values[i] = readLe16(response_data + offset);
-        offset += 2U;
-    }
-    for (size_t i = 0; i < total_bit_points; ++i) {
-        bit_values[i] = readLe16(response_data + offset);
-        offset += 2U;
-    }
-
-    setError(Error::Ok);
     return last_error_;
 }
 
-Error Slmp4eClient::writeBlock(
+Error Slmp4eClient::beginWriteBlock(
     const DeviceBlockWrite* word_blocks,
     size_t word_block_count,
     const DeviceBlockWrite* bit_blocks,
-    size_t bit_block_count
+    size_t bit_block_count,
+    uint32_t now_ms
 ) {
     if ((word_block_count == 0 && bit_block_count == 0) || word_block_count > 0xFFU || bit_block_count > 0xFFU) {
         setError(Error::InvalidArgument);
@@ -932,9 +1276,11 @@ Error Slmp4eClient::writeBlock(
         return last_error_;
     }
 
+    size_t spec_size = 6U;
     size_t payload_length =
-        2U + ((word_block_count + bit_block_count) * 8U) + ((total_word_points + total_bit_points) * 2U);
-    if (tx_capacity_ < payload_length) {
+        2U + ((word_block_count + bit_block_count) * (spec_size + 2U)) + ((total_word_points + total_bit_points) * 2U);
+    size_t request_header_size = (frame_type_ == FrameType::Frame4E) ? kRequestHeaderSize4E : kRequestHeaderSize3E;
+    if (tx_capacity_ < request_header_size + payload_length) {
         setError(Error::BufferTooSmall);
         return last_error_;
     }
@@ -944,20 +1290,22 @@ Error Slmp4eClient::writeBlock(
 
     size_t offset = 2U;
     for (size_t i = 0; i < word_block_count; ++i) {
-        if (encodeDeviceSpec(word_blocks[i].device, tx_buffer_ + offset, tx_capacity_ - offset) == 0) {
+        size_t written = encodeDeviceSpec(word_blocks[i].device, tx_buffer_ + offset, tx_capacity_ - offset);
+        if (written == 0) {
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        writeLe16(tx_buffer_ + offset + 6U, word_blocks[i].points);
-        offset += 8U;
+        writeLe16(tx_buffer_ + offset + written, word_blocks[i].points);
+        offset += written + 2U;
     }
     for (size_t i = 0; i < bit_block_count; ++i) {
-        if (encodeDeviceSpec(bit_blocks[i].device, tx_buffer_ + offset, tx_capacity_ - offset) == 0) {
+        size_t written = encodeDeviceSpec(bit_blocks[i].device, tx_buffer_ + offset, tx_capacity_ - offset);
+        if (written == 0) {
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        writeLe16(tx_buffer_ + offset + 6U, bit_blocks[i].points);
-        offset += 8U;
+        writeLe16(tx_buffer_ + offset + written, bit_blocks[i].points);
+        offset += written + 2U;
     }
     for (size_t i = 0; i < word_block_count; ++i) {
         for (size_t j = 0; j < word_blocks[i].points; ++j) {
@@ -972,29 +1320,44 @@ Error Slmp4eClient::writeBlock(
         }
     }
 
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(
-        kCommandDeviceWriteBlock,
-        kSubcommandWord,
-        tx_buffer_,
-        payload_length,
-        response_data,
-        response_length
-    );
-    if (error != Error::Ok) {
-        return error;
+    return startAsync(AsyncContext::Type::WriteBlock, payload_length, now_ms);
+}
+
+Error Slmp4eClient::writeBlock(
+    const DeviceBlockWrite* word_blocks,
+    size_t word_block_count,
+    const DeviceBlockWrite* bit_blocks,
+    size_t bit_block_count
+) {
+    Error err = beginWriteBlock(word_blocks, word_block_count, bit_blocks, bit_block_count, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
     }
-    if (response_length != 0) {
-        setError(Error::ProtocolError);
+    return last_error_;
+}
+
+Error Slmp4eClient::beginRemotePasswordUnlock(const char* password, uint32_t now_ms) {
+    size_t payload_length = 0;
+    Error encode_error = encodeRemotePasswordPayload(password, tx_buffer_, tx_capacity_, payload_length);
+    if (encode_error != Error::Ok) {
+        setError(encode_error);
         return last_error_;
     }
 
-    setError(Error::Ok);
-    return last_error_;
+    return startAsync(AsyncContext::Type::PasswordUnlock, payload_length, now_ms);
 }
 
 Error Slmp4eClient::remotePasswordUnlock(const char* password) {
+    Error err = beginRemotePasswordUnlock(password, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
+    }
+    return last_error_;
+}
+
+Error Slmp4eClient::beginRemotePasswordLock(const char* password, uint32_t now_ms) {
     size_t payload_length = 0;
     Error encode_error = encodeRemotePasswordPayload(password, tx_buffer_, tx_capacity_, payload_length);
     if (encode_error != Error::Ok) {
@@ -1002,146 +1365,15 @@ Error Slmp4eClient::remotePasswordUnlock(const char* password) {
         return last_error_;
     }
 
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(
-        kCommandRemotePasswordUnlock,
-        0x0000,
-        tx_buffer_,
-        payload_length,
-        response_data,
-        response_length
-    );
-    if (error != Error::Ok) {
-        return error;
-    }
-    if (response_length != 0) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
-
-    setError(Error::Ok);
-    return last_error_;
+    return startAsync(AsyncContext::Type::PasswordLock, payload_length, now_ms);
 }
 
 Error Slmp4eClient::remotePasswordLock(const char* password) {
-    size_t payload_length = 0;
-    Error encode_error = encodeRemotePasswordPayload(password, tx_buffer_, tx_capacity_, payload_length);
-    if (encode_error != Error::Ok) {
-        setError(encode_error);
-        return last_error_;
+    Error err = beginRemotePasswordLock(password, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
     }
-
-    const uint8_t* response_data = nullptr;
-    size_t response_length = 0;
-    Error error = request(
-        kCommandRemotePasswordLock,
-        0x0000,
-        tx_buffer_,
-        payload_length,
-        response_data,
-        response_length
-    );
-    if (error != Error::Ok) {
-        return error;
-    }
-    if (response_length != 0) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
-
-    setError(Error::Ok);
-    return last_error_;
-}
-
-Error Slmp4eClient::request(
-    uint16_t command,
-    uint16_t subcommand,
-    const uint8_t* payload,
-    size_t payload_length,
-    const uint8_t*& response_data,
-    size_t& response_length
-) {
-    response_data = nullptr;
-    response_length = 0;
-    last_request_length_ = 0;
-    last_response_length_ = 0;
-
-    if (!transport_.connected()) {
-        setError(Error::NotConnected);
-        return last_error_;
-    }
-
-    size_t frame_length = kRequestHeaderSize + payload_length;
-    if (tx_buffer_ == nullptr || rx_buffer_ == nullptr || tx_capacity_ < frame_length || rx_capacity_ < kResponseHeaderWithoutDataSize) {
-        setError(Error::BufferTooSmall);
-        return last_error_;
-    }
-
-    uint16_t serial = serial_;
-    serial_ = static_cast<uint16_t>(serial_ + 1U);
-
-    if (payload_length > 0 && payload != nullptr) {
-        memmove(tx_buffer_ + kRequestHeaderSize, payload, payload_length);
-    }
-
-    tx_buffer_[0] = kRequestSubheader0;
-    tx_buffer_[1] = kRequestSubheader1;
-    writeLe16(tx_buffer_ + 2, serial);
-    tx_buffer_[4] = 0x00;
-    tx_buffer_[5] = 0x00;
-    tx_buffer_[6] = target_.network;
-    tx_buffer_[7] = target_.station;
-    writeLe16(tx_buffer_ + 8, target_.module_io);
-    tx_buffer_[10] = target_.multidrop;
-    writeLe16(tx_buffer_ + 11, static_cast<uint16_t>(6U + payload_length));
-    writeLe16(tx_buffer_ + 13, monitoring_timer_);
-    writeLe16(tx_buffer_ + 15, command);
-    writeLe16(tx_buffer_ + 17, subcommand);
-    last_request_length_ = frame_length;
-
-    if (!transport_.writeAll(tx_buffer_, frame_length)) {
-        setError(Error::TransportError);
-        return last_error_;
-    }
-    if (!transport_.readExact(rx_buffer_, kResponsePrefixSize, timeout_ms_)) {
-        setError(Error::TransportError);
-        return last_error_;
-    }
-    if (rx_buffer_[0] != kResponseSubheader0 || rx_buffer_[1] != kResponseSubheader1) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
-    if (readLe16(rx_buffer_ + 2) != serial) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
-
-    uint16_t response_data_length = readLe16(rx_buffer_ + 11);
-    if (response_data_length < 2U) {
-        setError(Error::ProtocolError);
-        return last_error_;
-    }
-    size_t response_frame_length = kResponsePrefixSize + response_data_length;
-    if (rx_capacity_ < response_frame_length) {
-        setError(Error::BufferTooSmall);
-        return last_error_;
-    }
-    if (!transport_.readExact(rx_buffer_ + kResponsePrefixSize, response_data_length, timeout_ms_)) {
-        setError(Error::TransportError);
-        return last_error_;
-    }
-    last_response_length_ = response_frame_length;
-
-    uint16_t end_code = readLe16(rx_buffer_ + 13);
-    if (end_code != 0) {
-        setError(Error::PlcError, end_code);
-        return last_error_;
-    }
-
-    response_data = rx_buffer_ + 15;
-    response_length = response_data_length - 2U;
-    setError(Error::Ok);
     return last_error_;
 }
 

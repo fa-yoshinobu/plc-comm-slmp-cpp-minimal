@@ -17,8 +17,8 @@ GitHub:
 
 Release:
 
-- latest tagged release: [v0.2.1](https://github.com/fa-yoshinobu/slmp4e-connect-cpp-minimal/releases/tag/v0.2.1)
-- ready-to-install Arduino library archive: `slmp4e-connect-cpp-minimal-v0.2.1.zip`
+- latest tagged release: [v0.3.0](https://github.com/fa-yoshinobu/slmp4e-connect-cpp-minimal/releases/tag/v0.3.0)
+- ready-to-install Arduino library archive: `slmp4e-connect-cpp-minimal-v0.3.0.zip`
 - real-board coverage is still being expanded; development-side validation currently includes an Atom Matrix run against Mitsubishi iQ-R `R08CPU`
 
 Target boards:
@@ -113,11 +113,76 @@ Use the example sketches for the surrounding Wi-Fi or Ethernet setup.
 Core protocol shape:
 
 - `TCP`
-- `SLMP 4E`
+- `SLMP 4E` / `3E`
 - binary
 - iQ-R / iQ-F style direct device format (`0002` / `0003`)
 
-Main functions:
+To use 3E frames:
+
+```cpp
+plc.setFrameType(slmp4e::FrameType::Frame3E);
+```
+
+Default is `Frame4E`.
+
+## Asynchronous (Non-blocking) Communication
+
+The library supports asynchronous communication using an internal state machine. This allows your microcontroller to perform other tasks (like sensor reading or UI updates) while waiting for a PLC response.
+
+### Async Workflow
+
+1.  Call a `beginXXX()` method to start an operation.
+2.  In your `loop()`, call `client.update(millis())` periodically.
+3.  Check `client.isBusy()` to see if the operation is still in progress.
+4.  Once `isBusy()` returns `false`, check `client.lastError()` for the result.
+
+### Example
+
+```cpp
+uint16_t words[10];
+bool request_started = false;
+
+void loop() {
+    uint32_t now = millis();
+
+    if (!request_started) {
+        // Start a non-blocking read
+        auto device = slmp4e::dev::D(slmp4e::dev::dec(100));
+        if (plc.beginReadWords(device, 10, words, 10, now) == slmp4e::Error::Ok) {
+            request_started = true;
+        }
+    }
+
+    // Must call update() to progress the state machine
+    plc.update(now);
+
+    if (request_started && !plc.isBusy()) {
+        if (plc.lastError() == slmp4e::Error::Ok) {
+            // Success: words[] is now populated
+        } else {
+            // Error occurred
+        }
+        request_started = false; // Ready for next request
+    }
+
+    // perform other non-blocking tasks here...
+}
+```
+
+### Async API
+
+All standard operations have a non-blocking `begin` counterpart:
+
+- `beginReadTypeName(TypeNameInfo& out, uint32_t now_ms)`
+- `beginReadWords(...)`, `beginWriteWords(...)`
+- `beginReadBits(...)`, `beginWriteBits(...)`
+- `beginReadRandom(...)`, `beginWriteRandomWords(...)`, `beginWriteRandomBits(...)`
+- `beginReadBlock(...)`, `beginWriteBlock(...)`
+- `beginRemotePasswordUnlock(...)`, `beginRemotePasswordLock(...)`
+
+Note: Synchronous methods (like `readWords()`) still work and internally use this state machine in a simple `while(isBusy())` loop.
+
+## Main functions
 
 - `readTypeName()`
 - direct `word` / `bit` read and write

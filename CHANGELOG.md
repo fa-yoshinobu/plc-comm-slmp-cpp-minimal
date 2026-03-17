@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.3.0
+
+- add support for SLMP 3E binary frames via `setFrameType()`
+- validate 3E/4E cross-frame communication stability against GX Simulator 3 for all major device families
+- fix buffer capacity checks and payload construction in `writeBlock()` and `readBlock()`
+- update documentation with GX Simulator 3 connection rules and port numbering guidance
+
 ## 0.2.1
 
 - fix the host-side dword request header tests so `writeOneDWord()` and `writeDWords()` expect the correct transmitted word count

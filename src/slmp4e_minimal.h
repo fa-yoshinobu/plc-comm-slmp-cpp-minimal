@@ -15,6 +15,12 @@ enum class Error : uint8_t {
     TransportError,
     ProtocolError,
     PlcError,
+    Busy,
+};
+
+enum class FrameType : uint8_t {
+    Frame3E,
+    Frame4E,
 };
 
 enum class DeviceCode : uint16_t {
@@ -173,6 +179,10 @@ class ITransport {
     virtual bool connected() const = 0;
     virtual bool writeAll(const uint8_t* data, size_t length) = 0;
     virtual bool readExact(uint8_t* data, size_t length, uint32_t timeout_ms) = 0;
+
+    virtual size_t write(const uint8_t* data, size_t length) = 0;
+    virtual size_t read(uint8_t* data, size_t length) = 0;
+    virtual size_t available() = 0;
 };
 
 class Slmp4eClient {
@@ -191,6 +201,9 @@ class Slmp4eClient {
 
     void setTarget(const TargetAddress& target);
     const TargetAddress& target() const;
+
+    void setFrameType(FrameType frame_type);
+    FrameType frameType() const;
 
     void setMonitoringTimer(uint16_t monitoring_timer);
     uint16_t monitoringTimer() const;
@@ -256,7 +269,98 @@ class Slmp4eClient {
     Error remotePasswordUnlock(const char* password);
     Error remotePasswordLock(const char* password);
 
+    // Async API
+    void update(uint32_t now_ms);
+    bool isBusy() const;
+
+    Error beginReadTypeName(TypeNameInfo& out, uint32_t now_ms);
+    Error beginReadWords(const DeviceAddress& device, uint16_t points, uint16_t* values, size_t value_capacity, uint32_t now_ms);
+    Error beginWriteWords(const DeviceAddress& device, const uint16_t* values, size_t count, uint32_t now_ms);
+    Error beginReadBits(const DeviceAddress& device, uint16_t points, bool* values, size_t value_capacity, uint32_t now_ms);
+    Error beginWriteBits(const DeviceAddress& device, const bool* values, size_t count, uint32_t now_ms);
+    Error beginReadDWords(const DeviceAddress& device, uint16_t points, uint32_t* values, size_t value_capacity, uint32_t now_ms);
+    Error beginWriteDWords(const DeviceAddress& device, const uint32_t* values, size_t count, uint32_t now_ms);
+    Error beginReadRandom(
+        const DeviceAddress* word_devices,
+        size_t word_count,
+        uint16_t* word_values,
+        size_t word_value_capacity,
+        const DeviceAddress* dword_devices,
+        size_t dword_count,
+        uint32_t* dword_values,
+        size_t dword_value_capacity,
+        uint32_t now_ms
+    );
+    Error beginWriteRandomWords(
+        const DeviceAddress* word_devices,
+        const uint16_t* word_values,
+        size_t word_count,
+        const DeviceAddress* dword_devices,
+        const uint32_t* dword_values,
+        size_t dword_count,
+        uint32_t now_ms
+    );
+    Error beginWriteRandomBits(const DeviceAddress* bit_devices, const bool* bit_values, size_t bit_count, uint32_t now_ms);
+    Error beginReadBlock(
+        const DeviceBlockRead* word_blocks,
+        size_t word_block_count,
+        const DeviceBlockRead* bit_blocks,
+        size_t bit_block_count,
+        uint16_t* word_values,
+        size_t word_value_capacity,
+        uint16_t* bit_values,
+        size_t bit_value_capacity,
+        uint32_t now_ms
+    );
+    Error beginWriteBlock(
+        const DeviceBlockWrite* word_blocks,
+        size_t word_block_count,
+        const DeviceBlockWrite* bit_blocks,
+        size_t bit_block_count,
+        uint32_t now_ms
+    );
+    Error beginRemotePasswordUnlock(const char* password, uint32_t now_ms);
+    Error beginRemotePasswordLock(const char* password, uint32_t now_ms);
+
   private:
+    enum class State : uint8_t {
+        Idle,
+        Sending,
+        ReceivingPrefix,
+        ReceivingBody,
+    };
+
+    struct AsyncContext {
+        enum class Type : uint8_t {
+            None,
+            ReadTypeName,
+            ReadWords,
+            WriteWords,
+            ReadBits,
+            WriteBits,
+            ReadDWords,
+            WriteDWords,
+            ReadRandom,
+            WriteRandomWords,
+            WriteRandomBits,
+            ReadBlock,
+            WriteBlock,
+            PasswordUnlock,
+            PasswordLock,
+        };
+
+        Type type = Type::None;
+        union {
+            struct { void* values; uint16_t points; } common;
+            struct { TypeNameInfo* out; } readTypeName;
+            struct { uint16_t* word_values; uint16_t word_count; uint32_t* dword_values; uint16_t dword_count; } readRandom;
+            struct { uint16_t* word_values; size_t total_word_points; uint16_t* bit_values; size_t total_bit_points; } readBlock;
+        } data;
+    };
+
+    Error startAsync(AsyncContext::Type type, size_t payload_length, uint32_t now_ms);
+    void completeAsync();
+
     Error request(
         uint16_t command,
         uint16_t subcommand,
@@ -274,6 +378,7 @@ class Slmp4eClient {
     uint8_t* rx_buffer_;
     size_t rx_capacity_;
     TargetAddress target_;
+    FrameType frame_type_;
     uint16_t monitoring_timer_;
     uint32_t timeout_ms_;
     uint16_t serial_;
@@ -281,6 +386,11 @@ class Slmp4eClient {
     uint16_t last_end_code_;
     size_t last_request_length_;
     size_t last_response_length_;
+
+    State state_;
+    size_t bytes_transferred_;
+    uint32_t last_activity_ms_;
+    AsyncContext async_ctx_;
 };
 
 const char* errorString(Error error);

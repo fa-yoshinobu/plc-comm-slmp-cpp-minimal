@@ -114,6 +114,15 @@ class SocketTransport : public slmp4e::ITransport {
             if (::connect(handle, it->ai_addr, static_cast<int>(it->ai_addrlen)) == 0) {
                 socket_ = handle;
                 connected_ = true;
+
+#ifdef _WIN32
+                u_long mode = 1;
+                ioctlsocket(socket_, FIONBIO, &mode);
+#else
+                int flags = fcntl(socket_, F_GETFL, 0);
+                fcntl(socket_, F_SETFL, flags | O_NONBLOCK);
+#endif
+
                 freeaddrinfo(result);
                 return true;
             }
@@ -180,12 +189,76 @@ class SocketTransport : public slmp4e::ITransport {
             const ssize_t received = ::recv(socket_, data + offset, length - offset, 0);
 #endif
             if (received <= 0) {
+#ifdef _WIN32
+                if (WSAGetLastError() == WSAEWOULDBLOCK) continue;
+#else
+                if (errno == EWOULDBLOCK || errno == EAGAIN) continue;
+#endif
                 close();
                 return false;
             }
             offset += static_cast<size_t>(received);
         }
         return true;
+    }
+
+    size_t write(const uint8_t* data, size_t length) override {
+        if (!connected_ || socket_ == kInvalidSocket || data == nullptr) {
+            return 0;
+        }
+#ifdef _WIN32
+        const int sent = ::send(socket_, reinterpret_cast<const char*>(data), static_cast<int>(length), 0);
+#else
+        const ssize_t sent = ::send(socket_, data, length, 0);
+#endif
+        if (sent <= 0) {
+#ifdef _WIN32
+            if (WSAGetLastError() == WSAEWOULDBLOCK) return 0;
+#else
+            if (errno == EWOULDBLOCK || errno == EAGAIN) return 0;
+#endif
+            close();
+            return 0;
+        }
+        return static_cast<size_t>(sent);
+    }
+
+    size_t read(uint8_t* data, size_t length) override {
+        if (!connected_ || socket_ == kInvalidSocket || data == nullptr) {
+            return 0;
+        }
+#ifdef _WIN32
+        const int received = ::recv(socket_, reinterpret_cast<char*>(data), static_cast<int>(length), 0);
+#else
+        const ssize_t received = ::recv(socket_, data, length, 0);
+#endif
+        if (received <= 0) {
+#ifdef _WIN32
+            if (WSAGetLastError() == WSAEWOULDBLOCK) return 0;
+#else
+            if (errno == EWOULDBLOCK || errno == EAGAIN) return 0;
+#endif
+            close();
+            return 0;
+        }
+        return static_cast<size_t>(received);
+    }
+
+    size_t available() override {
+        if (!connected_ || socket_ == kInvalidSocket) {
+            return 0;
+        }
+        u_long arg = 0;
+#ifdef _WIN32
+        if (ioctlsocket(socket_, FIONREAD, &arg) == 0) {
+            return static_cast<size_t>(arg);
+        }
+#else
+        if (ioctl(socket_, FIONREAD, &arg) == 0) {
+            return static_cast<size_t>(arg);
+        }
+#endif
+        return 0;
     }
 
   private:

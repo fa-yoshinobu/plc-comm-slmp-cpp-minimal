@@ -62,6 +62,22 @@ std::vector<uint8_t> makeResponse(const std::vector<uint8_t>& request, uint16_t 
     return out;
 }
 
+std::vector<uint8_t> makeResponse3E(const std::vector<uint8_t>& request, uint16_t end_code, const std::vector<uint8_t>& data) {
+    std::vector<uint8_t> out;
+    out.reserve(11U + data.size());
+    out.push_back(0xD0);
+    out.push_back(0x00);
+    out.push_back(request[2]);
+    out.push_back(request[3]);
+    out.push_back(request[4]);
+    out.push_back(request[5]);
+    out.push_back(request[6]);
+    appendLe16(out, static_cast<uint16_t>(2U + data.size()));
+    appendLe16(out, end_code);
+    out.insert(out.end(), data.begin(), data.end());
+    return out;
+}
+
 void assertBytesEqual(const std::vector<uint8_t>& actual, const uint8_t* expected, size_t expected_size) {
     assert(actual.size() == expected_size);
     assert(std::memcmp(actual.data(), expected, expected_size) == 0);
@@ -109,6 +125,39 @@ class MockTransport : public slmp4e::ITransport {
         memcpy(data, queued_response_.data() + read_offset_, length);
         read_offset_ += length;
         return true;
+    }
+
+    size_t write(const uint8_t* data, size_t length) override {
+        if (fail_next_write_) {
+            fail_next_write_ = false;
+            connected_ = false;
+            return 0;
+        }
+        last_write_.assign(data, data + length);
+        return length;
+    }
+
+    size_t read(uint8_t* data, size_t length) override {
+        if (fail_next_read_) {
+            fail_next_read_ = false;
+            connected_ = false;
+            return 0;
+        }
+        if (read_offset_ >= queued_response_.size()) {
+            return 0;
+        }
+        size_t avail = queued_response_.size() - read_offset_;
+        size_t to_read = (length < avail) ? length : avail;
+        memcpy(data, queued_response_.data() + read_offset_, to_read);
+        read_offset_ += to_read;
+        return to_read;
+    }
+
+    size_t available() override {
+        if (read_offset_ >= queued_response_.size()) {
+            return 0;
+        }
+        return queued_response_.size() - read_offset_;
     }
 
     void queueConnectResult(bool result) {
@@ -902,10 +951,70 @@ void testPayloadValidationFailures() {
     }
 }
 
+void testAsyncApi() {
+    MockTransport transport;
+    uint8_t tx_buffer[128] = {};
+    uint8_t rx_buffer[128] = {};
+    slmp4e::Slmp4eClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+    const std::vector<uint8_t> provisional_request = {
+        0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x0E, 0x00, 0x10, 0x00,
+        0x01, 0x04, 0x02, 0x00, 0x64, 0x00, 0x00, 0x00, 0xA8, 0x00, 0x02, 0x00
+    };
+    transport.queueResponse(makeResponse(provisional_request, 0x0000, {0x34, 0x12, 0x78, 0x56}));
+
+    uint16_t words[2] = {};
+    uint32_t now = 1000;
+    assert(plc.beginReadWords(slmp4e::dev::D(slmp4e::dev::dec(100)), 2, words, 2, now) == slmp4e::Error::Ok);
+    assert(plc.isBusy());
+
+    // Progress state machine
+    plc.update(now); // Sends
+    assert(plc.isBusy());
+    plc.update(now); // Receives prefix
+    assert(plc.isBusy());
+    plc.update(now); // Receives body
+    assert(!plc.isBusy());
+
+    assert(plc.lastError() == slmp4e::Error::Ok);
+    assert(words[0] == 0x1234U);
+    assert(words[1] == 0x5678U);
+}
+
+void testFrame3E() {
+    MockTransport transport;
+    uint8_t tx_buffer[128] = {};
+    uint8_t rx_buffer[128] = {};
+    slmp4e::Slmp4eClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+    plc.setFrameType(slmp4e::FrameType::Frame3E);
+    assert(plc.frameType() == slmp4e::FrameType::Frame3E);
+
+    const std::vector<uint8_t> expected_request = {
+        0x50, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x0E, 0x00, 0x10, 0x00, 0x01, 0x04, 0x02, 0x00,
+        0x64, 0x00, 0x00, 0x00, 0xA8, 0x00, 0x02, 0x00
+    };
+    transport.queueResponse(makeResponse3E(expected_request, 0x0000, {0x34, 0x12, 0x78, 0x56}));
+
+    uint16_t words[2] = {};
+    assert(plc.readWords(slmp4e::dev::D(slmp4e::dev::dec(100)), 2, words, 2) == slmp4e::Error::Ok);
+    assert(words[0] == 0x1234U);
+    assert(words[1] == 0x5678U);
+    assert(plc.lastRequestFrameLength() == 23U);
+    assert(plc.lastResponseFrameLength() == 15U);
+    assert(transport.lastWrite().size() == 23U);
+    assert(transport.lastWrite()[0] == 0x50);
+    assert(transport.lastWrite()[1] == 0x00);
+    assert(transport.lastWrite()[2] == 0x00); // Network
+    assert(transport.lastWrite()[3] == 0xFF); // Station
+}
+
 }  // namespace
 
 int main() {
     testReadWordsAndFrames();
+    testAsyncApi();
+    testFrame3E();
     testAllDirectDeviceFamilies();
     testDWordAndOneShotHelpers();
     testWriteDWordsAndRandomWords();

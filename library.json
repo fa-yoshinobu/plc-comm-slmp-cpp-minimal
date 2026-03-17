@@ -1,6 +1,6 @@
 {
   "name": "slmp4e-connect-cpp-minimal",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Compact SLMP 4E binary client for Arduino-compatible ESP32, RP2040, and RP2350 targets.",
   "keywords": [
     "slmp",

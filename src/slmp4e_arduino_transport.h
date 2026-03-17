@@ -61,6 +61,18 @@ class ArduinoClientTransport : public ITransport {
         return true;
     }
 
+    size_t write(const uint8_t* data, size_t length) override {
+        return client_.write(data, length);
+    }
+
+    size_t read(uint8_t* data, size_t length) override {
+        return client_.read(data, length);
+    }
+
+    size_t available() override {
+        return client_.available();
+    }
+
   private:
     ::Client& client_;
 };

@@ -77,6 +77,21 @@ Typed helpers make this harder to mix up:
 - `slmp4e::dev::Y(slmp4e::dev::hex(0x20))`
 - `slmp4e::dev::D(slmp4e::dev::dec(100))`
 
+## Connecting to GX Simulator 3 (GX Works3)
+
+You can connect to the GX Simulator 3 using `127.0.0.1` and a calculated port number.
+
+1.  **Start Simulation**: In GX Works3, go to `Debug` -> `Start Simulation` and ensure the simulator is in `RUN` state.
+2.  **Calculate Port Number**:
+    - The default port is `55` + `System Number` + `PLC Number`.
+    - Example: System 1, PLC 1 => Port **`5511`**.
+3.  **Connection**:
+    ```cpp
+    plc.connect("127.0.0.1", 5511);
+    ```
+
+Note: **GX Simulator 2** (GX Works2) uses a proprietary protocol and is **not compatible** with this SLMP library.
+
 ## Frame dump for debugging
 
 Use:
