@@ -84,6 +84,7 @@ AUTO_BATCHES: list[CommandBatch] = [
             "txlimit calc",
             "txlimit probe",
             "txlimit sweep all",
+            "txlimit sweep binary all",
             "bench list",
             "bench pair 10",
             "bench block 10",

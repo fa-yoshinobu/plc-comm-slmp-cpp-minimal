@@ -26,7 +26,7 @@ Use it together with:
 | Target | Transport | Bring-up sketch | Status | Notes |
 |---|---|---|---|---|
 | `m5stack-atom` | `WiFiClient` | `examples/atom_matrix_serial_console` | validated | real-board `check`, `funcheck`, `endurance 1000`, `bench pair 1000`, `bench block 300`, and `reconnect` recorded on 2026-03-14 against Mitsubishi iQ-R `R08CPU`; direct path passed, API path passed except mixed `writeBlock`, durability finished 1000/1000, pair benchmark averaged 18 ms per cycle, block benchmark averaged 17 ms per cycle, and reconnect recovered twice after transport errors |
-| `wiznet_6300_evb_pico2` | `WiFiClient` / `WiFiUDP` via `W6300lwIP` | `examples/w6300_evb_pico2_serial_console` | partial | serial console now exposes `transport tcp|udp`, `frame 3e|4e`, and `txlimit sweep [all|words|block]` probing plus BOOTSEL shortcuts; build verified on 2026-03-19, real-board capture still pending |
+| `wiznet_6300_evb_pico2` | `WiFiClient` / `WiFiUDP` via `W6300lwIP` | `examples/w6300_evb_pico2_serial_console` | partial | serial console now exposes `transport tcp|udp`, `frame 3e|4e`, and `txlimit sweep [all|words|block]` (linear and `binary` variants) plus BOOTSEL shortcuts; build verified on 2026-03-19, real-board capture still pending |
 | real Mitsubishi PLC | TCP | any supported sketch | partial | Atom Matrix `check` and `funcheck` recorded against Mitsubishi iQ-R `R08CPU` on 2026-03-14; mixed `writeBlock` returned `0xC05B`, and the same first-pass result was later confirmed against the original Python implementation |
 
 ## Console Comparison Snapshot
@@ -167,7 +167,7 @@ Use it together with:
 
 - Target: `wiznet_6300_evb_pico2` with `examples/w6300_evb_pico2_serial_console`
 - PLC connection: not exercised in this validation pass
-- New command path: `txlimit sweep [all|words|block]`
+- New command path: `txlimit sweep [all|words|block]` plus the faster `txlimit sweep binary [all|words|block]`
 - PC-side runner: `scripts/w6300_console_cli.py`
 - Verification performed:
   - `python -m py_compile scripts/w6300_console_cli.py`

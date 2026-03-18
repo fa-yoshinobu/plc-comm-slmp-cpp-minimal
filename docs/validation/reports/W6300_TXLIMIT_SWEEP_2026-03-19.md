@@ -9,6 +9,7 @@ Validate the new upper-bound probing path for the W6300-EVB-Pico2 serial console
 - Added `txlimit sweep [all|words|block]` to the W6300 console.
 - The sweep iterates payload sizes upward until the first `BufferTooSmall` boundary is reached.
 - Added the same sweep command to the PC-side serial CLI auto sequence.
+- Added `txlimit sweep binary [all|words|block]` for binary-search-based boundary discovery, and invoked it via `txlimit sweep binary all` in the CLI auto sequence.
 
 ## Verification
 
@@ -27,6 +28,7 @@ Validate the new upper-bound probing path for the W6300-EVB-Pico2 serial console
 
 - `txlimit probe` still performs the exact-fit and one-over checks.
 - `txlimit sweep all` is the new recommended command when the goal is to discover the highest transferable payload on the current `tx_buffer` configuration.
+- Use `txlimit sweep binary all` when you want the same boundary but with fewer attempts (binary search instead of linear ramp).
 - The sweep is a transport-side boundary test. It does not require changing the PLC program state beyond temporary test writes, and the console clears the tested word range after successful runs.
 
 ## Limitations

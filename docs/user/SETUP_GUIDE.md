@@ -42,7 +42,7 @@ BOOTSEL shortcuts:
 - medium press: toggle `transport tcp` / `transport udp`
 - long press: toggle `frame 4e` / `frame 3e`
 For PC-driven inspection, use `scripts/w6300_console_cli.py` to send commands directly or run `--auto-full` for a scripted end-to-end sweep.
-The scripted sweep now includes `txlimit sweep all`, which ramps payload size until the first `BufferTooSmall` boundary is reached.
+The scripted sweep now includes `txlimit sweep all`, which ramps payload size until the first `BufferTooSmall` boundary is reached; adding `txlimit sweep binary all` drives the same boundary search with a binary search profile for faster convergence.
 
 ## 4. Initial Connection Check
 

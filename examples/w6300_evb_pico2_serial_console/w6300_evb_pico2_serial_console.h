@@ -2748,6 +2748,131 @@ void runTxlimitProbe() {
     Serial.println(block_ok ? "ok" : "fail");
 }
 
+bool runTxlimitBinarySearchWriteWords() {
+    fillTxlimitWords(txlimit_word_values, kTxLimitWriteWordsMaxCount + 1U, 1000U);
+    uint16_t low = 1;
+    uint16_t high = static_cast<uint16_t>(kTxLimitWriteWordsMaxCount + 1U);
+    uint16_t best_ok = 0;
+    uint16_t first_fail = 0;
+    size_t last_request_bytes = 0;
+    slmp::Error last_error = slmp::Error::Ok;
+    bool found_fail = false;
+    bool aborted = false;
+    uint16_t attempts = 0;
+
+    while (low < high) {
+        const uint16_t mid = static_cast<uint16_t>(low + (high - low) / 2U);
+        ++attempts;
+        const slmp::Error error = plc.writeWords(kTxLimitWordDevice, txlimit_word_values, mid);
+        last_request_bytes = plc.lastRequestFrameLength();
+        if (error == slmp::Error::Ok) {
+            best_ok = mid;
+            low = static_cast<uint16_t>(mid + 1U);
+            continue;
+        }
+        found_fail = true;
+        first_fail = mid;
+        last_error = error;
+        if (error != slmp::Error::BufferTooSmall) {
+            aborted = true;
+            break;
+        }
+        high = mid;
+    }
+
+    if (best_ok > 0) {
+        clearWordRangeSilently(kTxLimitWordDevice, best_ok);
+    }
+    if (!found_fail) {
+        first_fail = static_cast<uint16_t>(best_ok + 1U);
+    }
+
+    Serial.print("txlimit binary words best=");
+    Serial.print(best_ok);
+    Serial.print(" first_fail=");
+    Serial.print(first_fail);
+    Serial.print(" attempts=");
+    Serial.print(attempts);
+    Serial.print(" error=");
+    Serial.print(slmp::errorString(last_error));
+    Serial.print(" request_bytes=");
+    Serial.println(last_request_bytes);
+    return !aborted && best_ok == kTxLimitWriteWordsMaxCount && last_error == slmp::Error::BufferTooSmall;
+}
+
+bool runTxlimitBinarySearchWordBlock() {
+    fillTxlimitWords(txlimit_block_values, kTxLimitWriteBlockWordMaxPoints + 1U, 3000U);
+    uint16_t low = 1;
+    uint16_t high = static_cast<uint16_t>(kTxLimitWriteBlockWordMaxPoints + 1U);
+    uint16_t best_ok = 0;
+    uint16_t first_fail = 0;
+    size_t last_request_bytes = 0;
+    slmp::Error last_error = slmp::Error::Ok;
+    bool found_fail = false;
+    bool aborted = false;
+    uint16_t attempts = 0;
+
+    while (low < high) {
+        const uint16_t mid = static_cast<uint16_t>(low + (high - low) / 2U);
+        ++attempts;
+        const slmp::DeviceBlockWrite block = {
+            kTxLimitBlockWordDevice,
+            txlimit_block_values,
+            mid
+        };
+        const slmp::Error error = plc.writeBlock(&block, 1, nullptr, 0);
+        last_request_bytes = plc.lastRequestFrameLength();
+        if (error == slmp::Error::Ok) {
+            best_ok = mid;
+            low = static_cast<uint16_t>(mid + 1U);
+            continue;
+        }
+        found_fail = true;
+        first_fail = mid;
+        last_error = error;
+        if (error != slmp::Error::BufferTooSmall) {
+            aborted = true;
+            break;
+        }
+        high = mid;
+    }
+
+    if (best_ok > 0) {
+        clearWordRangeSilently(kTxLimitBlockWordDevice, best_ok);
+    }
+    if (!found_fail) {
+        first_fail = static_cast<uint16_t>(best_ok + 1U);
+    }
+
+    Serial.print("txlimit binary block best=");
+    Serial.print(best_ok);
+    Serial.print(" first_fail=");
+    Serial.print(first_fail);
+    Serial.print(" attempts=");
+    Serial.print(attempts);
+    Serial.print(" error=");
+    Serial.print(slmp::errorString(last_error));
+    Serial.print(" request_bytes=");
+    Serial.println(last_request_bytes);
+    return !aborted && best_ok == kTxLimitWriteBlockWordMaxPoints && last_error == slmp::Error::BufferTooSmall;
+}
+
+void runTxlimitBinarySearch() {
+    stopEndurance(false, false);
+    stopReconnect(false);
+    if (!connectPlc(false)) {
+        Serial.println("txlimit binary sweep failed: plc not connected");
+        return;
+    }
+    printTxlimitSummary();
+    const bool words_ok = runTxlimitBinarySearchWriteWords();
+    const bool block_ok = runTxlimitBinarySearchWordBlock();
+    Serial.print("txlimit binary sweep summary: words=");
+    Serial.print(words_ok ? "ok" : "fail");
+    Serial.print(" block=");
+    Serial.println(block_ok ? "ok" : "fail");
+}
+
 bool runTxlimitSweepWriteWords() {
     fillTxlimitWords(txlimit_word_values, kTxLimitWriteWordsMaxCount + 1U, 1000U);
     uint16_t last_ok_count = 0;
@@ -2847,8 +2972,52 @@ void txlimitCommand(char* tokens[], int token_count) {
         return;
     }
     if (strcmp(tokens[1], "SWEEP") == 0 || strcmp(tokens[1], "RAMP") == 0 || strcmp(tokens[1], "SCAN") == 0) {
-        if (token_count == 2 || strcmp(tokens[2], "ALL") == 0) {
+        if (token_count == 2) {
             runTxlimitSweep();
+            return;
+        }
+        uppercaseInPlace(tokens[2]);
+        if (strcmp(tokens[2], "ALL") == 0) {
+            runTxlimitSweep();
+            return;
+        }
+        if (strcmp(tokens[2], "BINARY") == 0 || strcmp(tokens[2], "BIN") == 0) {
+            if (token_count == 3) {
+                runTxlimitBinarySearch();
+                return;
+            }
+            uppercaseInPlace(tokens[3]);
+            if (strcmp(tokens[3], "ALL") == 0) {
+                runTxlimitBinarySearch();
+                return;
+            }
+            if (strcmp(tokens[3], "WORDS") == 0 || strcmp(tokens[3], "WORD") == 0 || strcmp(tokens[3], "WRITEWORDS") == 0) {
+                stopEndurance(false, false);
+                stopReconnect(false);
+                if (!connectPlc(false)) {
+                    Serial.println("txlimit binary sweep words failed: plc not connected");
+                    return;
+                }
+                printTxlimitSummary();
+                const bool ok = runTxlimitBinarySearchWriteWords();
+                Serial.print("txlimit binary sweep words result=");
+                Serial.println(ok ? "ok" : "fail");
+                return;
+            }
+            if (strcmp(tokens[3], "BLOCK") == 0 || strcmp(tokens[3], "WRITEBLOCK") == 0) {
+                stopEndurance(false, false);
+                stopReconnect(false);
+                if (!connectPlc(false)) {
+                    Serial.println("txlimit binary sweep block failed: plc not connected");
+                    return;
+                }
+                printTxlimitSummary();
+                const bool ok = runTxlimitBinarySearchWordBlock();
+                Serial.print("txlimit binary sweep block result=");
+                Serial.println(ok ? "ok" : "fail");
+                return;
+            }
+            Serial.println("txlimit sweep binary usage: txlimit sweep binary [all|words|block]");
             return;
         }
         if (strcmp(tokens[2], "WORDS") == 0 || strcmp(tokens[2], "WORD") == 0 || strcmp(tokens[2], "WRITEWORDS") == 0) {
@@ -2881,6 +3050,7 @@ void txlimitCommand(char* tokens[], int token_count) {
 
     Serial.println("txlimit usage: txlimit [calc|probe|sweep]");
     Serial.println("  txlimit sweep [all|words|block]");
+    Serial.println("  txlimit sweep binary [all|words|block]");
 }
 
 void printHelp() {
@@ -2898,6 +3068,7 @@ void printHelp() {
     Serial.println("  reconnect [start [cycles]|status|stop|list]");
     Serial.println("  txlimit [calc|probe|sweep]");
     Serial.println("  txlimit sweep [all|words|block]");
+    Serial.println("  txlimit sweep binary [all|words|block]");
     Serial.println("  bench [row|wow|pair|rw|ww|block] [cycles]");
     Serial.println("  bench list");
     Serial.println("  rw <device> [points]");
