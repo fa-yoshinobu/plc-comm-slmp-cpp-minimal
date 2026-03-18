@@ -36,7 +36,7 @@ uint32_t nextFuncheckDWordValue();
 #define SLMP_WIFI_SERIAL_CONSOLE_CUSTOM_HELP_HANDLER(tokens, token_count) handleAtomHelpCommand(tokens, token_count)
 #define SLMP_WIFI_SERIAL_CONSOLE_PRINT_PENDING_JUDGE_HINT() printAtomPendingJudgeHint()
 
-#include "../esp32_c3_serial_console/esp32_c3_serial_console.h"
+#include "../shared/slmp_wifi_serial_console.h"
 
 namespace atom_matrix_serial_console {
 

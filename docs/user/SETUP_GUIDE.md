@@ -1,13 +1,14 @@
 # Setup Guide: SLMP C++ Minimal
 
-This guide explains how to install and configure the SLMP C++ Minimal library for various microcontroller boards.
+This guide explains how to install and configure the SLMP C++ Minimal library for the maintained sample targets.
 
 ## 1. Supported Boards
 
-The library is board-agnostic and designed for:
-- **ESP32** (using `WiFiClient`)
-- **RP2040 / RP2350** (using `EthernetClient` or `WiFiClient`)
-- Any board providing an Arduino-compatible `Client` implementation.
+The library is board-agnostic and works with any Arduino-compatible `Client` implementation.
+
+Maintained sample targets in this repository:
+- **M5Stack Atom Matrix** (`ESP32-PICO-D4`, `WiFiClient`)
+- **W6300-EVB-Pico2** (`RP2350`, onboard W6300 via `W6300lwIP`)
 
 ## 2. Installation
 
@@ -30,19 +31,16 @@ The library is board-agnostic and designed for:
 
 ## 3. Network Hardware Setup
 
-### ESP32 (Wi-Fi)
-Pass a `WiFiClient` instance to the library's transport layer.
+### Atom Matrix (Wi-Fi)
+Pass a `WiFiClient` instance to the library's transport layer and start from `examples/atom_matrix_serial_console`.
 
-### RP2040 + W5500 (Ethernet)
-Pair your RP2040 with a W5500 module and use the `EthernetClient` provided by the Arduino Ethernet library.
-
-### W5500-EVB-Pico2 / W6300-EVB-Pico2
-These boards have onboard Ethernet. Use the vendor-provided core packages (e.g., Arduino-Pico with `W6300lwIP`).
+### W6300-EVB-Pico2 (Ethernet)
+Use Arduino-Pico with `W6300lwIP` and start from `examples/w6300_evb_pico2_serial_console`.
 
 ## 4. Initial Connection Check
 
-The most reliable way to verify your setup is to run the `readTypeName` example:
+The most reliable way to verify your setup is to run one of the maintained serial console samples:
 1. Connect your board to the same network as the PLC.
-2. Open the `esp32_read_words` (or equivalent) example.
+2. Open `atom_matrix_serial_console` for Wi-Fi or `w6300_evb_pico2_serial_console` for Ethernet.
 3. Update the IP address and port (default 1025) to match your PLC.
-4. Open the Serial Monitor at 115200 baud to see the results.
+4. Open the Serial Monitor at 115200 baud and run `type`, `funcheck`, or `bench`.

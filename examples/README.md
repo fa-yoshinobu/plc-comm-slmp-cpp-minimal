@@ -11,8 +11,8 @@ For install steps and the overall library overview, go back to [../README.md](..
 
 | Use case | Folder | Board/transport | What it shows |
 |---|---|---|---|
-| Atom Matrix interactive console | `atom_matrix_serial_console` | M5Stack Atom Matrix (`ESP32-PICO-D4`) + `WiFiClient` | the same full interactive serial console shape as the ESP32-C3 example, plus `demo` mode for button-driven `D0` increment and 5x5 `M0..M24` LED mirroring |
-| W6300-EVB-Pico2 interactive console | `w6300_evb_pico2_serial_console` | RP2350 + onboard W6300 + `WiFiClient` via `W6300lwIP` | QSPI W6300 bring-up plus a full interactive serial console for direct, one-shot, random, block, password, and frame-dump API checks |
+| Atom Matrix interactive console | `atom_matrix_serial_console` | M5Stack Atom Matrix (`ESP32-PICO-D4`) + `WiFiClient` | shared Wi-Fi serial console plus Atom-specific `demo` mode for button-driven `D0` increment and 5x5 `M0..M24` LED mirroring |
+| W6300-EVB-Pico2 interactive console | `w6300_evb_pico2_serial_console` | RP2350 + onboard W6300 + `WiFiClient` via `W6300lwIP` | primary Ethernet validation console with direct, random, block, `funcheck`, `endurance`, `reconnect`, `txlimit`, password, and frame-dump checks |
 
 Suggested order:
 

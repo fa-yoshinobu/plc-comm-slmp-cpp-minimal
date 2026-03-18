@@ -10,7 +10,7 @@ The library follows a strict **No-Dynamic-Allocation** policy to ensure stabilit
 
 ## 2. Function Size Matrix (ESP32)
 
-Measured on ESP32dev with Arduino framework. RAM delta is 0 as all buffers are caller-owned.
+Measured on an ESP32-based Arduino target. RAM delta is 0 as all buffers are caller-owned.
 
 | Function set | Flash delta | RAM delta |
 |---|---:|---:|

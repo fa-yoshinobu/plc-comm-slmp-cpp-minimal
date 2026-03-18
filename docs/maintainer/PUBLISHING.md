@@ -50,7 +50,7 @@ These settings are managed on GitHub, not in the repository contents:
 
 Suggested description:
 
-- `Compact SLMP 4E binary client library for Arduino-compatible ESP32 and RP2040 targets.`
+- `Compact SLMP binary client library for Arduino-compatible Wi-Fi and Ethernet targets.`
 
 Suggested topics:
 

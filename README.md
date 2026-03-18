@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Static Analysis: PlatformIO Check](https://img.shields.io/badge/Lint-PIO%20Check-blue.svg)](https://docs.platformio.org/en/latest/plus/pio-check.html)
 
-A lightweight, microcontroller-oriented C++ library for Mitsubishi SLMP (Seamless Message Protocol). Optimized for ESP32, RP2040, and RP2350 with zero dynamic allocation.
+A lightweight, microcontroller-oriented C++ library for Mitsubishi SLMP (Seamless Message Protocol). Optimized for Arduino-compatible Wi-Fi and Ethernet targets with zero dynamic allocation.
 
 ## Key Features
 
@@ -14,6 +14,7 @@ A lightweight, microcontroller-oriented C++ library for Mitsubishi SLMP (Seamles
 - **Broad Hardware Support**: Board-agnostic design for Wi-Fi and Ethernet (Arduino-compatible).
 - **Binary 3E/4E**: Supports both modern and legacy SLMP frames.
 - **CI-Ready**: Host-side G++ testing and size regression monitoring.
+- **Maintained Samples**: Full serial consoles for M5Stack Atom Matrix and W6300-EVB-Pico2.
 
 ## Quick Start
 

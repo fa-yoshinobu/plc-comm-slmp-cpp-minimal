@@ -100,7 +100,7 @@ Use:
 - `lastResponseFrame()` / `lastResponseFrameLength()`
 - `formatHexBytes()`
 
-The `examples/esp32_read_words` and `examples/esp32_password_read_loop` sketches show how to print the last request and response.
+The `examples/atom_matrix_serial_console` and `examples/w6300_evb_pico2_serial_console` sketches show how to print the last request and response.
 
 For desktop-only regression before flashing a board, use:
 
