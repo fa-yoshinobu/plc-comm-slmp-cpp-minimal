@@ -14,9 +14,9 @@ Use this note when you want to compare the original Python implementation with t
 
 The relevant C++ baseline in this repository is:
 
-- mixed block support in the codec and request builder ([../src/slmp_minimal.cpp](../src/slmp_minimal.cpp))
-- mock-PLC integration coverage that accepts mixed `writeBlock()` ([../tests/slmp_socket_integration.cpp](../tests/slmp_socket_integration.cpp))
-- a real-board Atom Matrix result against Mitsubishi iQ-R `R08CPU` showing that a one-request mixed `writeBlock` was rejected on the real PLC ([HARDWARE_VALIDATION.md](./HARDWARE_VALIDATION.md))
+- mixed block support in the codec and request builder ([../../src/slmp_minimal.cpp](../../src/slmp_minimal.cpp))
+- mock-PLC integration coverage that accepts mixed `writeBlock()` ([../../tests/slmp_socket_integration.cpp](../../tests/slmp_socket_integration.cpp))
+- a real-board Atom Matrix result against Mitsubishi iQ-R `R08CPU` showing that a one-request mixed `writeBlock` was rejected on the real PLC ([HARDWARE_VALIDATION.md](../validation/reports/HARDWARE_VALIDATION.md))
 
 ## Confirmed Answer
 
@@ -108,11 +108,28 @@ The practical workaround was also checked live after the first-pass capture.
 |---|---|---|---|---|
 | `writeBlock mixed fallback` | `write_block(..., retry_mixed_on_error=True)` | `different_runtime_behavior` | `0xC05B -> 0x0000 -> 0x0000` | first mixed write failed, then automatic split retry succeeded and restore was `OK` |
 
+## Current C++ Follow-up
+
+The minimal C++ library now exposes the same practical fallback shape for the
+synchronous API:
+
+- `slmp::BlockWriteOptions::split_mixed_blocks`
+- `slmp::BlockWriteOptions::retry_mixed_on_error`
+
+Current scope:
+
+- implemented and host-tested in both `slmp::SlmpClient::writeBlock(...)` and `beginWriteBlock(..., options, now_ms)`
+- retry end-code set matches the Python implementation: `0xC056`, `0xC05B`, `0xC061`
+- typed remote control helpers now cover `remoteRun`, `remoteStop`, `remotePause`, and `remoteLatchClear`
+- typed reset, self-test, and clear-error helpers now cover `remoteReset`, `selfTestLoopback`, and `clearError`
+- passive `recommendProfile(...)` / `applyProfileRecommendation(...)` helpers now provide a lightweight model-based default profile suggestion without active probing
+- no new hardware-validation claim is made by this implementation change alone
+
 ## Developer Implications
 
 - The historical one-request mixed `writeBlock` failure is a PLC-side interoperability issue seen by both implementations, not just by this C++ library.
 - Any library-side mitigation should focus on request-shape control or fallback behavior rather than on re-encoding the same combined frame.
-- If future development changes C++ mixed-write behavior, update [HARDWARE_VALIDATION.md](./HARDWARE_VALIDATION.md) together with this note so the historical result and the current shipped behavior stay aligned.
+- If future development changes C++ mixed-write behavior, update [HARDWARE_VALIDATION.md](../validation/reports/HARDWARE_VALIDATION.md) together with this note so the historical result and the current shipped behavior stay aligned.
 
 ## If You Need To Re-run The Comparison
 

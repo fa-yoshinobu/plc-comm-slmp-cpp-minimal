@@ -33,7 +33,31 @@ Currently implemented commands:
 - `1402`: Write Random
 - `0406`: Read Block
 - `1406`: Write Block
+- `1001/1002/1003/1005/1006`: Remote Run/Stop/Pause/Latch Clear/Reset
+- `0619`: Self Test (loopback helper)
+- `1617`: Clear Error
 - `1630/1631`: Remote Password Unlock/Lock
+
+Practical mixed block note:
+
+- synchronous `writeBlock()` also exposes `BlockWriteOptions`
+- `split_mixed_blocks=true` forces separate word-only and bit-only `1406` requests
+- `retry_mixed_on_error=true` retries a failed mixed request as separate writes only on `0xC056`, `0xC05B`, or `0xC061`
+- the async `beginWriteBlock(..., options, now_ms)` overload now mirrors the same split/retry behavior
+
+Remote command note:
+
+- `remoteReset(subcommand, expect_response)` defaults to the practical `1006/0000` no-response mode
+- use `expect_response=true` only when the target and reset mode are expected to return a normal completion frame
+
+Profile recommendation note:
+
+- `recommendProfile(...)` is a passive helper only; it does not probe the PLC
+- `model_code` takes priority over `model` string heuristics
+- current rule set is intentionally small:
+  - Q-series and legacy L-series -> `Frame3E + Legacy`
+  - iQ-R, iQ-L, and FX5 family names -> `Frame4E + iQR`
+- `applyProfileRecommendation(...)` is a convenience wrapper around `setFrameType()` and `setCompatibilityMode()`
 
 ## 3. Device Encoding
 

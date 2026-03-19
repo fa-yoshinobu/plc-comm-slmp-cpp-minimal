@@ -37,6 +37,13 @@ constexpr uint16_t kCommandDeviceReadRandom = 0x0403;
 constexpr uint16_t kCommandDeviceWriteRandom = 0x1402;
 constexpr uint16_t kCommandDeviceReadBlock = 0x0406;
 constexpr uint16_t kCommandDeviceWriteBlock = 0x1406;
+constexpr uint16_t kCommandRemoteRun = 0x1001;
+constexpr uint16_t kCommandRemoteStop = 0x1002;
+constexpr uint16_t kCommandRemotePause = 0x1003;
+constexpr uint16_t kCommandRemoteLatchClear = 0x1005;
+constexpr uint16_t kCommandRemoteReset = 0x1006;
+constexpr uint16_t kCommandSelfTest = 0x0619;
+constexpr uint16_t kCommandClearError = 0x1617;
 constexpr uint16_t kCommandRemotePasswordUnlock = 0x1630;
 constexpr uint16_t kCommandRemotePasswordLock = 0x1631;
 
@@ -218,6 +225,173 @@ inline Error encodeRemotePasswordPayload(
     return Error::Ok;
 }
 
+inline Error encodeRemoteModePayload(uint16_t mode, uint8_t* out, size_t capacity, size_t& payload_length) {
+    payload_length = 0;
+    if (out == nullptr || capacity < 2U) {
+        return Error::BufferTooSmall;
+    }
+    writeLe16(out, mode);
+    payload_length = 2U;
+    return Error::Ok;
+}
+
+inline Error encodeRemoteRunPayload(
+    bool force,
+    uint16_t clear_mode,
+    uint8_t* out,
+    size_t capacity,
+    size_t& payload_length
+) {
+    payload_length = 0;
+    if (clear_mode > 2U) {
+        return Error::InvalidArgument;
+    }
+    if (out == nullptr || capacity < 4U) {
+        return Error::BufferTooSmall;
+    }
+    const uint16_t mode = force ? 0x0003U : 0x0001U;
+    writeLe16(out, mode);
+    writeLe16(out + 2, clear_mode);
+    payload_length = 4U;
+    return Error::Ok;
+}
+
+inline Error encodeSelfTestPayload(
+    const uint8_t* data,
+    size_t data_length,
+    uint8_t* out,
+    size_t capacity,
+    size_t& payload_length
+) {
+    payload_length = 0;
+    if (data == nullptr || data_length == 0U || data_length > 960U) {
+        return Error::InvalidArgument;
+    }
+    if (out == nullptr || capacity < (2U + data_length)) {
+        return Error::BufferTooSmall;
+    }
+    writeLe16(out, static_cast<uint16_t>(data_length));
+    memcpy(out + 2, data, data_length);
+    payload_length = 2U + data_length;
+    return Error::Ok;
+}
+
+inline bool isMixedWriteRetryEndCode(uint16_t end_code) {
+    switch (end_code) {
+        case 0xC056:
+        case 0xC05B:
+        case 0xC061:
+            return true;
+        default:
+            return false;
+    }
+}
+
+inline char asciiUpper(char ch) {
+    return (ch >= 'a' && ch <= 'z') ? static_cast<char>(ch - ('a' - 'A')) : ch;
+}
+
+inline bool startsWithIgnoreCase(const char* text, const char* prefix) {
+    if (text == nullptr || prefix == nullptr) {
+        return false;
+    }
+    while (*prefix != '\0') {
+        if (*text == '\0' || asciiUpper(*text) != asciiUpper(*prefix)) {
+            return false;
+        }
+        ++text;
+        ++prefix;
+    }
+    return true;
+}
+
+inline ProfileRecommendation makeProfileRecommendation(ProfileClass profile_class, bool confident) {
+    ProfileRecommendation recommendation = {};
+    recommendation.profile_class = profile_class;
+    recommendation.confident = confident;
+    if (profile_class == ProfileClass::LegacyQL) {
+        recommendation.frame_type = FrameType::Frame3E;
+        recommendation.compatibility_mode = CompatibilityMode::Legacy;
+    } else {
+        recommendation.frame_type = FrameType::Frame4E;
+        recommendation.compatibility_mode = CompatibilityMode::iQR;
+    }
+    return recommendation;
+}
+
+inline bool isLegacyModelCode(uint16_t model_code) {
+    switch (model_code) {
+        case 0x0250:
+        case 0x0251:
+        case 0x0252:
+        case 0x0041:
+        case 0x0042:
+        case 0x0043:
+        case 0x0044:
+        case 0x004B:
+        case 0x004C:
+        case 0x0260:
+        case 0x0261:
+        case 0x0262:
+        case 0x0263:
+        case 0x0268:
+        case 0x0366:
+        case 0x0269:
+        case 0x0367:
+        case 0x026A:
+        case 0x0368:
+        case 0x0266:
+        case 0x026B:
+        case 0x036A:
+        case 0x0267:
+        case 0x026C:
+        case 0x036C:
+        case 0x026D:
+        case 0x026E:
+        case 0x0230:
+        case 0x0543:
+        case 0x0541:
+        case 0x0544:
+        case 0x0545:
+        case 0x0542:
+            return true;
+        default:
+            return false;
+    }
+}
+
+inline bool isModernModelCode(uint16_t model_code) {
+    if (model_code >= 0x4800U && model_code <= 0x48FFU) {
+        return true;
+    }
+    switch (model_code) {
+        case 0x4860:
+        case 0x4861:
+        case 0x4862:
+            return true;
+        default:
+            return false;
+    }
+}
+
+inline ProfileRecommendation recommendProfileByModelName(const char* model_name) {
+    if (model_name == nullptr || model_name[0] == '\0') {
+        return makeProfileRecommendation(ProfileClass::Unknown, false);
+    }
+    if (startsWithIgnoreCase(model_name, "Q") || startsWithIgnoreCase(model_name, "QS") ||
+        startsWithIgnoreCase(model_name, "L02") || startsWithIgnoreCase(model_name, "L06") ||
+        startsWithIgnoreCase(model_name, "L26")) {
+        return makeProfileRecommendation(ProfileClass::LegacyQL, true);
+    }
+    if (startsWithIgnoreCase(model_name, "R") || startsWithIgnoreCase(model_name, "RJ") ||
+        startsWithIgnoreCase(model_name, "FX5") || startsWithIgnoreCase(model_name, "L04H") ||
+        startsWithIgnoreCase(model_name, "L08H") || startsWithIgnoreCase(model_name, "L16H") ||
+        startsWithIgnoreCase(model_name, "L32H")) {
+        return makeProfileRecommendation(ProfileClass::ModernIQR, true);
+    }
+    return makeProfileRecommendation(ProfileClass::Unknown, false);
+}
+
 }  // namespace
 
 SlmpClient::SlmpClient(
@@ -397,6 +571,34 @@ Error SlmpClient::startAsync(AsyncContext::Type type, size_t payload_length, uin
             command = kCommandDeviceWriteBlock;
             subcommand = subcommand_word;
             break;
+        case AsyncContext::Type::RemoteRun:
+            command = kCommandRemoteRun;
+            subcommand = 0x0000;
+            break;
+        case AsyncContext::Type::RemoteStop:
+            command = kCommandRemoteStop;
+            subcommand = 0x0000;
+            break;
+        case AsyncContext::Type::RemotePause:
+            command = kCommandRemotePause;
+            subcommand = 0x0000;
+            break;
+        case AsyncContext::Type::RemoteLatchClear:
+            command = kCommandRemoteLatchClear;
+            subcommand = 0x0000;
+            break;
+        case AsyncContext::Type::RemoteReset:
+            command = kCommandRemoteReset;
+            subcommand = async_ctx_.data.remoteReset.subcommand;
+            break;
+        case AsyncContext::Type::SelfTest:
+            command = kCommandSelfTest;
+            subcommand = 0x0000;
+            break;
+        case AsyncContext::Type::ClearError:
+            command = kCommandClearError;
+            subcommand = 0x0000;
+            break;
         case AsyncContext::Type::PasswordUnlock:
             command = kCommandRemotePasswordUnlock;
             subcommand = 0x0000;
@@ -471,6 +673,12 @@ void SlmpClient::update(uint32_t now_ms) {
             bytes_transferred_ += written;
             last_activity_ms_ = now_ms;
             if (bytes_transferred_ == last_request_length_) {
+                if (async_ctx_.type == AsyncContext::Type::RemoteReset &&
+                    !async_ctx_.data.remoteReset.expect_response) {
+                    state_ = State::Idle;
+                    setError(Error::Ok);
+                    return;
+                }
                 state_ = State::ReceivingPrefix;
                 bytes_transferred_ = 0;
             }
@@ -536,7 +744,56 @@ void SlmpClient::update(uint32_t now_ms) {
 void SlmpClient::completeAsync() {
     size_t response_prefix_size = (frame_type_ == FrameType::Frame4E) ? kResponsePrefixSize4E : kResponsePrefixSize3E;
     uint16_t end_code = readLe16(rx_buffer_ + response_prefix_size);
-    if (end_code != 0) {
+    if (async_ctx_.type == AsyncContext::Type::WriteBlock) {
+        const AsyncContext::WriteBlockStage stage = async_ctx_.data.writeBlock.stage;
+        const bool has_mixed_blocks = async_ctx_.data.writeBlock.has_mixed_blocks;
+        const BlockWriteOptions options = async_ctx_.data.writeBlock.options;
+        const DeviceBlockWrite* word_blocks = async_ctx_.data.writeBlock.word_blocks;
+        const size_t word_block_count = async_ctx_.data.writeBlock.word_block_count;
+        const DeviceBlockWrite* bit_blocks = async_ctx_.data.writeBlock.bit_blocks;
+        const size_t bit_block_count = async_ctx_.data.writeBlock.bit_block_count;
+
+        if (end_code != 0) {
+            if (stage == AsyncContext::WriteBlockStage::Direct && has_mixed_blocks && options.retry_mixed_on_error &&
+                isMixedWriteRetryEndCode(end_code)) {
+                beginWriteBlockRequest(
+                    word_blocks,
+                    word_block_count,
+                    nullptr,
+                    0,
+                    word_blocks,
+                    word_block_count,
+                    bit_blocks,
+                    bit_block_count,
+                    options,
+                    AsyncContext::WriteBlockStage::SplitWord,
+                    true,
+                    last_activity_ms_
+                );
+                return;
+            }
+            setError(Error::PlcError, end_code);
+            return;
+        }
+
+        if (stage == AsyncContext::WriteBlockStage::SplitWord && bit_block_count > 0U) {
+            beginWriteBlockRequest(
+                nullptr,
+                0,
+                bit_blocks,
+                bit_block_count,
+                word_blocks,
+                word_block_count,
+                bit_blocks,
+                bit_block_count,
+                options,
+                AsyncContext::WriteBlockStage::SplitBit,
+                true,
+                last_activity_ms_
+            );
+            return;
+        }
+    } else if (end_code != 0) {
         setError(Error::PlcError, end_code);
         return;
     }
@@ -653,6 +910,25 @@ void SlmpClient::completeAsync() {
                 bit_values[i] = readLe16(response_data + offset);
                 offset += 2U;
             }
+            break;
+        }
+        case AsyncContext::Type::SelfTest: {
+            if (response_length < 2U) {
+                setError(Error::ProtocolError);
+                return;
+            }
+            const size_t loopback_size = readLe16(response_data);
+            if (response_length != (2U + loopback_size)) {
+                setError(Error::ProtocolError);
+                return;
+            }
+            if (async_ctx_.data.selfTest.out == nullptr || async_ctx_.data.selfTest.out_length == nullptr ||
+                async_ctx_.data.selfTest.out_capacity < loopback_size) {
+                setError(Error::InvalidArgument);
+                return;
+            }
+            memcpy(async_ctx_.data.selfTest.out, response_data + 2U, loopback_size);
+            *async_ctx_.data.selfTest.out_length = loopback_size;
             break;
         }
         default:
@@ -1417,21 +1693,72 @@ Error SlmpClient::beginWriteBlock(
     size_t word_block_count,
     const DeviceBlockWrite* bit_blocks,
     size_t bit_block_count,
+    const BlockWriteOptions& options,
     uint32_t now_ms
 ) {
-    if ((word_block_count == 0 && bit_block_count == 0) || word_block_count > 0xFFU || bit_block_count > 0xFFU) {
+    const bool has_mixed_blocks = (word_block_count > 0U && bit_block_count > 0U);
+
+    if (options.split_mixed_blocks && has_mixed_blocks) {
+        return beginWriteBlockRequest(
+            word_blocks,
+            word_block_count,
+            nullptr,
+            0,
+            word_blocks,
+            word_block_count,
+            bit_blocks,
+            bit_block_count,
+            options,
+            AsyncContext::WriteBlockStage::SplitWord,
+            true,
+            now_ms
+        );
+    }
+
+    return beginWriteBlockRequest(
+        word_blocks,
+        word_block_count,
+        bit_blocks,
+        bit_block_count,
+        word_blocks,
+        word_block_count,
+        bit_blocks,
+        bit_block_count,
+        options,
+        AsyncContext::WriteBlockStage::Direct,
+        has_mixed_blocks,
+        now_ms
+    );
+}
+
+Error SlmpClient::beginWriteBlockRequest(
+    const DeviceBlockWrite* request_word_blocks,
+    size_t request_word_block_count,
+    const DeviceBlockWrite* request_bit_blocks,
+    size_t request_bit_block_count,
+    const DeviceBlockWrite* all_word_blocks,
+    size_t all_word_block_count,
+    const DeviceBlockWrite* all_bit_blocks,
+    size_t all_bit_block_count,
+    const BlockWriteOptions& options,
+    AsyncContext::WriteBlockStage stage,
+    bool has_mixed_blocks,
+    uint32_t now_ms
+) {
+    if ((request_word_block_count == 0 && request_bit_block_count == 0) || request_word_block_count > 0xFFU ||
+        request_bit_block_count > 0xFFU) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
 
     size_t total_word_points = 0;
     size_t total_bit_points = 0;
-    Error validate_error = summarizeBlockWriteList(word_blocks, word_block_count, total_word_points);
+    Error validate_error = summarizeBlockWriteList(request_word_blocks, request_word_block_count, total_word_points);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
     }
-    validate_error = summarizeBlockWriteList(bit_blocks, bit_block_count, total_bit_points);
+    validate_error = summarizeBlockWriteList(request_bit_blocks, request_bit_block_count, total_bit_points);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -1439,49 +1766,81 @@ Error SlmpClient::beginWriteBlock(
 
     size_t spec_size = (compatibility_mode_ == CompatibilityMode::Legacy) ? 4U : 6U;
     size_t payload_length =
-        2U + ((word_block_count + bit_block_count) * (spec_size + 2U)) + ((total_word_points + total_bit_points) * 2U);
+        2U + ((request_word_block_count + request_bit_block_count) * (spec_size + 2U)) +
+        ((total_word_points + total_bit_points) * 2U);
     size_t request_header_size = (frame_type_ == FrameType::Frame4E) ? kRequestHeaderSize4E : kRequestHeaderSize3E;
     if (tx_capacity_ < request_header_size + payload_length) {
         setError(Error::BufferTooSmall);
         return last_error_;
     }
 
-    tx_buffer_[0] = static_cast<uint8_t>(word_block_count);
-    tx_buffer_[1] = static_cast<uint8_t>(bit_block_count);
+    tx_buffer_[0] = static_cast<uint8_t>(request_word_block_count);
+    tx_buffer_[1] = static_cast<uint8_t>(request_bit_block_count);
 
     size_t offset = 2U;
-    for (size_t i = 0; i < word_block_count; ++i) {
-        size_t written = encodeDeviceSpec(word_blocks[i].device, compatibility_mode_, tx_buffer_ + offset, tx_capacity_ - offset);
+    for (size_t i = 0; i < request_word_block_count; ++i) {
+        size_t written =
+            encodeDeviceSpec(request_word_blocks[i].device, compatibility_mode_, tx_buffer_ + offset, tx_capacity_ - offset);
         if (written == 0) {
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        writeLe16(tx_buffer_ + offset + written, word_blocks[i].points);
+        writeLe16(tx_buffer_ + offset + written, request_word_blocks[i].points);
         offset += written + 2U;
     }
-    for (size_t i = 0; i < bit_block_count; ++i) {
-        size_t written = encodeDeviceSpec(bit_blocks[i].device, compatibility_mode_, tx_buffer_ + offset, tx_capacity_ - offset);
+    for (size_t i = 0; i < request_bit_block_count; ++i) {
+        size_t written =
+            encodeDeviceSpec(request_bit_blocks[i].device, compatibility_mode_, tx_buffer_ + offset, tx_capacity_ - offset);
         if (written == 0) {
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        writeLe16(tx_buffer_ + offset + written, bit_blocks[i].points);
+        writeLe16(tx_buffer_ + offset + written, request_bit_blocks[i].points);
         offset += written + 2U;
     }
-    for (size_t i = 0; i < word_block_count; ++i) {
-        for (size_t j = 0; j < word_blocks[i].points; ++j) {
-            writeLe16(tx_buffer_ + offset, word_blocks[i].values[j]);
+    for (size_t i = 0; i < request_word_block_count; ++i) {
+        for (size_t j = 0; j < request_word_blocks[i].points; ++j) {
+            writeLe16(tx_buffer_ + offset, request_word_blocks[i].values[j]);
             offset += 2U;
         }
     }
-    for (size_t i = 0; i < bit_block_count; ++i) {
-        for (size_t j = 0; j < bit_blocks[i].points; ++j) {
-            writeLe16(tx_buffer_ + offset, bit_blocks[i].values[j]);
+    for (size_t i = 0; i < request_bit_block_count; ++i) {
+        for (size_t j = 0; j < request_bit_blocks[i].points; ++j) {
+            writeLe16(tx_buffer_ + offset, request_bit_blocks[i].values[j]);
             offset += 2U;
         }
     }
 
-    return startAsync(AsyncContext::Type::WriteBlock, payload_length, now_ms);
+    Error err = startAsync(AsyncContext::Type::WriteBlock, payload_length, now_ms);
+    if (err != Error::Ok) {
+        return err;
+    }
+
+    async_ctx_.data.writeBlock.word_blocks = all_word_blocks;
+    async_ctx_.data.writeBlock.word_block_count = all_word_block_count;
+    async_ctx_.data.writeBlock.bit_blocks = all_bit_blocks;
+    async_ctx_.data.writeBlock.bit_block_count = all_bit_block_count;
+    async_ctx_.data.writeBlock.options = options;
+    async_ctx_.data.writeBlock.stage = stage;
+    async_ctx_.data.writeBlock.has_mixed_blocks = has_mixed_blocks;
+    return last_error_;
+}
+
+Error SlmpClient::beginWriteBlock(
+    const DeviceBlockWrite* word_blocks,
+    size_t word_block_count,
+    const DeviceBlockWrite* bit_blocks,
+    size_t bit_block_count,
+    uint32_t now_ms
+) {
+    return beginWriteBlock(
+        word_blocks,
+        word_block_count,
+        bit_blocks,
+        bit_block_count,
+        BlockWriteOptions{},
+        now_ms
+    );
 }
 
 Error SlmpClient::writeBlock(
@@ -1490,7 +1849,186 @@ Error SlmpClient::writeBlock(
     const DeviceBlockWrite* bit_blocks,
     size_t bit_block_count
 ) {
-    Error err = beginWriteBlock(word_blocks, word_block_count, bit_blocks, bit_block_count, getTimeMs());
+    return writeBlock(
+        word_blocks,
+        word_block_count,
+        bit_blocks,
+        bit_block_count,
+        BlockWriteOptions{}
+    );
+}
+
+Error SlmpClient::writeBlock(
+    const DeviceBlockWrite* word_blocks,
+    size_t word_block_count,
+    const DeviceBlockWrite* bit_blocks,
+    size_t bit_block_count,
+    const BlockWriteOptions& options
+) {
+    const bool has_mixed_blocks = (word_block_count > 0U && bit_block_count > 0U);
+
+    if (options.split_mixed_blocks && has_mixed_blocks) {
+        Error err = writeBlock(word_blocks, word_block_count, nullptr, 0, BlockWriteOptions{});
+        if (err != Error::Ok) {
+            return err;
+        }
+        return writeBlock(nullptr, 0, bit_blocks, bit_block_count, BlockWriteOptions{});
+    }
+
+    Error err = beginWriteBlock(word_blocks, word_block_count, bit_blocks, bit_block_count, options, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
+    }
+    return last_error_;
+}
+
+Error SlmpClient::beginRemoteRun(bool force, uint16_t clear_mode, uint32_t now_ms) {
+    size_t payload_length = 0;
+    Error encode_error = encodeRemoteRunPayload(force, clear_mode, tx_buffer_, tx_capacity_, payload_length);
+    if (encode_error != Error::Ok) {
+        setError(encode_error);
+        return last_error_;
+    }
+
+    return startAsync(AsyncContext::Type::RemoteRun, payload_length, now_ms);
+}
+
+Error SlmpClient::remoteRun(bool force, uint16_t clear_mode) {
+    Error err = beginRemoteRun(force, clear_mode, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
+    }
+    return last_error_;
+}
+
+Error SlmpClient::beginRemoteStop(uint32_t now_ms) {
+    size_t payload_length = 0;
+    Error encode_error = encodeRemoteModePayload(0x0001U, tx_buffer_, tx_capacity_, payload_length);
+    if (encode_error != Error::Ok) {
+        setError(encode_error);
+        return last_error_;
+    }
+
+    return startAsync(AsyncContext::Type::RemoteStop, payload_length, now_ms);
+}
+
+Error SlmpClient::remoteStop() {
+    Error err = beginRemoteStop(getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
+    }
+    return last_error_;
+}
+
+Error SlmpClient::beginRemotePause(bool force, uint32_t now_ms) {
+    size_t payload_length = 0;
+    const uint16_t mode = force ? 0x0003U : 0x0001U;
+    Error encode_error = encodeRemoteModePayload(mode, tx_buffer_, tx_capacity_, payload_length);
+    if (encode_error != Error::Ok) {
+        setError(encode_error);
+        return last_error_;
+    }
+
+    return startAsync(AsyncContext::Type::RemotePause, payload_length, now_ms);
+}
+
+Error SlmpClient::remotePause(bool force) {
+    Error err = beginRemotePause(force, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
+    }
+    return last_error_;
+}
+
+Error SlmpClient::beginRemoteLatchClear(uint32_t now_ms) {
+    size_t payload_length = 0;
+    Error encode_error = encodeRemoteModePayload(0x0001U, tx_buffer_, tx_capacity_, payload_length);
+    if (encode_error != Error::Ok) {
+        setError(encode_error);
+        return last_error_;
+    }
+
+    return startAsync(AsyncContext::Type::RemoteLatchClear, payload_length, now_ms);
+}
+
+Error SlmpClient::remoteLatchClear() {
+    Error err = beginRemoteLatchClear(getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
+    }
+    return last_error_;
+}
+
+Error SlmpClient::beginRemoteReset(uint16_t subcommand, bool expect_response, uint32_t now_ms) {
+    if (subcommand != 0x0000U && subcommand != 0x0001U) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
+    async_ctx_.data.remoteReset.subcommand = subcommand;
+    async_ctx_.data.remoteReset.expect_response = expect_response;
+    return startAsync(AsyncContext::Type::RemoteReset, 0, now_ms);
+}
+
+Error SlmpClient::remoteReset(uint16_t subcommand, bool expect_response) {
+    Error err = beginRemoteReset(subcommand, expect_response, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
+    }
+    return last_error_;
+}
+
+Error SlmpClient::beginSelfTestLoopback(
+    const uint8_t* data,
+    size_t data_length,
+    uint8_t* out,
+    size_t out_capacity,
+    size_t* out_length,
+    uint32_t now_ms
+) {
+    size_t payload_length = 0;
+    Error encode_error = encodeSelfTestPayload(data, data_length, tx_buffer_, tx_capacity_, payload_length);
+    if (encode_error != Error::Ok) {
+        setError(encode_error);
+        return last_error_;
+    }
+    if (out == nullptr || out_length == nullptr) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
+    *out_length = 0U;
+    async_ctx_.data.selfTest.out = out;
+    async_ctx_.data.selfTest.out_capacity = out_capacity;
+    async_ctx_.data.selfTest.out_length = out_length;
+    return startAsync(AsyncContext::Type::SelfTest, payload_length, now_ms);
+}
+
+Error SlmpClient::selfTestLoopback(
+    const uint8_t* data,
+    size_t data_length,
+    uint8_t* out,
+    size_t out_capacity,
+    size_t& out_length
+) {
+    Error err = beginSelfTestLoopback(data, data_length, out, out_capacity, &out_length, getTimeMs());
+    if (err != Error::Ok) return err;
+    while (isBusy()) {
+        update(getTimeMs());
+    }
+    return last_error_;
+}
+
+Error SlmpClient::beginClearError(uint32_t now_ms) {
+    return startAsync(AsyncContext::Type::ClearError, 0, now_ms);
+}
+
+Error SlmpClient::clearError() {
+    Error err = beginClearError(getTimeMs());
     if (err != Error::Ok) return err;
     while (isBusy()) {
         update(getTimeMs());
@@ -1584,19 +2122,59 @@ const char* endCodeString(uint16_t end_code) {
             return "label_condition_failure";
         case 0x413E:
             return "file_state_or_environment_rejected";
+        case 0x414A:
+            return "target_or_write_path_rejected";
         case 0xC051:
             return "word_count_or_unit_rule_violation";
+        case 0xC056:
+            return "request_format_or_combination_rejected";
         case 0xC059:
             return "request_family_not_accepted";
         case 0xC05B:
             return "direct_g_hg_path_rejected";
         case 0xC061:
             return "request_content_or_path_rejected";
+        case 0xC201:
+            return "password_lock_or_authentication_required";
         case 0xC207:
             return "file_environment_rejected";
+        case 0xC810:
+            return "invalid_password";
         default:
             return "unknown_plc_end_code";
     }
+}
+
+const char* profileClassString(ProfileClass profile_class) {
+    switch (profile_class) {
+        case ProfileClass::LegacyQL:
+            return "legacy_ql";
+        case ProfileClass::ModernIQR:
+            return "modern_iqr";
+        default:
+            return "unknown";
+    }
+}
+
+ProfileRecommendation recommendProfile(const TypeNameInfo& type_name) {
+    return recommendProfile(type_name.model, type_name.model_code, type_name.has_model_code);
+}
+
+ProfileRecommendation recommendProfile(const char* model_name, uint16_t model_code, bool has_model_code) {
+    if (has_model_code) {
+        if (isLegacyModelCode(model_code)) {
+            return makeProfileRecommendation(ProfileClass::LegacyQL, true);
+        }
+        if (isModernModelCode(model_code)) {
+            return makeProfileRecommendation(ProfileClass::ModernIQR, true);
+        }
+    }
+    return recommendProfileByModelName(model_name);
+}
+
+void applyProfileRecommendation(SlmpClient& client, const ProfileRecommendation& recommendation) {
+    client.setFrameType(recommendation.frame_type);
+    client.setCompatibilityMode(recommendation.compatibility_mode);
 }
 
 size_t formatHexBytes(const uint8_t* data, size_t length, char* out, size_t out_capacity) {

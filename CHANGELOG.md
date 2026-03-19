@@ -3,6 +3,12 @@
 ## Unreleased
 
 - add W6300-EVB-Pico2 console mode switching for TCP/UDP and SLMP 3E/4E from both serial commands and BOOTSEL button shortcuts
+- add `BlockWriteOptions` for synchronous `writeBlock()` so mixed word+bit block writes can be split up front or retried automatically after known PLC rejection end codes
+- add async mixed-block fallback parity through `beginWriteBlock(..., options, now_ms)`
+- add typed remote control helpers for `1001/1002/1003/1005`
+- add typed helpers for `1006` remote reset, `0619` self-test loopback, and `1617` clear error
+- add passive `recommendProfile(...)` helpers that derive `3E/4E` and `Legacy/iQR` recommendations from `model_code` or `type_name`
+- extend `endCodeString()` with additional practical hardware codes including `0xC056`, `0xC201`, `0xC810`, and `0x414A`
 
 ## 0.3.0
 

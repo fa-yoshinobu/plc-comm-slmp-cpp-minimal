@@ -83,6 +83,13 @@ void assertBytesEqual(const std::vector<uint8_t>& actual, const uint8_t* expecte
     assert(std::memcmp(actual.data(), expected, expected_size) == 0);
 }
 
+void driveAsyncUntilIdle(slmp::SlmpClient& plc, uint32_t now_ms, int max_steps = 32) {
+    for (int i = 0; i < max_steps && plc.isBusy(); ++i) {
+        plc.update(now_ms);
+    }
+    assert(!plc.isBusy());
+}
+
 class MockTransport : public slmp::ITransport {
   public:
     bool connect(const char* host, uint16_t port) override {
@@ -110,20 +117,23 @@ class MockTransport : public slmp::ITransport {
             return false;
         }
         last_write_.assign(data, data + length);
+        write_history_.push_back(last_write_);
         return true;
     }
 
     bool readExact(uint8_t* data, size_t length, uint32_t) override {
+        normalizeQueuedResponses();
         if (fail_next_read_) {
             fail_next_read_ = false;
             connected_ = false;
             return false;
         }
-        if (read_offset_ + length > queued_response_.size()) {
+        if (queued_responses_.empty() || read_offset_ + length > queued_responses_.front().size()) {
             return false;
         }
-        memcpy(data, queued_response_.data() + read_offset_, length);
+        memcpy(data, queued_responses_.front().data() + read_offset_, length);
         read_offset_ += length;
+        normalizeQueuedResponses();
         return true;
     }
 
@@ -134,30 +144,34 @@ class MockTransport : public slmp::ITransport {
             return 0;
         }
         last_write_.assign(data, data + length);
+        write_history_.push_back(last_write_);
         return length;
     }
 
     size_t read(uint8_t* data, size_t length) override {
+        normalizeQueuedResponses();
         if (fail_next_read_) {
             fail_next_read_ = false;
             connected_ = false;
             return 0;
         }
-        if (read_offset_ >= queued_response_.size()) {
+        if (queued_responses_.empty()) {
             return 0;
         }
-        size_t avail = queued_response_.size() - read_offset_;
+        size_t avail = queued_responses_.front().size() - read_offset_;
         size_t to_read = (length < avail) ? length : avail;
-        memcpy(data, queued_response_.data() + read_offset_, to_read);
+        memcpy(data, queued_responses_.front().data() + read_offset_, to_read);
         read_offset_ += to_read;
+        normalizeQueuedResponses();
         return to_read;
     }
 
     size_t available() override {
-        if (read_offset_ >= queued_response_.size()) {
+        normalizeQueuedResponses();
+        if (queued_responses_.empty()) {
             return 0;
         }
-        return queued_response_.size() - read_offset_;
+        return queued_responses_.front().size() - read_offset_;
     }
 
     void queueConnectResult(bool result) {
@@ -165,8 +179,8 @@ class MockTransport : public slmp::ITransport {
     }
 
     void queueResponse(const std::vector<uint8_t>& response) {
-        queued_response_ = response;
-        read_offset_ = 0;
+        normalizeQueuedResponses();
+        queued_responses_.push_back(response);
     }
 
     void setFailNextWrite(bool value = true) {
@@ -181,11 +195,23 @@ class MockTransport : public slmp::ITransport {
         return last_write_;
     }
 
+    const std::vector<std::vector<uint8_t>>& writeHistory() const {
+        return write_history_;
+    }
+
   private:
+    void normalizeQueuedResponses() {
+        while (!queued_responses_.empty() && read_offset_ >= queued_responses_.front().size()) {
+            queued_responses_.pop_front();
+            read_offset_ = 0;
+        }
+    }
+
     bool connected_ = true;
     std::deque<bool> connect_results_;
     std::vector<uint8_t> last_write_;
-    std::vector<uint8_t> queued_response_;
+    std::vector<std::vector<uint8_t>> write_history_;
+    std::deque<std::vector<uint8_t>> queued_responses_;
     size_t read_offset_ = 0;
     bool fail_next_write_ = false;
     bool fail_next_read_ = false;
@@ -569,6 +595,65 @@ void testTargetAndMonitoringTimerHeaders() {
     assert(readLe16(transport.lastWrite().data() + 13) == 0x4321U);
 }
 
+void testProfileRecommendation() {
+    {
+        slmp::TypeNameInfo info = {};
+        std::memcpy(info.model, "Q26UDEHCPU", 11);
+        info.model[11] = '\0';
+        info.model_code = 0x026CU;
+        info.has_model_code = true;
+        const slmp::ProfileRecommendation recommendation = slmp::recommendProfile(info);
+        assert(recommendation.confident);
+        assert(recommendation.profile_class == slmp::ProfileClass::LegacyQL);
+        assert(recommendation.frame_type == slmp::FrameType::Frame3E);
+        assert(recommendation.compatibility_mode == slmp::CompatibilityMode::Legacy);
+        assert(std::string(slmp::profileClassString(recommendation.profile_class)) == "legacy_ql");
+    }
+
+    {
+        const slmp::ProfileRecommendation recommendation = slmp::recommendProfile("R08CPU", 0x4801U, true);
+        assert(recommendation.confident);
+        assert(recommendation.profile_class == slmp::ProfileClass::ModernIQR);
+        assert(recommendation.frame_type == slmp::FrameType::Frame4E);
+        assert(recommendation.compatibility_mode == slmp::CompatibilityMode::iQR);
+    }
+
+    {
+        const slmp::ProfileRecommendation recommendation = slmp::recommendProfile("L26CPU-BT", 0x0542U, true);
+        assert(recommendation.confident);
+        assert(recommendation.profile_class == slmp::ProfileClass::LegacyQL);
+    }
+
+    {
+        const slmp::ProfileRecommendation recommendation = slmp::recommendProfile("FX5UCPU", 0x0000U, false);
+        assert(recommendation.confident);
+        assert(recommendation.profile_class == slmp::ProfileClass::ModernIQR);
+    }
+
+    {
+        const slmp::ProfileRecommendation recommendation = slmp::recommendProfile("UnknownTarget", 0x0000U, false);
+        assert(!recommendation.confident);
+        assert(recommendation.profile_class == slmp::ProfileClass::Unknown);
+        assert(recommendation.frame_type == slmp::FrameType::Frame4E);
+        assert(recommendation.compatibility_mode == slmp::CompatibilityMode::iQR);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setFrameType(slmp::FrameType::Frame4E);
+        plc.setCompatibilityMode(slmp::CompatibilityMode::iQR);
+        slmp::applyProfileRecommendation(
+            plc,
+            slmp::recommendProfile("Q06UDVCPU", 0x0000U, false)
+        );
+        assert(plc.frameType() == slmp::FrameType::Frame3E);
+        assert(plc.compatibilityMode() == slmp::CompatibilityMode::Legacy);
+    }
+}
+
 void testPlcErrorAndStrings() {
     MockTransport transport;
     uint8_t tx_buffer[128] = {};
@@ -586,6 +671,10 @@ void testPlcErrorAndStrings() {
     assert(plc.lastEndCode() == 0x4031U);
     assert(std::string(slmp::errorString(plc.lastError())) == "plc_error");
     assert(std::string(slmp::endCodeString(plc.lastEndCode())) == "range_or_allocation_mismatch");
+    assert(std::string(slmp::endCodeString(0x414AU)) == "target_or_write_path_rejected");
+    assert(std::string(slmp::endCodeString(0xC056U)) == "request_format_or_combination_rejected");
+    assert(std::string(slmp::endCodeString(0xC201U)) == "password_lock_or_authentication_required");
+    assert(std::string(slmp::endCodeString(0xC810U)) == "invalid_password");
     assert(std::string(slmp::endCodeString(0xDEADU)) == "unknown_plc_end_code");
 }
 
@@ -617,6 +706,290 @@ void testPasswordAndWriteBlock() {
     };
     assert(plc.writeBlock(word_blocks, 1, nullptr, 0) == slmp::Error::Ok);
     assert(readLe16(transport.lastWrite().data() + 15) == 0x1406U);
+}
+
+void testRemoteControl() {
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x1001, 0x0000), 0x0000, {}));
+        assert(plc.remoteRun(false, 2U) == slmp::Error::Ok);
+        assert(readLe16(transport.lastWrite().data() + 15) == 0x1001U);
+        assert(readLe16(transport.lastWrite().data() + 19) == 0x0001U);
+        assert(readLe16(transport.lastWrite().data() + 21) == 0x0002U);
+        assert(plc.remoteRun(false, 3U) == slmp::Error::InvalidArgument);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x1002, 0x0000), 0x0000, {}));
+        assert(plc.remoteStop() == slmp::Error::Ok);
+        assert(readLe16(transport.lastWrite().data() + 15) == 0x1002U);
+        assert(readLe16(transport.lastWrite().data() + 19) == 0x0001U);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x1003, 0x0000), 0x0000, {}));
+        assert(plc.remotePause(true) == slmp::Error::Ok);
+        assert(readLe16(transport.lastWrite().data() + 15) == 0x1003U);
+        assert(readLe16(transport.lastWrite().data() + 19) == 0x0003U);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x1005, 0x0000), 0x0000, {}));
+        assert(plc.remoteLatchClear() == slmp::Error::Ok);
+        assert(readLe16(transport.lastWrite().data() + 15) == 0x1005U);
+        assert(readLe16(transport.lastWrite().data() + 19) == 0x0001U);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        assert(plc.remoteReset() == slmp::Error::Ok);
+        assert(readLe16(transport.lastWrite().data() + 15) == 0x1006U);
+        assert(readLe16(transport.lastWrite().data() + 17) == 0x0000U);
+        assert(plc.remoteReset(0x0002U, true) == slmp::Error::InvalidArgument);
+    }
+}
+
+void testSelfTestAndClearError() {
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0619, 0x0000), 0x0000, {0x05, 0x00, 'A', 'B', 'C', 'D', 'E'}));
+        const uint8_t input[] = {'A', 'B', 'C', 'D', 'E'};
+        uint8_t output[8] = {};
+        size_t output_length = 0;
+        assert(plc.selfTestLoopback(input, sizeof(input), output, sizeof(output), output_length) == slmp::Error::Ok);
+        assert(output_length == 5U);
+        assert(std::memcmp(output, input, sizeof(input)) == 0);
+        assert(readLe16(transport.lastWrite().data() + 15) == 0x0619U);
+        assert(readLe16(transport.lastWrite().data() + 19) == 0x0005U);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x1617, 0x0000), 0x0000, {}));
+        assert(plc.clearError() == slmp::Error::Ok);
+        assert(readLe16(transport.lastWrite().data() + 15) == 0x1617U);
+    }
+}
+
+void testWriteBlockOptions() {
+    const uint16_t word_values[] = {0x1234U, 0x5678U};
+    const uint16_t bit_values[] = {0x0005U};
+    const slmp::DeviceBlockWrite word_blocks[] = {
+        slmp::dev::blockWrite(slmp::dev::D(slmp::dev::dec(400)), word_values, 2),
+    };
+    const slmp::DeviceBlockWrite bit_blocks[] = {
+        slmp::dev::blockWrite(slmp::dev::M(slmp::dev::dec(240)), bit_values, 1),
+    };
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        std::vector<uint8_t> response_request = makeGenericRequest(0x1406, 0x0002);
+        response_request[2] = 0x00;
+        response_request[3] = 0x00;
+        transport.queueResponse(makeResponse(response_request, 0x0000, {}));
+        response_request[2] = 0x01;
+        response_request[3] = 0x00;
+        transport.queueResponse(makeResponse(response_request, 0x0000, {}));
+
+        slmp::BlockWriteOptions options = {};
+        options.split_mixed_blocks = true;
+        assert(plc.writeBlock(word_blocks, 1, bit_blocks, 1, options) == slmp::Error::Ok);
+        assert(transport.writeHistory().size() == 2U);
+        assert(readLe16(transport.writeHistory()[0].data() + 15) == 0x1406U);
+        assert(transport.writeHistory()[0][19] == 1U);
+        assert(transport.writeHistory()[0][20] == 0U);
+        assert(transport.writeHistory()[1][19] == 0U);
+        assert(transport.writeHistory()[1][20] == 1U);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        std::vector<uint8_t> response_request = makeGenericRequest(0x1406, 0x0002);
+        response_request[2] = 0x00;
+        response_request[3] = 0x00;
+        transport.queueResponse(makeResponse(response_request, 0xC05B, {}));
+        response_request[2] = 0x01;
+        response_request[3] = 0x00;
+        transport.queueResponse(makeResponse(response_request, 0x0000, {}));
+        response_request[2] = 0x02;
+        response_request[3] = 0x00;
+        transport.queueResponse(makeResponse(response_request, 0x0000, {}));
+
+        slmp::BlockWriteOptions options = {};
+        options.retry_mixed_on_error = true;
+        assert(plc.writeBlock(word_blocks, 1, bit_blocks, 1, options) == slmp::Error::Ok);
+        assert(plc.lastEndCode() == 0x0000U);
+        assert(transport.writeHistory().size() == 3U);
+        assert(transport.writeHistory()[0][19] == 1U);
+        assert(transport.writeHistory()[0][20] == 1U);
+        assert(transport.writeHistory()[1][19] == 1U);
+        assert(transport.writeHistory()[1][20] == 0U);
+        assert(transport.writeHistory()[2][19] == 0U);
+        assert(transport.writeHistory()[2][20] == 1U);
+    }
+}
+
+void testAsyncWriteBlockOptions() {
+    const uint16_t word_values[] = {0x1234U, 0x5678U};
+    const uint16_t bit_values[] = {0x0005U};
+    const slmp::DeviceBlockWrite word_blocks[] = {
+        slmp::dev::blockWrite(slmp::dev::D(slmp::dev::dec(400)), word_values, 2),
+    };
+    const slmp::DeviceBlockWrite bit_blocks[] = {
+        slmp::dev::blockWrite(slmp::dev::M(slmp::dev::dec(240)), bit_values, 1),
+    };
+    const uint32_t now = 1000U;
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        std::vector<uint8_t> response_request = makeGenericRequest(0x1406, 0x0002);
+        response_request[2] = 0x00;
+        response_request[3] = 0x00;
+        transport.queueResponse(makeResponse(response_request, 0x0000, {}));
+        response_request[2] = 0x01;
+        response_request[3] = 0x00;
+        transport.queueResponse(makeResponse(response_request, 0x0000, {}));
+
+        slmp::BlockWriteOptions options = {};
+        options.split_mixed_blocks = true;
+        assert(plc.beginWriteBlock(word_blocks, 1, bit_blocks, 1, options, now) == slmp::Error::Ok);
+        driveAsyncUntilIdle(plc, now);
+        assert(plc.lastError() == slmp::Error::Ok);
+        assert(transport.writeHistory().size() == 2U);
+        assert(transport.writeHistory()[0][19] == 1U);
+        assert(transport.writeHistory()[0][20] == 0U);
+        assert(transport.writeHistory()[1][19] == 0U);
+        assert(transport.writeHistory()[1][20] == 1U);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        std::vector<uint8_t> response_request = makeGenericRequest(0x1406, 0x0002);
+        response_request[2] = 0x00;
+        response_request[3] = 0x00;
+        transport.queueResponse(makeResponse(response_request, 0xC05B, {}));
+        response_request[2] = 0x01;
+        response_request[3] = 0x00;
+        transport.queueResponse(makeResponse(response_request, 0x0000, {}));
+        response_request[2] = 0x02;
+        response_request[3] = 0x00;
+        transport.queueResponse(makeResponse(response_request, 0x0000, {}));
+
+        slmp::BlockWriteOptions options = {};
+        options.retry_mixed_on_error = true;
+        assert(plc.beginWriteBlock(word_blocks, 1, bit_blocks, 1, options, now) == slmp::Error::Ok);
+        driveAsyncUntilIdle(plc, now);
+        assert(plc.lastError() == slmp::Error::Ok);
+        assert(plc.lastEndCode() == 0x0000U);
+        assert(transport.writeHistory().size() == 3U);
+        assert(transport.writeHistory()[0][19] == 1U);
+        assert(transport.writeHistory()[0][20] == 1U);
+        assert(transport.writeHistory()[1][19] == 1U);
+        assert(transport.writeHistory()[1][20] == 0U);
+        assert(transport.writeHistory()[2][19] == 0U);
+        assert(transport.writeHistory()[2][20] == 1U);
+    }
+}
+
+void testAsyncRemoteControl() {
+    MockTransport transport;
+    uint8_t tx_buffer[256] = {};
+    uint8_t rx_buffer[256] = {};
+    slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    const uint32_t now = 1000U;
+
+    transport.queueResponse(makeResponse(makeGenericRequest(0x1001, 0x0000), 0x0000, {}));
+    assert(plc.beginRemoteRun(true, 1U, now) == slmp::Error::Ok);
+    driveAsyncUntilIdle(plc, now);
+    assert(plc.lastError() == slmp::Error::Ok);
+    assert(readLe16(transport.lastWrite().data() + 15) == 0x1001U);
+    assert(readLe16(transport.lastWrite().data() + 19) == 0x0003U);
+    assert(readLe16(transport.lastWrite().data() + 21) == 0x0001U);
+
+    MockTransport reset_transport;
+    uint8_t reset_tx_buffer[256] = {};
+    uint8_t reset_rx_buffer[256] = {};
+    slmp::SlmpClient reset_plc(reset_transport, reset_tx_buffer, sizeof(reset_tx_buffer), reset_rx_buffer, sizeof(reset_rx_buffer));
+    assert(reset_plc.beginRemoteReset(0x0000U, false, now) == slmp::Error::Ok);
+    driveAsyncUntilIdle(reset_plc, now);
+    assert(reset_plc.lastError() == slmp::Error::Ok);
+    assert(readLe16(reset_transport.lastWrite().data() + 15) == 0x1006U);
+    assert(readLe16(reset_transport.lastWrite().data() + 17) == 0x0000U);
+}
+
+void testAsyncSelfTestAndClearError() {
+    MockTransport transport;
+    uint8_t tx_buffer[256] = {};
+    uint8_t rx_buffer[256] = {};
+    slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    const uint32_t now = 1000U;
+
+    transport.queueResponse(makeResponse(makeGenericRequest(0x0619, 0x0000), 0x0000, {0x05, 0x00, 'A', 'B', 'C', 'D', 'E'}));
+    const uint8_t input[] = {'A', 'B', 'C', 'D', 'E'};
+    uint8_t output[8] = {};
+    size_t output_length = 0;
+    assert(plc.beginSelfTestLoopback(input, sizeof(input), output, sizeof(output), &output_length, now) == slmp::Error::Ok);
+    driveAsyncUntilIdle(plc, now);
+    assert(plc.lastError() == slmp::Error::Ok);
+    assert(output_length == 5U);
+    assert(std::memcmp(output, input, sizeof(input)) == 0);
+
+    MockTransport clear_transport;
+    uint8_t clear_tx_buffer[256] = {};
+    uint8_t clear_rx_buffer[256] = {};
+    slmp::SlmpClient clear_plc(clear_transport, clear_tx_buffer, sizeof(clear_tx_buffer), clear_rx_buffer, sizeof(clear_rx_buffer));
+    clear_transport.queueResponse(makeResponse(makeGenericRequest(0x1617, 0x0000), 0x0000, {}));
+    assert(clear_plc.beginClearError(now) == slmp::Error::Ok);
+    driveAsyncUntilIdle(clear_plc, now);
+    assert(clear_plc.lastError() == slmp::Error::Ok);
+    assert(readLe16(clear_transport.lastWrite().data() + 15) == 0x1617U);
 }
 
 void testValidationAndBoundaryFailures() {
@@ -1082,13 +1455,20 @@ int main() {
     testWriteDWordsAndRandomWords();
     testRandomAndBlock();
     testTargetAndMonitoringTimerHeaders();
+    testProfileRecommendation();
     testPlcErrorAndStrings();
     testPasswordAndWriteBlock();
+    testRemoteControl();
+    testSelfTestAndClearError();
+    testWriteBlockOptions();
+    testAsyncWriteBlockOptions();
     testValidationAndBoundaryFailures();
     testTransportFailuresAndReconnectHelper();
     testPythonCompatibilityGoldenFrames();
     testProtocolFailures();
     testPayloadValidationFailures();
+    testAsyncRemoteControl();
+    testAsyncSelfTestAndClearError();
     std::puts("slmp_minimal_tests: ok");
     return 0;
 }

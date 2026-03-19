@@ -23,4 +23,4 @@ Suggested order:
 ## Related Docs
 
 - [../README.md](../README.md): install, quick start, board-by-board overview, memory notes
-- [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md): network, buffer, and frame-dump troubleshooting
+- [../docs/user/TROUBLESHOOTING.md](../docs/user/TROUBLESHOOTING.md): network, buffer, and frame-dump troubleshooting

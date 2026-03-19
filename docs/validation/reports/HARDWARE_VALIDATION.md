@@ -8,14 +8,14 @@ Treat this file as a validation backlog and library-side evidence log, not as th
 
 Use it together with:
 
-- [../README.md](../README.md) for install steps and board entry points
-- [../examples/README.md](../examples/README.md) to choose the sketch you want to validate
-- [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md) when a board run fails
-- [hardware-validation issue template](../.github/ISSUE_TEMPLATE/hardware-validation.md) when you want to file a structured result
+- [../../../README.md](../../../README.md) for install steps and board entry points
+- [../../../examples/README.md](../../../examples/README.md) to choose the sketch you want to validate
+- [../../user/TROUBLESHOOTING.md](../../user/TROUBLESHOOTING.md) when a board run fails
+- [hardware-validation issue template](../../../.github/ISSUE_TEMPLATE/hardware-validation.md) when you want to file a structured result
 
 ## Validation Flow
 
-1. Pick the board and sketch from [../examples/README.md](../examples/README.md).
+1. Pick the board and sketch from [../../../examples/README.md](../../../examples/README.md).
 2. Run the read-only path first before any write-oriented checks.
 3. Record board package version, network setup, PLC model, and local config changes.
 4. Save frame dumps and end codes for any failure or unexpected response.
@@ -98,7 +98,7 @@ Use it together with:
   - Test payload attempted to write `D300..D301` plus packed `M200..M215` in the same `1406/0002` frame
 - Follow-up note:
   - the same mixed `writeBlock` scenario was later compared against the original Python implementation
-  - the comparison result is summarized in [PYTHON_COMPARISON_CHECKLIST.md](./PYTHON_COMPARISON_CHECKLIST.md)
+  - the comparison result is summarized in [PYTHON_COMPARISON_CHECKLIST.md](../../maintainer/PYTHON_COMPARISON_CHECKLIST.md)
   - both implementations sent the same first-pass mixed request shape and hit the same `0xC05B` PLC end code
 
 ### 2026-03-14: Atom Matrix `endurance 1000` against Mitsubishi iQ-R `R08CPU`

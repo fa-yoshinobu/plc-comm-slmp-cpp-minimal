@@ -36,6 +36,19 @@ void setup() {
 }
 ```
 
+### Passive Profile Recommendation
+If `readTypeName()` succeeds, you can derive a lightweight default profile from the returned model information:
+
+```cpp
+slmp::TypeNameInfo info = {};
+if (plc.readTypeName(info) == slmp::Error::Ok) {
+    slmp::ProfileRecommendation recommendation = slmp::recommendProfile(info);
+    if (recommendation.confident) {
+        slmp::applyProfileRecommendation(plc, recommendation);
+    }
+}
+```
+
 ## Documentation
 
 Follows the workspace-wide hierarchical documentation policy:

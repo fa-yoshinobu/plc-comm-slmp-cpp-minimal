@@ -28,6 +28,12 @@ enum class CompatibilityMode : uint8_t {
     Legacy,  // Subcommands 0x0000/0x0001 (Q/L series legacy)
 };
 
+enum class ProfileClass : uint8_t {
+    Unknown,
+    LegacyQL,
+    ModernIQR,
+};
+
 enum class DeviceCode : uint16_t {
     SM = 0x0091,
     SD = 0x00A9,
@@ -86,6 +92,11 @@ struct DeviceBlockWrite {
     DeviceAddress device;
     const uint16_t* values;
     uint16_t points;
+};
+
+struct BlockWriteOptions {
+    bool split_mixed_blocks = false;
+    bool retry_mixed_on_error = false;
 };
 
 namespace dev {
@@ -173,6 +184,13 @@ struct TypeNameInfo {
     char model[17];
     uint16_t model_code;
     bool has_model_code;
+};
+
+struct ProfileRecommendation {
+    FrameType frame_type = FrameType::Frame4E;
+    CompatibilityMode compatibility_mode = CompatibilityMode::iQR;
+    ProfileClass profile_class = ProfileClass::Unknown;
+    bool confident = false;
 };
 
 class ITransport {
@@ -278,6 +296,26 @@ class SlmpClient {
         const DeviceBlockWrite* bit_blocks,
         size_t bit_block_count
     );
+    Error writeBlock(
+        const DeviceBlockWrite* word_blocks,
+        size_t word_block_count,
+        const DeviceBlockWrite* bit_blocks,
+        size_t bit_block_count,
+        const BlockWriteOptions& options
+    );
+    Error remoteRun(bool force = false, uint16_t clear_mode = 2U);
+    Error remoteStop();
+    Error remotePause(bool force = false);
+    Error remoteLatchClear();
+    Error remoteReset(uint16_t subcommand = 0x0000U, bool expect_response = false);
+    Error selfTestLoopback(
+        const uint8_t* data,
+        size_t data_length,
+        uint8_t* out,
+        size_t out_capacity,
+        size_t& out_length
+    );
+    Error clearError();
     Error remotePasswordUnlock(const char* password);
     Error remotePasswordLock(const char* password);
 
@@ -331,6 +369,28 @@ class SlmpClient {
         size_t word_block_count,
         const DeviceBlockWrite* bit_blocks,
         size_t bit_block_count,
+        const BlockWriteOptions& options,
+        uint32_t now_ms
+    );
+    Error beginRemoteRun(bool force, uint16_t clear_mode, uint32_t now_ms);
+    Error beginRemoteStop(uint32_t now_ms);
+    Error beginRemotePause(bool force, uint32_t now_ms);
+    Error beginRemoteLatchClear(uint32_t now_ms);
+    Error beginRemoteReset(uint16_t subcommand, bool expect_response, uint32_t now_ms);
+    Error beginSelfTestLoopback(
+        const uint8_t* data,
+        size_t data_length,
+        uint8_t* out,
+        size_t out_capacity,
+        size_t* out_length,
+        uint32_t now_ms
+    );
+    Error beginClearError(uint32_t now_ms);
+    Error beginWriteBlock(
+        const DeviceBlockWrite* word_blocks,
+        size_t word_block_count,
+        const DeviceBlockWrite* bit_blocks,
+        size_t bit_block_count,
         uint32_t now_ms
     );
     Error beginRemotePasswordUnlock(const char* password, uint32_t now_ms);
@@ -361,8 +421,21 @@ class SlmpClient {
             WriteRandomBits,
             ReadBlock,
             WriteBlock,
+            RemoteRun,
+            RemoteStop,
+            RemotePause,
+            RemoteLatchClear,
+            RemoteReset,
+            SelfTest,
+            ClearError,
             PasswordUnlock,
             PasswordLock,
+        };
+
+        enum class WriteBlockStage : uint8_t {
+            Direct,
+            SplitWord,
+            SplitBit,
         };
 
         Type type = Type::None;
@@ -371,10 +444,38 @@ class SlmpClient {
             struct { TypeNameInfo* out; } readTypeName;
             struct { uint16_t* word_values; uint16_t word_count; uint32_t* dword_values; uint16_t dword_count; } readRandom;
             struct { uint16_t* word_values; size_t total_word_points; uint16_t* bit_values; size_t total_bit_points; } readBlock;
+            struct {
+                uint16_t subcommand;
+                bool expect_response;
+            } remoteReset;
+            struct { uint8_t* out; size_t out_capacity; size_t* out_length; } selfTest;
+            struct {
+                const DeviceBlockWrite* word_blocks;
+                size_t word_block_count;
+                const DeviceBlockWrite* bit_blocks;
+                size_t bit_block_count;
+                BlockWriteOptions options;
+                WriteBlockStage stage;
+                bool has_mixed_blocks;
+            } writeBlock;
         } data;
     };
 
     Error startAsync(AsyncContext::Type type, size_t payload_length, uint32_t now_ms);
+    Error beginWriteBlockRequest(
+        const DeviceBlockWrite* request_word_blocks,
+        size_t request_word_block_count,
+        const DeviceBlockWrite* request_bit_blocks,
+        size_t request_bit_block_count,
+        const DeviceBlockWrite* all_word_blocks,
+        size_t all_word_block_count,
+        const DeviceBlockWrite* all_bit_blocks,
+        size_t all_bit_block_count,
+        const BlockWriteOptions& options,
+        AsyncContext::WriteBlockStage stage,
+        bool has_mixed_blocks,
+        uint32_t now_ms
+    );
     void completeAsync();
 
     Error request(
@@ -412,6 +513,10 @@ class SlmpClient {
 
 const char* errorString(Error error);
 const char* endCodeString(uint16_t end_code);
+const char* profileClassString(ProfileClass profile_class);
+ProfileRecommendation recommendProfile(const TypeNameInfo& type_name);
+ProfileRecommendation recommendProfile(const char* model_name, uint16_t model_code = 0U, bool has_model_code = false);
+void applyProfileRecommendation(SlmpClient& client, const ProfileRecommendation& recommendation);
 size_t formatHexBytes(const uint8_t* data, size_t length, char* out, size_t out_capacity);
 
 }  // namespace slmp

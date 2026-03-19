@@ -80,7 +80,84 @@ plc.setFrameType(slmp::FrameType::Frame3E);
 - **Block Read**: Efficiently read mixed word and bit blocks.
 - *Note: Bit blocks use packed 16-bit words.*
 
+For synchronous mixed `writeBlock()` calls, you can control the practical fallback behavior:
+
+```cpp
+const uint16_t word_values[] = {0x1234, 0x5678};
+const uint16_t bit_values[] = {0x0005};
+
+const slmp::DeviceBlockWrite word_blocks[] = {
+    slmp::dev::blockWrite(slmp::dev::D(slmp::dev::dec(300)), word_values, 2),
+};
+const slmp::DeviceBlockWrite bit_blocks[] = {
+    slmp::dev::blockWrite(slmp::dev::M(slmp::dev::dec(200)), bit_values, 1),
+};
+
+slmp::BlockWriteOptions options = {};
+options.retry_mixed_on_error = true;
+
+plc.writeBlock(word_blocks, 1, bit_blocks, 1, options);
+```
+
+Current rules:
+
+- `split_mixed_blocks=true` sends separate word-only and bit-only `1406` requests immediately
+- `retry_mixed_on_error=true` sends one mixed request first, then retries as separate writes only on known PLC rejection end codes
+- the current retry set is `0xC056`, `0xC05B`, and `0xC061`
+- the async `beginWriteBlock(..., options, now_ms)` overload mirrors the same split/retry behavior
+
 ### Password Security
+Remote control helpers follow the same typed style as the Python client:
+
+- `remoteRun(force, clear_mode)`
+- `remoteStop()`
+- `remotePause(force)`
+- `remoteLatchClear()`
+- `remoteReset(subcommand, expect_response)`
+- `clearError()`
+
+Self-test loopback is also available through the typed helper:
+
+```cpp
+const uint8_t loopback_in[] = {'A', 'B', 'C', 'D', 'E'};
+uint8_t loopback_out[8] = {};
+size_t loopback_out_length = 0;
+
+plc.selfTestLoopback(
+    loopback_in,
+    sizeof(loopback_in),
+    loopback_out,
+    sizeof(loopback_out),
+    loopback_out_length
+);
+```
+
+Practical reset rule:
+
+- `remoteReset()` defaults to `1006/0000` with no-response handling
+- use `remoteReset(0x0001U, true)` only when the PLC is expected to return a normal completion frame
+
+### Passive Profile Recommendation
+
+If `readTypeName()` succeeds, you can derive a lightweight profile recommendation without active probing:
+
+```cpp
+slmp::TypeNameInfo info = {};
+if (plc.readTypeName(info) == slmp::Error::Ok) {
+    slmp::ProfileRecommendation recommendation = slmp::recommendProfile(info);
+    if (recommendation.confident) {
+        slmp::applyProfileRecommendation(plc, recommendation);
+    }
+}
+```
+
+Current recommendation rules:
+
+- `model_code` is used first when available
+- Q-series and legacy L-series recommend `Frame3E + Legacy`
+- iQ-R, iQ-L, and `FX5*` names recommend `Frame4E + iQR`
+- unknown models fall back to the library default (`Frame4E + iQR`) with `confident=false`
+
 Use `remotePasswordUnlock(password)` and `remotePasswordLock(password)` for PLCs with enabled remote security.
 
 ## 4. Memory Model and Buffers
