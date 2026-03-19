@@ -18,7 +18,16 @@ A lightweight, microcontroller-oriented C++ library for Mitsubishi SLMP (Seamles
 
 ## Quick Start
 
-### Minimal Usage
+### PC Console (Recommended First Test)
+
+```bash
+python scripts/w6300_console_cli.py --list-ports
+python scripts/w6300_console_cli.py --port COM6 --auto
+```
+
+The `--auto` sequence verifies connectivity and runs a small command sweep.
+
+### Minimal Firmware Usage
 ```cpp
 #include <slmp_arduino_transport.h>
 
@@ -48,6 +57,30 @@ if (plc.readTypeName(info) == slmp::Error::Ok) {
     }
 }
 ```
+
+## Device Compatibility Snapshot (Hardware-Verified)
+
+This table is a readable snapshot. The full matrix lives in `docs/validation/reports/PLC_COMPATIBILITY.md` (Python is the source of truth).
+
+| Family | Verified Models | Status | Recommended Profile |
+| --- | --- | --- | --- |
+| iQ-R | R00CPU, R08CPU, R08PCPU, R120PCPU, RJ71EN71 | YES (core commands) | 3e/ql, 3e/iqr, 4e/ql, 4e/iqr |
+| iQ-L | L16HCPU | YES (core commands) | 3e/ql, 3e/iqr, 4e/ql, 4e/iqr |
+| MELSEC-Q | Q06UDVCPU, Q26UDEHCPU, QJ71E71-100 | PARTIAL | 3e/ql (4e/ql for QJ71E71) |
+| MELSEC-L | L26CPU-BT | PARTIAL | 3e/ql |
+| iQ-F | FX5U, FX5UC | PARTIAL | 3e/ql (4e/ql for FX5U) |
+| Third-Party MC | KV-7500, KV-XLE02 | PARTIAL (MC compatible) | 3e/ql, 4e/ql |
+
+Notes:
+
+- Q/L series often reject `0101` (type name) and may require 3E/QL.
+- Third-party MC-compatible endpoints are not Mitsubishi native; results describe MC compatibility.
+
+## Use Cases
+
+- Edge devices that must read PLC signals with tight RAM/CPU budgets.
+- Wi-Fi/Ethernet MCU gateways bridging SLMP data to MQTT/HTTP.
+- Plant-floor test rigs that run the PC console CLI for quick verification.
 
 ## Documentation
 
