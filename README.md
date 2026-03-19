@@ -58,23 +58,15 @@ if (plc.readTypeName(info) == slmp::Error::Ok) {
 }
 ```
 
-## Device Compatibility Snapshot (Hardware-Verified)
+## Device Support (PLC Device Codes)
 
-This table is a readable snapshot. The full matrix lives in `docs/validation/reports/PLC_COMPATIBILITY.md` (Python is the source of truth).
+This minimal client focuses on direct device access. Actual availability depends on PLC model, firmware, and access settings.
 
-| Family | Verified Models | Status | Recommended Profile |
+| Group | Codes | Status | Notes |
 | --- | --- | --- | --- |
-| iQ-R | R00CPU, R08CPU, R08PCPU, R120PCPU, RJ71EN71 | YES (core commands) | 3e/ql, 3e/iqr, 4e/ql, 4e/iqr |
-| iQ-L | L16HCPU | YES (core commands) | 3e/ql, 3e/iqr, 4e/ql, 4e/iqr |
-| MELSEC-Q | Q06UDVCPU, Q26UDEHCPU, QJ71E71-100 | PARTIAL | 3e/ql (4e/ql for QJ71E71) |
-| MELSEC-L | L26CPU-BT | PARTIAL | 3e/ql |
-| iQ-F | FX5U, FX5UC | PARTIAL | 3e/ql (4e/ql for FX5U) |
-| Third-Party MC | KV-7500, KV-XLE02 | PARTIAL (MC compatible) | 3e/ql, 4e/ql |
-
-Notes:
-
-- Q/L series often reject `0101` (type name) and may require 3E/QL.
-- Third-party MC-compatible endpoints are not Mitsubishi native; results describe MC compatibility.
+| Bit devices (direct) | SM, X, Y, M, L, F, V, B, TS, TC, STS, STC, CS, CC, SB, DX, DY | Supported | `X/Y/B/SB/DX/DY` use hexadecimal numbering. |
+| Word devices (direct) | SD, D, W, SW, TN, STN, CN, R, ZR | Supported | `W/SW` use hexadecimal numbering. |
+| Not supported (direct API) | S, Z, LZ, RD, LTS/LTC/LTN, LSTS/LSTC/LSTN, LCS/LCC/LCN, G/HG, `Jn\\Xn` | Not supported | Appendix 1 and linked direct devices are not implemented in the minimal library. |
 
 ## Use Cases
 

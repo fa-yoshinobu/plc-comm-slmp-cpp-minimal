@@ -14,3 +14,6 @@ This file tracks the remaining tasks and issues for the SLMP C++ Minimal library
 ## 3. Packaging and Documentation
 - [ ] **Library Export Rules**: Update `library.json` / `library.properties` so repo-only docs and `TODO.md` are excluded from distribution packages.
 - [ ] **User Guide Refresh**: Update the user docs to explain the canonical `slmp::SlmpClient` name and optional UDP transport.
+
+## 4. Known Limitations
+- Linked direct devices (`Jn\Xn` style) are not supported yet.
