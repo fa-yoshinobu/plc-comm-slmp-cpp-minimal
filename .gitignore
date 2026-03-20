@@ -25,3 +25,5 @@ coverage.html
 release-notes.md
 slmp-connect-cpp-minimal-*.zip
 local_folder/
+
+_site/

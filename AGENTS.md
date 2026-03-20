@@ -16,23 +16,23 @@ This repository is part of the PLC Communication Workspace and follows the globa
   - All changes must pass `cppcheck` or `clang-tidy`.
   - Use PlatformIO linting tools to verify compliance.
 - **Documentation Structure**: Follow the Modern Documentation Policy:
-  - `docs/user/`: User manuals and API guides. [DIST]
-  - `docs/maintainer/`: Protocol specs and internal logic. [REPO]
-  - `docs/validation/`: Hardware QA reports and bug analysis. [REPO]
-- **Distribution Control**: Ensure `library.json` or `library.properties` excludes `docs/maintainer/`, `docs/validation/`, and `TODO.md` from library packages.
+  - `docsrc/user/`: User manuals and API guides. [DIST]
+  - `docsrc/maintainer/`: Protocol specs and internal logic. [REPO]
+  - `docsrc/validation/`: Hardware QA reports and bug analysis. [REPO]
+- **Distribution Control**: Ensure `library.json` or `library.properties` excludes `docsrc/maintainer/`, `docsrc/validation/`, and `TODO.md` from library packages.
 
 ## 3. Reference Materials
 - **Official Specs**: Refer to `local_folder/CLPA_DOWNLOAD_.../` for authoritative English manuals (Local only).
-- **Evidence**: Check `docs/validation/reports/` for verified communication results with Mitsubishi PLCs.
+- **Evidence**: Check `docsrc/validation/reports/` for verified communication results with Mitsubishi PLCs.
 
 ## 4. Development Workflow
 - **Issue Tracking**: Log remaining tasks in `TODO.md`.
 - **Change Tracking**: Update `CHANGELOG.md` for every fix or feature.
-- **QA Requirement**: Every hardware-related fix must include an evidence report in `docs/validation/reports/`.
+- **QA Requirement**: Every hardware-related fix must include an evidence report in `docsrc/validation/reports/`.
 
 ## 5. API Naming Policy
 
-Detailed naming policy lives in `docs/maintainer/API_UNIFICATION_POLICY.md`.
+Detailed naming policy lives in `docsrc/maintainer/API_UNIFICATION_POLICY.md`.
 
 Public API rules:
 
@@ -48,3 +48,4 @@ Transport naming rules:
 - Transport helper names must include the transport kind, for example `ArduinoClientTransport` and `ArduinoUdpTransport`.
 - Optional UDP transport must remain separately gateable so TCP-only builds avoid unnecessary code and includes.
 - 32-bit codec helpers should include both type and word order, for example `packUInt32LowWordFirst` or `unpackFloat32LowWordFirst`.
+
