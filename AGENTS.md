@@ -22,7 +22,7 @@ This repository is part of the PLC Communication Workspace and follows the globa
 - **Distribution Control**: Ensure `library.json` or `library.properties` excludes `docsrc/maintainer/`, `docsrc/validation/`, and `TODO.md` from library packages.
 
 ## 3. Reference Materials
-- **Official Specs**: Refer to `local_folder/CLPA_DOWNLOAD_.../` for authoritative English manuals (Local only).
+- **Official Specs**: Refer to `internal_reference_library/CLPA_DOWNLOAD_.../` for authoritative English manuals (Local only).
 - **Evidence**: Check `docsrc/validation/reports/` for verified communication results with Mitsubishi PLCs.
 
 ## 4. Development Workflow
@@ -48,4 +48,5 @@ Transport naming rules:
 - Transport helper names must include the transport kind, for example `ArduinoClientTransport` and `ArduinoUdpTransport`.
 - Optional UDP transport must remain separately gateable so TCP-only builds avoid unnecessary code and includes.
 - 32-bit codec helpers should include both type and word order, for example `packUInt32LowWordFirst` or `unpackFloat32LowWordFirst`.
+
 
