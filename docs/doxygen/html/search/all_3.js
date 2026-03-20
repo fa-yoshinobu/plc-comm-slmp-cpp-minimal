@@ -1,0 +1,24 @@
+var searchData=
+[
+  ['d_0',['D',['../namespaceslmp_1_1dev.html#a8b70bb86034febf874e7f54acb8fbd4b',1,'slmp::dev::D()'],['../namespaceslmp.html#aa263202128d36069394170b3ec9e024eaf623e75af30e62bbd73d6df5b50bb7b5',1,'slmp::D']]],
+  ['dec_1',['dec',['../namespaceslmp_1_1dev.html#aabc0a6c65975edd52410318f4d06188f',1,'slmp::dev']]],
+  ['decno_2',['DecNo',['../structslmp_1_1dev_1_1_dec_no.html',1,'slmp::dev']]],
+  ['demo_5flast_5fpoll_5fms_3',['demo_last_poll_ms',['../namespaceatom__matrix__serial__console.html#a9ebf61da0f17423b3542f970906fa298',1,'atom_matrix_serial_console']]],
+  ['demo_5fmode_5fenabled_4',['demo_mode_enabled',['../namespaceatom__matrix__serial__console.html#aedcd26393f7aae08a21de84bb817142d',1,'atom_matrix_serial_console']]],
+  ['democommand_5',['demoCommand',['../namespaceatom__matrix__serial__console.html#ad4a7f4a92cbaed3cce42ab3d2e0631e1',1,'atom_matrix_serial_console']]],
+  ['development_20ci_6',['Development &amp;amp; CI',['../index.html#autotoc_md12',1,'']]],
+  ['device_7',['device',['../structslmp_1_1_device_block_read.html#a878085e56ab2429299eacac865884515',1,'slmp::DeviceBlockRead::device'],['../structslmp_1_1_device_block_write.html#ae75f3d00af6ae14432e6f537773ba75b',1,'slmp::DeviceBlockWrite::device'],['../structslmp__wifi__serial__console_1_1_verification_record.html#a823d075c3605fa1081173b985c14e195',1,'slmp_wifi_serial_console::VerificationRecord::device'],['../structw6300__evb__pico2__serial__console_1_1_verification_record.html#a62bf89bf45076d94eac15713098f9f2f',1,'w6300_evb_pico2_serial_console::VerificationRecord::device']]],
+  ['device_20codes_8',['Device Support (PLC Device Codes)',['../index.html#autotoc_md9',1,'']]],
+  ['device_20support_20plc_20device_20codes_9',['Device Support (PLC Device Codes)',['../index.html#autotoc_md9',1,'']]],
+  ['deviceaddress_10',['DeviceAddress',['../structslmp_1_1_device_address.html',1,'slmp']]],
+  ['deviceblockread_11',['DeviceBlockRead',['../structslmp_1_1_device_block_read.html',1,'slmp']]],
+  ['deviceblockwrite_12',['DeviceBlockWrite',['../structslmp_1_1_device_block_write.html',1,'slmp']]],
+  ['devicecode_13',['DeviceCode',['../namespaceslmp.html#aa263202128d36069394170b3ec9e024e',1,'slmp']]],
+  ['devicespec_14',['DeviceSpec',['../structslmp__wifi__serial__console_1_1_device_spec.html',1,'slmp_wifi_serial_console::DeviceSpec'],['../structw6300__evb__pico2__serial__console_1_1_device_spec.html',1,'w6300_evb_pico2_serial_console::DeviceSpec']]],
+  ['docs_15',['Related Docs',['../dir_d28a4824dc47e487b107a5db32ef43c4.html#autotoc_md2',1,'']]],
+  ['documentation_16',['Documentation',['../index.html#autotoc_md11',1,'']]],
+  ['dwordarraysequal_17',['dwordArraysEqual',['../namespaceatom__matrix__serial__console.html#a429d8ba7e5eaf8776ba4168016bdfa5a',1,'atom_matrix_serial_console::dwordArraysEqual()'],['../namespacew6300__evb__pico2__serial__console.html#adf68ff4d49a981626bbd5b514bf9b486',1,'w6300_evb_pico2_serial_console::dwordArraysEqual(const uint32_t *lhs, const uint32_t *rhs, size_t count)']]],
+  ['dwords_18',['DWords',['../namespacew6300__evb__pico2__serial__console.html#a0735c69c20bb2d2fd1d35b1cdfb5423da354a990ccf8e0b84a024d8cac8915e31',1,'w6300_evb_pico2_serial_console']]],
+  ['dx_19',['DX',['../namespaceslmp_1_1dev.html#a758726ee049487d51911a8685a784792',1,'slmp::dev::DX()'],['../namespaceslmp.html#aa263202128d36069394170b3ec9e024ea72a530b2433264cef373d8fcca5662c1',1,'slmp::DX']]],
+  ['dy_20',['DY',['../namespaceslmp_1_1dev.html#aebba6ef82776facc203f6741a11805ce',1,'slmp::dev::DY()'],['../namespaceslmp.html#aa263202128d36069394170b3ec9e024ea8e33631037901075c85616c9b60441e4',1,'slmp::DY']]]
+];

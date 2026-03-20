@@ -1,9 +1,25 @@
 @echo off
-echo [DOCS] Building SLMP C++ Docs with Doxygen...
-doxygen Doxyfile
-if %errorlevel% neq 0 (
-    echo [ERROR] Doxygen not found or failed. Please install doxygen to use this script.
-)
-echo [SUCCESS] Docs (if generated) at %cd%\publish\docs\index.html
-pause
+setlocal
 
+echo ===================================================
+echo [DOCS] Generating Doxygen Documentation...
+echo ===================================================
+
+where doxygen >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERROR] doxygen command not found. Please install Doxygen and add it to PATH.
+    pause & exit /b %errorlevel%
+)
+
+doxygen Doxyfile
+
+if %errorlevel% equ 0 (
+    echo ===================================================
+    echo [SUCCESS] Documentation generated at: docs/doxygen/html/index.html
+    echo ===================================================
+) else (
+    echo [ERROR] Doxygen generation failed.
+)
+
+pause
+endlocal

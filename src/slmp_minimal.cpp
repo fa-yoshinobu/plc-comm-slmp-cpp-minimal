@@ -1,3 +1,8 @@
+/**
+ * @file slmp_minimal.cpp
+ * @brief Lightweight SLMP client implementation.
+ */
+
 #include "slmp_minimal.h"
 
 #include <string.h>
@@ -6,6 +11,10 @@
 #include <Arduino.h>
 #else
 #include <chrono>
+/**
+ * @internal
+ * @brief Mock millis() implementation for non-Arduino environments.
+ */
 static uint32_t millis() {
     auto now = std::chrono::steady_clock::now();
     return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
@@ -14,6 +23,10 @@ static uint32_t millis() {
 
 namespace slmp {
 
+/**
+ * @internal
+ * @brief Helper to get current system time in milliseconds.
+ */
 static uint32_t getTimeMs() {
     return millis();
 }
@@ -394,6 +407,15 @@ inline ProfileRecommendation recommendProfileByModelName(const char* model_name)
 
 }  // namespace
 
+/**
+ * @brief Construct a new SlmpClient.
+ * 
+ * @param transport Reference to an ITransport implementation.
+ * @param tx_buffer Pointer to a caller-owned buffer for outgoing packets.
+ * @param tx_capacity Size of tx_buffer.
+ * @param rx_buffer Pointer to a caller-owned buffer for incoming packets.
+ * @param rx_capacity Size of rx_buffer.
+ */
 SlmpClient::SlmpClient(
     ITransport& transport,
     uint8_t* tx_buffer,
@@ -421,10 +443,17 @@ SlmpClient::SlmpClient(
       last_activity_ms_(0),
       async_ctx_{} {}
 
+/** @brief Returns true if an asynchronous operation is currently active. */
 bool SlmpClient::isBusy() const {
     return state_ != State::Idle;
 }
 
+/**
+ * @brief Synchronously connect to a remote SLMP server.
+ * @param host IP address or hostname.
+ * @param port TCP/UDP port number.
+ * @return true if connection was successful.
+ */
 bool SlmpClient::connect(const char* host, uint16_t port) {
     if (host == nullptr || port == 0) {
         setError(Error::InvalidArgument);

@@ -1,3 +1,10 @@
+/**
+ * @file slmp_arduino_transport.h
+ * @brief Arduino-specific transport implementations for SLMP.
+ * 
+ * Provides ITransport adapters for Arduino's Client (TCP) and UDP interfaces.
+ */
+
 #ifndef SLMP_ARDUINO_TRANSPORT_H
 #define SLMP_ARDUINO_TRANSPORT_H
 
@@ -15,8 +22,15 @@
 
 namespace slmp {
 
+/**
+ * @class ArduinoClientTransport
+ * @brief Transport adapter for Arduino 'Client' objects (typically TCP).
+ * 
+ * Use this with EthernetClient, WiFiClient, or similar classes.
+ */
 class ArduinoClientTransport : public ITransport {
   public:
+    /** @brief Wrap an existing Arduino Client. */
     explicit ArduinoClientTransport(::Client& client) : client_(client) {}
 
     bool connect(const char* host, uint16_t port) override {
@@ -86,8 +100,20 @@ class ArduinoClientTransport : public ITransport {
 
 #if SLMP_ENABLE_UDP_TRANSPORT
 
+/**
+ * @class ArduinoUdpTransport
+ * @brief Transport adapter for Arduino 'UDP' objects.
+ * 
+ * Wraps EthernetUDP, WiFiUDP, etc. Note that SLMP over UDP is connectionless,
+ * but this class manages the remote endpoint information.
+ */
 class ArduinoUdpTransport : public ITransport {
   public:
+    /**
+     * @brief Wrap an existing Arduino UDP object.
+     * @param udp Reference to UDP object.
+     * @param local_port Local port to bind to (0 = use remote port).
+     */
     explicit ArduinoUdpTransport(::UDP& udp, uint16_t local_port = 0)
         : udp_(udp), local_port_(local_port) {}
 

@@ -1,3 +1,16 @@
+/**
+ * @example atom_matrix_serial_console.ino
+ * @brief SLMP Serial Console example for M5Stack Atom Matrix.
+ * 
+ * This example demonstrates:
+ * - Connecting to a PLC via WiFi.
+ * - Providing a command-line interface over Serial to read/write devices.
+ * - Visualizing communication status on the 5x5 LED matrix.
+ * - Performing endurance and benchmark tests.
+ * 
+ * Target Hardware: M5Stack Atom Matrix (ESP32)
+ */
+
 #include "atom_matrix_serial_console.h"
 
 void setup() {
