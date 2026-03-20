@@ -1,30 +1,71 @@
+/**
+ * @file atom_matrix_serial_console.h
+ * @brief Interactive SLMP debug console for M5Stack Atom Matrix.
+ * 
+ * Provides a feature-rich serial console for manual SLMP command testing,
+ * automated functional checks, and endurance (stress) testing.
+ * Uses the onboard 5x5 LED matrix for status visualization.
+ */
+
 #pragma once
 
 #include <esp32-hal-rmt.h>
 #include <esp_system.h>
 
+/**
+ * @defgroup SLMP_Examples Examples & Tools
+ * @brief Demonstration applications and debug utilities.
+ * @{
+ */
+
+/**
+ * @namespace atom_matrix_serial_console
+ * @brief Implementation of the Atom Matrix serial console example.
+ */
 namespace atom_matrix_serial_console {
+/** @brief Handle commands specific to the Atom Matrix hardware. */
 bool handleAtomCustomCommand(char* tokens[], int token_count);
+/** @brief Show help for Atom Matrix specific commands. */
 bool handleAtomHelpCommand(char* tokens[], int token_count);
+/** @brief Print help for hardware-specific features (LED matrix, Button). */
 void printAtomExtraHelp();
+/** @brief Print full command reference to the serial port. */
 void printFullCommandHelp();
+/** @brief Initialize hardware (Matrix, Button) and console state. */
 void setupConsole();
+/** @brief Update the LED matrix color. */
 void renderSolidMatrix(uint8_t red, uint8_t green, uint8_t blue);
+/** @brief Print hint for manual verification steps. */
 void printAtomPendingJudgeHint();
+/** @brief Command: Run a sequence of protocol functional checks. */
 void funcheckCommand(char* tokens[], int token_count);
+/** @brief Command: Start/stop long-running stress test. */
 void enduranceCommand(char* tokens[], int token_count);
+/** @brief Command: Start/stop connection cycle test. */
 void reconnectCommand(char* tokens[], int token_count);
+/** @brief Command: Test frame size limits. */
 void txlimitCommand(char* tokens[], int token_count);
+/** @brief Command: Run performance benchmark. */
 void benchCommand(char* tokens[], int token_count);
+/** @brief Periodic worker for endurance test. */
 void pollEnduranceTest();
+/** @brief Periodic worker for reconnection test. */
 void pollReconnectTest();
+/** @brief Periodic worker for benchmark. */
 void pollBenchmark();
+/** @brief Stop active endurance test. */
 void stopEndurance(bool print_summary, bool failed);
+/** @brief Stop active reconnection test. */
 void stopReconnect(bool print_summary);
+/** @brief Stop active benchmark. */
 void stopBenchmark(bool print_summary, bool failed);
+/** @brief Generate next predictable value for functional check. */
 uint16_t nextFuncheckWordValue();
+/** @brief Generate next predictable value for functional check. */
 uint32_t nextFuncheckDWordValue();
 }
+
+/** @} */ // end of SLMP_Examples
 
 #define SLMP_WIFI_SERIAL_CONSOLE_CONFIG_HEADER "../atom_matrix_serial_console/config.h"
 #define SLMP_WIFI_SERIAL_CONSOLE_NAMESPACE atom_matrix_serial_console
@@ -560,20 +601,20 @@ void copyText(char* out, size_t out_capacity, const char* text) {
     if (out == nullptr || out_capacity == 0) {
         return;
     }
-    size_t index = 0;
+    size_t i = 0;
     if (text != nullptr) {
-        for (; index + 1 < out_capacity && text[index] != '\0'; ++index) {
-            out[index] = text[index];
+        for (; i + 1 < out_capacity && text[i] != '\0'; ++i) {
+            out[i] = text[i];
         }
     }
-    out[index] = '\0';
+    out[i] = '\0';
 }
 
 void clearWordsSilently(const slmp::DeviceAddress& device, size_t count) {
     if (count == 0 || count > kMaxWordPoints || !connectPlc(false)) {
         return;
     }
-    uint16_t zeros[kMaxWordPoints] = {};
+    const uint16_t zeros[kMaxWordPoints] = {};
     (void)plc.writeWords(device, zeros, count);
 }
 
@@ -581,7 +622,7 @@ void clearWordRangeSilently(const slmp::DeviceAddress& device, size_t count) {
     if (count == 0 || !connectPlc(false)) {
         return;
     }
-    uint16_t zeros[kMaxWordPoints] = {};
+    const uint16_t zeros[kMaxWordPoints] = {};
     size_t offset = 0;
     while (offset < count) {
         const size_t chunk = (count - offset) > kMaxWordPoints ? kMaxWordPoints : (count - offset);
@@ -624,8 +665,8 @@ void clearRandomWordsSilently(
     if (!connectPlc(false)) {
         return;
     }
-    uint16_t zero_words[kMaxRandomWordDevices] = {};
-    uint32_t zero_dwords[kMaxRandomDWordDevices] = {};
+    const uint16_t zero_words[kMaxRandomWordDevices] = {};
+    const uint32_t zero_dwords[kMaxRandomDWordDevices] = {};
     (void)plc.writeRandomWords(word_devices, zero_words, word_count, dword_devices, zero_dwords, dword_count);
 }
 
@@ -633,7 +674,7 @@ void clearRandomBitsSilently(const slmp::DeviceAddress* bit_devices, size_t bit_
     if (!connectPlc(false)) {
         return;
     }
-    bool zero_bits[kMaxRandomBitDevices] = {};
+    const bool zero_bits[kMaxRandomBitDevices] = {};
     (void)plc.writeRandomBits(bit_devices, zero_bits, bit_count);
 }
 

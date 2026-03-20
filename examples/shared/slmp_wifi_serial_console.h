@@ -1349,25 +1349,25 @@ void readRandomCommand(char* tokens[], int token_count) {
         Serial.println("rr usage: rr <word_count> <word_devices...> <dword_count> <dword_devices...>");
         return;
     }
-    int index = 1;
+    int token_index = 1;
     uint8_t word_count = 0;
-    if (!parseListCount(tokens[index++], kMaxRandomWordDevices, word_count)) {
+    if (!parseListCount(tokens[token_index++], kMaxRandomWordDevices, word_count)) {
         Serial.println("rr word_count must be 0..8");
         return;
     }
-    if (token_count < index + word_count + 1) {
+    if (token_count < token_index + word_count + 1) {
         Serial.println("rr usage: rr <word_count> <word_devices...> <dword_count> <dword_devices...>");
         return;
     }
     slmp::DeviceAddress word_devices[kMaxRandomWordDevices] = {};
     for (uint8_t i = 0; i < word_count; ++i) {
-        if (!parseDeviceAddress(tokens[index++], word_devices[i])) {
+        if (!parseDeviceAddress(tokens[token_index++], word_devices[i])) {
             Serial.println("rr word device parse failed");
             return;
         }
     }
     uint8_t dword_count = 0;
-    if (!parseListCount(tokens[index++], kMaxRandomDWordDevices, dword_count)) {
+    if (!parseListCount(tokens[token_index++], kMaxRandomDWordDevices, dword_count)) {
         Serial.println("rr dword_count must be 0..8");
         return;
     }
@@ -1375,13 +1375,13 @@ void readRandomCommand(char* tokens[], int token_count) {
         Serial.println("rr requires at least one device");
         return;
     }
-    if (token_count != index + dword_count) {
+    if (token_count != token_index + dword_count) {
         Serial.println("rr usage: rr <word_count> <word_devices...> <dword_count> <dword_devices...>");
         return;
     }
     slmp::DeviceAddress dword_devices[kMaxRandomDWordDevices] = {};
     for (uint8_t i = 0; i < dword_count; ++i) {
-        if (!parseDeviceAddress(tokens[index++], dword_devices[i])) {
+        if (!parseDeviceAddress(tokens[token_index++], dword_devices[i])) {
             Serial.println("rr dword device parse failed");
             return;
         }
@@ -1427,30 +1427,30 @@ void writeRandomWordsCommand(char* tokens[], int token_count) {
         Serial.println("wrand usage: wrand <word_count> <device value...> <dword_count> <device value...>");
         return;
     }
-    int index = 1;
+    int token_index = 1;
     uint8_t word_count = 0;
-    if (!parseListCount(tokens[index++], kMaxRandomWordDevices, word_count)) {
+    if (!parseListCount(tokens[token_index++], kMaxRandomWordDevices, word_count)) {
         Serial.println("wrand word_count must be 0..8");
         return;
     }
-    if (token_count < index + (word_count * 2) + 1) {
+    if (token_count < token_index + (word_count * 2) + 1) {
         Serial.println("wrand usage: wrand <word_count> <device value...> <dword_count> <device value...>");
         return;
     }
     slmp::DeviceAddress word_devices[kMaxRandomWordDevices] = {};
     uint16_t word_values[kMaxRandomWordDevices] = {};
     for (uint8_t i = 0; i < word_count; ++i) {
-        if (!parseDeviceAddress(tokens[index++], word_devices[i])) {
+        if (!parseDeviceAddress(tokens[token_index++], word_devices[i])) {
             Serial.println("wrand word device parse failed");
             return;
         }
-        if (!parseWordValue(tokens[index++], word_values[i])) {
+        if (!parseWordValue(tokens[token_index++], word_values[i])) {
             Serial.println("wrand word values must fit in 16 bits");
             return;
         }
     }
     uint8_t dword_count = 0;
-    if (!parseListCount(tokens[index++], kMaxRandomDWordDevices, dword_count)) {
+    if (!parseListCount(tokens[token_index++], kMaxRandomDWordDevices, dword_count)) {
         Serial.println("wrand dword_count must be 0..8");
         return;
     }
@@ -1458,18 +1458,18 @@ void writeRandomWordsCommand(char* tokens[], int token_count) {
         Serial.println("wrand requires at least one device");
         return;
     }
-    if (token_count != index + (dword_count * 2)) {
+    if (token_count != token_index + (dword_count * 2)) {
         Serial.println("wrand usage: wrand <word_count> <device value...> <dword_count> <device value...>");
         return;
     }
     slmp::DeviceAddress dword_devices[kMaxRandomDWordDevices] = {};
     uint32_t dword_values[kMaxRandomDWordDevices] = {};
     for (uint8_t i = 0; i < dword_count; ++i) {
-        if (!parseDeviceAddress(tokens[index++], dword_devices[i])) {
+        if (!parseDeviceAddress(tokens[token_index++], dword_devices[i])) {
             Serial.println("wrand dword device parse failed");
             return;
         }
-        if (!parseDWordValue(tokens[index++], dword_values[i])) {
+        if (!parseDWordValue(tokens[token_index++], dword_values[i])) {
             Serial.println("wrand dword values must fit in 32 bits");
             return;
         }
@@ -1496,24 +1496,24 @@ void writeRandomBitsCommand(char* tokens[], int token_count) {
         Serial.println("wrandb usage: wrandb <count> <device value...>");
         return;
     }
-    int index = 1;
+    int token_index = 1;
     uint8_t bit_count = 0;
-    if (!parseListCount(tokens[index++], kMaxRandomBitDevices, bit_count) || bit_count == 0) {
+    if (!parseListCount(tokens[token_index++], kMaxRandomBitDevices, bit_count) || bit_count == 0) {
         Serial.println("wrandb count must be 1..8");
         return;
     }
-    if (token_count != index + (bit_count * 2)) {
+    if (token_count != token_index + (bit_count * 2)) {
         Serial.println("wrandb usage: wrandb <count> <device value...>");
         return;
     }
     slmp::DeviceAddress bit_devices[kMaxRandomBitDevices] = {};
     bool bit_values[kMaxRandomBitDevices] = {};
     for (uint8_t i = 0; i < bit_count; ++i) {
-        if (!parseDeviceAddress(tokens[index++], bit_devices[i])) {
+        if (!parseDeviceAddress(tokens[token_index++], bit_devices[i])) {
             Serial.println("wrandb device parse failed");
             return;
         }
-        if (!parseBoolValue(tokens[index++], bit_values[i])) {
+        if (!parseBoolValue(tokens[token_index++], bit_values[i])) {
             Serial.println("wrandb values must be 0/1, on/off, or true/false");
             return;
         }
@@ -1533,13 +1533,13 @@ void readBlockCommand(char* tokens[], int token_count) {
         Serial.println("rblk usage: rblk <word_blocks> <device points...> <bit_blocks> <device points...>");
         return;
     }
-    int index = 1;
+    int token_index = 1;
     uint8_t word_block_count = 0;
-    if (!parseListCount(tokens[index++], kMaxBlockCount, word_block_count)) {
+    if (!parseListCount(tokens[token_index++], kMaxBlockCount, word_block_count)) {
         Serial.println("rblk word_blocks must be 0..4");
         return;
     }
-    if (token_count < index + (word_block_count * 2) + 1) {
+    if (token_count < token_index + (word_block_count * 2) + 1) {
         Serial.println("rblk usage: rblk <word_blocks> <device points...> <bit_blocks> <device points...>");
         return;
     }
@@ -1548,11 +1548,11 @@ void readBlockCommand(char* tokens[], int token_count) {
     for (uint8_t i = 0; i < word_block_count; ++i) {
         slmp::DeviceAddress device = {};
         uint16_t points = 0;
-        if (!parseDeviceAddress(tokens[index++], device)) {
+        if (!parseDeviceAddress(tokens[token_index++], device)) {
             Serial.println("rblk word block device parse failed");
             return;
         }
-        if (!parsePositiveCount(tokens[index++], kMaxBlockPoints, points) ||
+        if (!parsePositiveCount(tokens[token_index++], kMaxBlockPoints, points) ||
             total_word_points + points > kMaxBlockPoints) {
             Serial.println("rblk word block points must keep total within 1..16");
             return;
@@ -1561,7 +1561,7 @@ void readBlockCommand(char* tokens[], int token_count) {
         total_word_points = static_cast<uint16_t>(total_word_points + points);
     }
     uint8_t bit_block_count = 0;
-    if (!parseListCount(tokens[index++], kMaxBlockCount, bit_block_count)) {
+    if (!parseListCount(tokens[token_index++], kMaxBlockCount, bit_block_count)) {
         Serial.println("rblk bit_blocks must be 0..4");
         return;
     }
@@ -1569,7 +1569,7 @@ void readBlockCommand(char* tokens[], int token_count) {
         Serial.println("rblk requires at least one block");
         return;
     }
-    if (token_count != index + (bit_block_count * 2)) {
+    if (token_count != token_index + (bit_block_count * 2)) {
         Serial.println("rblk usage: rblk <word_blocks> <device points...> <bit_blocks> <device points...>");
         return;
     }
@@ -1578,11 +1578,11 @@ void readBlockCommand(char* tokens[], int token_count) {
     for (uint8_t i = 0; i < bit_block_count; ++i) {
         slmp::DeviceAddress device = {};
         uint16_t points = 0;
-        if (!parseDeviceAddress(tokens[index++], device)) {
+        if (!parseDeviceAddress(tokens[token_index++], device)) {
             Serial.println("rblk bit block device parse failed");
             return;
         }
-        if (!parsePositiveCount(tokens[index++], kMaxBlockPoints, points) ||
+        if (!parsePositiveCount(tokens[token_index++], kMaxBlockPoints, points) ||
             total_bit_points + points > kMaxBlockPoints) {
             Serial.println("rblk bit block points must keep total within 1..16 packed words");
             return;
@@ -1636,9 +1636,9 @@ void writeBlockCommand(char* tokens[], int token_count) {
         Serial.println("wblk usage: wblk <word_blocks> <device points values...> <bit_blocks> <device points packed...>");
         return;
     }
-    int index = 1;
+    int token_index = 1;
     uint8_t word_block_count = 0;
-    if (!parseListCount(tokens[index++], kMaxBlockCount, word_block_count)) {
+    if (!parseListCount(tokens[token_index++], kMaxBlockCount, word_block_count)) {
         Serial.println("wblk word_blocks must be 0..4");
         return;
     }
@@ -1646,21 +1646,21 @@ void writeBlockCommand(char* tokens[], int token_count) {
     uint16_t word_storage[kMaxBlockPoints] = {};
     uint16_t word_offset = 0;
     for (uint8_t i = 0; i < word_block_count; ++i) {
-        if (token_count <= index + 1) {
+        if (token_count <= token_index + 1) {
             Serial.println("wblk word block definition incomplete");
             return;
         }
         slmp::DeviceAddress device = {};
         uint16_t points = 0;
-        if (!parseDeviceAddress(tokens[index++], device)) {
+        if (!parseDeviceAddress(tokens[token_index++], device)) {
             Serial.println("wblk word block device parse failed");
             return;
         }
-        if (!parsePositiveCount(tokens[index++], kMaxBlockPoints, points) || word_offset + points > kMaxBlockPoints) {
+        if (!parsePositiveCount(tokens[token_index++], kMaxBlockPoints, points) || word_offset + points > kMaxBlockPoints) {
             Serial.println("wblk word block points must keep total within 1..16");
             return;
         }
-        if (token_count < index + points) {
+        if (token_count < token_index + points) {
             Serial.println("wblk word block values missing");
             return;
         }
@@ -1668,19 +1668,19 @@ void writeBlockCommand(char* tokens[], int token_count) {
         word_blocks[i].values = word_storage + word_offset;
         word_blocks[i].points = points;
         for (uint16_t j = 0; j < points; ++j) {
-            if (!parseWordValue(tokens[index++], word_storage[word_offset + j])) {
+            if (!parseWordValue(tokens[token_index++], word_storage[word_offset + j])) {
                 Serial.println("wblk word values must fit in 16 bits");
                 return;
             }
         }
         word_offset = static_cast<uint16_t>(word_offset + points);
     }
-    if (token_count <= index) {
+    if (token_count <= token_index) {
         Serial.println("wblk bit block count missing");
         return;
     }
     uint8_t bit_block_count = 0;
-    if (!parseListCount(tokens[index++], kMaxBlockCount, bit_block_count)) {
+    if (!parseListCount(tokens[token_index++], kMaxBlockCount, bit_block_count)) {
         Serial.println("wblk bit_blocks must be 0..4");
         return;
     }
@@ -1692,21 +1692,21 @@ void writeBlockCommand(char* tokens[], int token_count) {
     uint16_t bit_storage[kMaxBlockPoints] = {};
     uint16_t bit_offset = 0;
     for (uint8_t i = 0; i < bit_block_count; ++i) {
-        if (token_count <= index + 1) {
+        if (token_count <= token_index + 1) {
             Serial.println("wblk bit block definition incomplete");
             return;
         }
         slmp::DeviceAddress device = {};
         uint16_t points = 0;
-        if (!parseDeviceAddress(tokens[index++], device)) {
+        if (!parseDeviceAddress(tokens[token_index++], device)) {
             Serial.println("wblk bit block device parse failed");
             return;
         }
-        if (!parsePositiveCount(tokens[index++], kMaxBlockPoints, points) || bit_offset + points > kMaxBlockPoints) {
+        if (!parsePositiveCount(tokens[token_index++], kMaxBlockPoints, points) || bit_offset + points > kMaxBlockPoints) {
             Serial.println("wblk bit block points must keep total within 1..16 packed words");
             return;
         }
-        if (token_count < index + points) {
+        if (token_count < token_index + points) {
             Serial.println("wblk bit block packed values missing");
             return;
         }
@@ -1714,14 +1714,14 @@ void writeBlockCommand(char* tokens[], int token_count) {
         bit_blocks[i].values = bit_storage + bit_offset;
         bit_blocks[i].points = points;
         for (uint16_t j = 0; j < points; ++j) {
-            if (!parseWordValue(tokens[index++], bit_storage[bit_offset + j])) {
+            if (!parseWordValue(tokens[token_index++], bit_storage[bit_offset + j])) {
                 Serial.println("wblk packed bit values must fit in 16 bits");
                 return;
             }
         }
         bit_offset = static_cast<uint16_t>(bit_offset + points);
     }
-    if (token_count != index) {
+    if (token_count != token_index) {
         Serial.println("wblk usage: wblk <word_blocks> <device points values...> <bit_blocks> <device points packed...>");
         return;
     }

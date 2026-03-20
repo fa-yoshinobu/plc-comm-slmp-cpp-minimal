@@ -2,7 +2,8 @@
  * @file slmp_utility.h
  * @brief High-level helper utilities for SLMP communication.
  * 
- * Includes components for automatic reconnection and state management.
+ * Includes components for automatic reconnection, state management, and 
+ * simplified application patterns.
  */
 
 #ifndef SLMP_UTILITY_H
@@ -16,10 +17,15 @@ namespace slmp {
 
 /**
  * @struct ReconnectOptions
- * @brief Configuration for the ReconnectHelper.
+ * @ingroup SLMP_Utils
+ * @brief Configuration for the @ref ReconnectHelper.
  */
 struct ReconnectOptions {
-    uint32_t retry_interval_ms = 3000; ///< Minimum time between connection attempts.
+    /** 
+     * @brief Minimum time between connection attempts. 
+     * Prevents hammering the network or PLC when the connection is physically down.
+     */
+    uint32_t retry_interval_ms = 3000;
 
     constexpr ReconnectOptions() = default;
     constexpr explicit ReconnectOptions(uint32_t retry_interval_ms_value)
@@ -28,18 +34,33 @@ struct ReconnectOptions {
 
 /**
  * @class ReconnectHelper
+ * @ingroup SLMP_Utils
  * @brief Automates PLC connection maintenance.
  * 
  * Handles periodic retry logic when the connection is lost,
  * ensuring the application remains connected without blocking the main loop.
+ * 
+ * ### Example Usage
+ * @code
+ * slmp::ReconnectHelper recon(plc, "192.168.1.10", 1025);
+ * 
+ * void loop() {
+ *     if (recon.ensureConnected(millis())) {
+ *         if (recon.consumeConnectedEdge()) {
+ *             // Do one-time setup on connect
+ *         }
+ *         // Normal polling
+ *     }
+ * }
+ * @endcode
  */
 class ReconnectHelper {
   public:
     /**
-     * @brief Initialize helper with client and target.
-     * @param client Reference to an initialized SlmpClient.
-     * @param host Target IP address.
-     * @param port Target Port.
+     * @brief Initialize helper with client and target endpoint.
+     * @param client Reference to an initialized @ref SlmpClient.
+     * @param host Target IP address or hostname.
+     * @param port Target Port (usually 1025 or 1280).
      * @param options Reconnection configuration.
      */
     ReconnectHelper(
@@ -58,6 +79,11 @@ class ReconnectHelper {
 
     /**
      * @brief Check and restore connection if needed.
+     * 
+     * If already connected, returns true immediately.
+     * If disconnected, attempts to connect only if @ref ReconnectOptions::retry_interval_ms 
+     * has elapsed since the last attempt.
+     * 
      * @param now_ms Current system time in milliseconds.
      * @return true if currently connected (or just successfully reconnected).
      */
@@ -87,9 +113,12 @@ class ReconnectHelper {
     }
 
     /**
-     * @brief Returns true if a NEW connection was established since the last call.
+     * @brief Detect a rising edge of the connection state.
      * 
-     * Useful for triggering one-time initialization (e.g., reading PLC type).
+     * Returns true only ONCE when a new connection is established.
+     * Useful for triggering initialization logic like reading PLC type or setting up monitors.
+     * 
+     * @return true if a NEW connection was established since the last call to this method.
      */
     bool consumeConnectedEdge() {
         const bool value = connected_edge_;
@@ -98,7 +127,10 @@ class ReconnectHelper {
     }
 
     /**
-     * @brief Manually trigger a reconnection attempt on the next update.
+     * @brief Manually trigger a reconnection attempt on the next call to @ref ensureConnected.
+     * 
+     * Closes the current connection and resets the retry timer to allow 
+     * an immediate attempt if desired.
      */
     void forceReconnect(uint32_t now_ms) {
         client_.close();
