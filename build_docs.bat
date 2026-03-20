@@ -14,11 +14,13 @@ doxygen Doxyfile
 
 if %errorlevel% equ 0 (
     echo ===================================================
-    echo [SUCCESS] Documentation generated at: docs/doxygen/html/index.html
+    copy /y docsrc\index.html docs\index.html >nul
+echo [SUCCESS] Documentation generated at: docs/doxygen/html/index.html
     echo ===================================================
 ) else (
     echo [ERROR] Doxygen generation failed.
 )
 
 endlocal
+
 
