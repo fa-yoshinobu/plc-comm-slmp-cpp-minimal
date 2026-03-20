@@ -1,8 +1,6 @@
 var searchData=
 [
-  ['passive_20profile_20recommendation_0',['Passive Profile Recommendation',['../index.html#autotoc_md11',1,'']]],
-  ['pc_20console_20recommended_20first_20test_1',['PC Console (Recommended First Test)',['../index.html#autotoc_md9',1,'']]],
-  ['picks_2',['Quick Picks',['../dir_d28a4824dc47e487b107a5db32ef43c4.html#autotoc_md4',1,'']]],
-  ['plc_20device_20codes_3',['Device Support (PLC Device Codes)',['../index.html#autotoc_md12',1,'']]],
-  ['profile_20recommendation_4',['Passive Profile Recommendation',['../index.html#autotoc_md11',1,'']]]
+  ['quality_20checks_0',['Quality Checks',['../index.html#autotoc_md14',1,'']]],
+  ['quick_20picks_1',['Quick Picks',['../dir_d28a4824dc47e487b107a5db32ef43c4.html#autotoc_md3',1,'']]],
+  ['quick_20start_2',['Quick Start',['../index.html#autotoc_md6',1,'']]]
 ];

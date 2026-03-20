@@ -25,7 +25,6 @@
 var NAVTREE =
 [
   [ "SLMP Minimal C++", "index.html", [
-    [ "(Mitsubishi MELSEC) SLMP C++ Minimal", "index.html", "index" ],
     [ "Topics", "topics.html", "topics" ],
     [ "Namespaces", "namespaces.html", [
       [ "Namespace List", "namespaces.html", "namespaces_dup" ],
@@ -61,10 +60,10 @@ var NAVTREEINDEX =
 [
 "annotated.html",
 "functions_o.html",
-"namespaceatom__matrix__serial__console.html#aa0516918be634dbdc31a1c48bea76211",
-"namespaceslmp__wifi__serial__console.html#a5aff47c03cbefd119b138c22d3bf1093",
-"namespacew6300__evb__pico2__serial__console.html#a96d7820da47d005308c8c53fdd42ff2e",
-"structatom__matrix__serial__console_1_1_reconnect_session.html#a0e6c5806eb5af25b6caa8d4c1abea169",
+"namespaceatom__matrix__serial__console.html#aa25acec868b18bb2d307374e8dea1fbf",
+"namespaceslmp__wifi__serial__console.html#a5b8e5bac6e3021b07d2637784a7f1116",
+"namespacew6300__evb__pico2__serial__console.html#a971d2080fc72cce34382ad050eac4d42",
+"structatom__matrix__serial__console_1_1_reconnect_session.html#a1745a3bb535b8a586bef2ea84381258e",
 "structw6300__evb__pico2__serial__console_1_1_reconnect_session.html#a84c12462eff896bc778d80713b386a9d"
 ];
 

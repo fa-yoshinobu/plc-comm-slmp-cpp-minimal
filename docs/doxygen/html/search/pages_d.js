@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['test_0',['PC Console (Recommended First Test)',['../index.html#autotoc_md9',1,'']]]
+  ['usage_0',['Usage',['../classslmp_1_1_reconnect_helper.html#autotoc_md2',1,'Example Usage'],['../index.html#autotoc_md8',1,'Minimal Firmware Usage']]],
+  ['usage_20example_1',['Usage Example',['../classslmp_1_1_slmp_client.html#autotoc_md1',1,'Asynchronous Usage Example'],['../classslmp_1_1_slmp_client.html#autotoc_md0',1,'Synchronous Usage Example']]],
+  ['use_20cases_2',['Use Cases',['../index.html#autotoc_md11',1,'']]]
 ];

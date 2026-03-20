@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.16.1"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>SLMP Minimal C++: (Mitsubishi MELSEC) SLMP C++ Minimal</title>
+<title>SLMP Minimal C++: SLMP Minimal C++</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -89,14 +89,15 @@ $(function(){initNavTree('index.html','',''); });
 </div>
 
 <div><div class="header">
-  <div class="headertitle"><div class="title">(Mitsubishi MELSEC) SLMP C++ Minimal </div></div>
+  <div class="headertitle"><div class="title">SLMP Minimal C++ </div></div>
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><p><a class="anchor" id="md__r_e_a_d_m_e"></a></p>
+<p><a href="https://fa-yoshinobu.github.io/plc-comm-slmp-cpp-minimal/"><img src="https://img.shields.io/badge/docs-GitHub_Pages-blue.svg" alt="Documentation" style="pointer-events: none;" class="inline"/></a></p>
 <p><a href="https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal/releases/latest"><img src="https://img.shields.io/github/v/release/fa-yoshinobu/plc-comm-slmp-cpp-minimal?label=release" alt="Release" class="inline"/></a> <a href="https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/fa-yoshinobu/plc-comm-slmp-cpp-minimal/ci.yml?branch=main&amp;label=CI&amp;logo=github" alt="CI" class="inline"/></a> [<img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" style="pointer-events: none;" class="inline"/>](LICENSE) <a href="https://docs.platformio.org/en/latest/plus/pio-check.html"><img src="https://img.shields.io/badge/Lint-PIO%20Check-blue.svg" alt="Static Analysis: PlatformIO Check" style="pointer-events: none;" class="inline"/></a></p>
 <p>A lightweight, microcontroller-oriented C++ library for Mitsubishi SLMP (Seamless Message Protocol). Optimized for Arduino-compatible Wi-Fi and Ethernet targets with zero dynamic allocation.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md7"></a>
-Key Features</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md5"></a>
+Key Features</h2>
 <ul>
 <li><b>Embedded Optimized</b>: No dynamic memory allocation (<span class="tt">malloc</span>/<span class="tt">new</span>). Predictable RAM usage.</li>
 <li><b>Async Support</b>: Built-in state machine for non-blocking communication.</li>
@@ -105,15 +106,15 @@ Key Features</h1>
 <li><b>CI-Ready</b>: Host-side G++ testing and size regression monitoring.</li>
 <li><b>Maintained Samples</b>: Full serial consoles for M5Stack Atom Matrix and W6300-EVB-Pico2.</li>
 </ul>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md8"></a>
-Quick Start</h1>
-<h2 class="doxsection"><a class="anchor" id="autotoc_md9"></a>
-PC Console (Recommended First Test)</h2>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md6"></a>
+Quick Start</h2>
+<h3 class="doxsection"><a class="anchor" id="autotoc_md7"></a>
+PC Console (Recommended First Test)</h3>
 <div class="fragment"><div class="line">python scripts/w6300_console_cli.py --list-ports</div>
 <div class="line">python scripts/w6300_console_cli.py --port COM6 --auto</div>
 </div><!-- fragment --><p>The <span class="tt">--auto</span> sequence verifies connectivity and runs a small command sweep.</p>
-<h2 class="doxsection"><a class="anchor" id="autotoc_md10"></a>
-Minimal Firmware Usage</h2>
+<h3 class="doxsection"><a class="anchor" id="autotoc_md8"></a>
+Minimal Firmware Usage</h3>
 <div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="slmp__arduino__transport_8h.html">slmp_arduino_transport.h</a>&gt;</span></div>
 <div class="line"> </div>
 <div class="line">WiFiClient tcp;</div>
@@ -134,8 +135,8 @@ Minimal Firmware Usage</h2>
 <div class="ttc" id="aclassslmp_1_1_slmp_client_html_a6536f4ffee349ebc041de507f62c8ba7"><div class="ttname"><a href="classslmp_1_1_slmp_client.html#a6536f4ffee349ebc041de507f62c8ba7">slmp::SlmpClient::connect</a></div><div class="ttdeci">bool connect(const char *host, uint16_t port)</div><div class="ttdoc">Connect transport to the specified PLC.</div><div class="ttdef"><b>Definition</b> <a href="slmp__minimal_8cpp_source.html#l00457">slmp_minimal.cpp:457</a></div></div>
 <div class="ttc" id="aslmp__arduino__transport_8h_html"><div class="ttname"><a href="slmp__arduino__transport_8h.html">slmp_arduino_transport.h</a></div><div class="ttdoc">Arduino-specific transport implementations for SLMP.</div></div>
 <div class="ttc" id="astructslmp_1_1_type_name_info_html"><div class="ttname"><a href="structslmp_1_1_type_name_info.html">slmp::TypeNameInfo</a></div><div class="ttdoc">PLC model and hardware information.</div><div class="ttdef"><b>Definition</b> <a href="slmp__minimal_8h_source.html#l00271">slmp_minimal.h:271</a></div></div>
-</div><!-- fragment --><h2 class="doxsection"><a class="anchor" id="autotoc_md11"></a>
-Passive Profile Recommendation</h2>
+</div><!-- fragment --><h3 class="doxsection"><a class="anchor" id="autotoc_md9"></a>
+Passive Profile Recommendation</h3>
 <p>If <span class="tt">readTypeName()</span> succeeds, you can derive a lightweight default profile from the returned model information:</p>
 <div class="fragment"><div class="line"><a class="code hl_struct" href="structslmp_1_1_type_name_info.html">slmp::TypeNameInfo</a> info = {};</div>
 <div class="line"><span class="keywordflow">if</span> (plc.<a class="code hl_function" href="classslmp_1_1_slmp_client.html#a05c45dbf0acafa6221a236a00cfa9e9d">readTypeName</a>(info) == <a class="code hl_enumvalue" href="group___s_l_m_p___core.html#ggaf5303f40fbe1fe48112db91b1f7a7acfaa60852f204ed8028c1c58808b746d115">slmp::Error::Ok</a>) {</div>
@@ -149,8 +150,8 @@ Passive Profile Recommendation</h2>
 <div class="ttc" id="agroup___s_l_m_p___utils_html_ga1f6e29e9efff03767062b76f09b43598"><div class="ttname"><a href="group___s_l_m_p___utils.html#ga1f6e29e9efff03767062b76f09b43598">slmp::recommendProfile</a></div><div class="ttdeci">ProfileRecommendation recommendProfile(const TypeNameInfo &amp;type_name)</div><div class="ttdoc">Automatically recommend protocol profile based on TypeNameInfo.</div><div class="ttdef"><b>Definition</b> <a href="slmp__minimal_8cpp_source.html#l02188">slmp_minimal.cpp:2188</a></div></div>
 <div class="ttc" id="astructslmp_1_1_profile_recommendation_html"><div class="ttname"><a href="structslmp_1_1_profile_recommendation.html">slmp::ProfileRecommendation</a></div><div class="ttdoc">Recommended protocol settings based on PLC model.</div><div class="ttdef"><b>Definition</b> <a href="slmp__minimal_8h_source.html#l00281">slmp_minimal.h:281</a></div></div>
 <div class="ttc" id="astructslmp_1_1_profile_recommendation_html_a8b9773ca3159c26a15e49a321ebb4248"><div class="ttname"><a href="structslmp_1_1_profile_recommendation.html#a8b9773ca3159c26a15e49a321ebb4248">slmp::ProfileRecommendation::confident</a></div><div class="ttdeci">bool confident</div><div class="ttdoc">True if recommendation is based on exact match.</div><div class="ttdef"><b>Definition</b> <a href="slmp__minimal_8h_source.html#l00285">slmp_minimal.h:285</a></div></div>
-</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md12"></a>
-Device Support (PLC Device Codes)</h1>
+</div><!-- fragment --><h2 class="doxsection"><a class="anchor" id="autotoc_md10"></a>
+Device Support (PLC Device Codes)</h2>
 <p>This minimal client focuses on direct device access. Actual availability depends on PLC model, firmware, and access settings.</p>
 <table class="markdownTable">
 <tr class="markdownTableHead">
@@ -162,15 +163,15 @@ Device Support (PLC Device Codes)</h1>
 <tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone">Not supported (direct API)  </td><td class="markdownTableBodyNone">S, Z, LZ, RD, LTS/LTC/LTN, LSTS/LSTC/LSTN, LCS/LCC/LCN, G/HG, <span class="tt">Jn\\Xn</span>  </td><td class="markdownTableBodyNone">Not supported  </td><td class="markdownTableBodyNone">Appendix 1 and linked direct devices are not implemented in the minimal library.  </td></tr>
 </table>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md13"></a>
-Use Cases</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md11"></a>
+Use Cases</h2>
 <ul>
 <li>Edge devices that must read PLC signals with tight RAM/CPU budgets.</li>
 <li>Wi-Fi/Ethernet MCU gateways bridging SLMP data to MQTT/HTTP.</li>
 <li>Plant-floor test rigs that run the PC console CLI for quick verification.</li>
 </ul>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md14"></a>
-Documentation</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md12"></a>
+Documentation</h2>
 <p>Follows the workspace-wide hierarchical documentation policy:</p>
 <ul>
 <li><b>Setup Guide</b>: Installation for Arduino/PlatformIO and hardware setup.</li>
@@ -179,21 +180,21 @@ Documentation</h1>
 <li><a href="docsrc/validation/reports/"><b>QA Reports</b></a>: Formal evidence of communication with Mitsubishi hardware.</li>
 <li><b>Developer Notes</b>: Metrics, host-testing, and internal design.</li>
 </ul>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md15"></a>
-Development &amp; CI</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md13"></a>
+Development &amp; CI</h2>
 <p>Quality is managed via <span class="tt">run_ci.bat</span>.</p>
-<h2 class="doxsection"><a class="anchor" id="autotoc_md16"></a>
-Quality Checks</h2>
+<h3 class="doxsection"><a class="anchor" id="autotoc_md14"></a>
+Quality Checks</h3>
 <ul>
 <li><b>Building</b>: <span class="tt">pio run</span></li>
 <li><b>Static Analysis</b>: <span class="tt">pio check</span> (cppcheck / clang-tidy)</li>
 <li><b>Host Testing</b>: G++ tests for protocol logic.</li>
 </ul>
-<h2 class="doxsection"><a class="anchor" id="autotoc_md17"></a>
-Local CI Run</h2>
+<h3 class="doxsection"><a class="anchor" id="autotoc_md15"></a>
+Local CI Run</h3>
 <div class="fragment"><div class="line">run_ci.bat</div>
-</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md18"></a>
-License</h1>
+</div><!-- fragment --><h2 class="doxsection"><a class="anchor" id="autotoc_md16"></a>
+License</h2>
 <p>Distributed under the [MIT License](LICENSE). </p>
 </div></div><!-- PageDoc -->
 <a href="doxygen_crawl.html"></a>
