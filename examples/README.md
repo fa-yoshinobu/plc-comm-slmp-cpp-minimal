@@ -1,4 +1,5 @@
-# Example Index
+
+[![Documentation](https://img.shields.io/badge/docs-GitHub_Pages-blue.svg)](https://fa-yoshinobu.github.io/examples/)
 
 Use this file as the quick "which sketch should I start from?" guide.
 
@@ -24,4 +25,6 @@ Suggested order:
 
 - [../README.md](../README.md): install, quick start, board-by-board overview, memory notes
 - [../docsrc/user/TROUBLESHOOTING.md](../docsrc/user/TROUBLESHOOTING.md): network, buffer, and frame-dump troubleshooting
+
+
 
