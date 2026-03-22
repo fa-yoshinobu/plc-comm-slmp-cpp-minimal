@@ -19,18 +19,17 @@ echo [1/2] Building Project (pio run)...
 pio run
 if %errorlevel% neq 0 (
     echo [ERROR] Build failed.
-    pause & exit /b %errorlevel%
+    exit /b %errorlevel%
 )
 
 echo [2/2] Running Static Analysis (pio check)...
 pio check
 if %errorlevel% neq 0 (
     echo [ERROR] Static analysis found issues.
-    pause & exit /b %errorlevel%
+    exit /b %errorlevel%
 )
 
 echo ===================================================
 echo [SUCCESS] All C++ CI checks passed!
 echo ===================================================
-pause
 endlocal
