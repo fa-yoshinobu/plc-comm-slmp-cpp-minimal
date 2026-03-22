@@ -61,7 +61,7 @@ jobs:
           gcovr --root . --filter src --html-details coverage.html
       - name: Publish coverage summary
         run: cat coverage-summary.txt >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: host-coverage
           path: |
@@ -82,7 +82,7 @@ jobs:
         run: python scripts/size_report.py --project-dir . --baseline scripts/size_baseline.json --pio pio --markdown-out size-report.md --json-out size-report.json
       - name: Publish size summary
         run: cat size-report.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: size-report
           path: |
