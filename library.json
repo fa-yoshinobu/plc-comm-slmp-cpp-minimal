@@ -1,0 +1,78 @@
+{
+  "name": "slmp-connect-cpp-minimal",
+  "version": "0.4.1",
+  "description": "Compact SLMP binary client for Arduino-compatible TCP and UDP transports with fixed caller-owned buffers.",
+  "keywords": [
+    "slmp",
+    "melsec",
+    "plc",
+    "arduino",
+    "tcp",
+    "udp",
+    "wifi",
+    "ethernet",
+    "embedded"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal.git"
+  },
+  "authors": [
+    {
+      "name": "fa-yoshinobu",
+      "maintainer": true
+    }
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal",
+  "frameworks": [
+    "arduino"
+  ],
+  "platforms": [
+    "espressif32",
+    "raspberrypi"
+  ],
+  "headers": [
+    "slmp_minimal.h",
+    "slmp_high_level.h",
+    "slmp_arduino_transport.h"
+  ],
+  "export": {
+    "exclude": [
+      ".github",
+      ".pio",
+      ".platformio-home",
+      ".vscode",
+      "AGENTS.md",
+      "TODO.md",
+      "docsrc",
+      "docs",
+      "docs/maintainer",
+      "docs/validation",
+      "internal_docs",
+      "local_folder",
+      "platformio",
+      "release-artifacts",
+      "scripts",
+      "tests",
+      "*.bat",
+      "*.tar.gz",
+      "*.tgz",
+      "MEMO.md",
+      "REVIEW_*.md",
+      "WORK_LOG_*.md",
+      "*.gcda",
+      "*.gcno",
+      "coverage-summary.txt",
+      "coverage.xml",
+      "coverage.html",
+      "release-notes.md",
+      "size-report.md",
+      "size-report.json"
+    ]
+  }
+}
+
+
+
+

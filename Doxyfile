@@ -1,0 +1,49 @@
+# Doxyfile for SLMP Minimal C++
+PROJECT_NAME           = "SLMP Minimal C++"
+PROJECT_NUMBER         = "0.4.1"
+PROJECT_BRIEF          = "Ultra-lightweight SLMP (MC Protocol) Client for Embedded C++"
+
+# Output configuration
+OUTPUT_DIRECTORY       = docs/doxygen
+OUTPUT_LANGUAGE        = English
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+GENERATE_RTF           = NO
+
+# Input configuration
+INPUT                  = src \
+                         examples \
+                         README.md
+EXCLUDE_PATTERNS       = */internal_docs/* \
+                         */maintainer/* \
+                         */validation/*
+FILE_PATTERNS          = *.cpp \
+                         *.h \
+                         *.hpp \
+                         *.ino \
+                         *.md
+RECURSIVE              = YES
+USE_MDFILE_AS_MAINPAGE = README.md
+
+# Extraction settings
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+SHOW_INCLUDE_FILES     = YES
+
+# Built-in customization
+HTML_EXTRA_STYLESHEET  = 
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+FULL_PATH_NAMES        = NO
+
+# Source browsing
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+STRIP_CODE_COMMENTS    = NO
+
+# Preprocessor
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+SEARCH_INCLUDES        = YES
+

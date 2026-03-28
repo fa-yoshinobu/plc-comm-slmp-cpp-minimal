@@ -1,0 +1,28 @@
+var searchData=
+[
+  ['d_0',['D',['../namespaceslmp_1_1dev.html#a8b70bb86034febf874e7f54acb8fbd4b',1,'slmp::dev::D()'],['../group___s_l_m_p___devices.html#ggaa263202128d36069394170b3ec9e024eaf623e75af30e62bbd73d6df5b50bb7b5',1,'slmp::D']]],
+  ['data_1',['data',['../structslmp_1_1_label_array_read_result.html#a063ea86ef7a62d6c9d7eb73d1f3d9f5f',1,'slmp::LabelArrayReadResult::data'],['../structslmp_1_1_label_array_write_point.html#aeb63c542af7c6198420b37ad0cbaa799',1,'slmp::LabelArrayWritePoint::data'],['../structslmp_1_1_label_random_read_result.html#aa36d9c39485ef1b06a745cec03ee2240',1,'slmp::LabelRandomReadResult::data'],['../structslmp_1_1_label_random_write_point.html#afc0131cb3b2795f9edea7c4c2ed19255',1,'slmp::LabelRandomWritePoint::data']]],
+  ['data_5fbytes_2',['data_bytes',['../structslmp_1_1_label_array_read_result.html#afed83a13596b0962c0e29b651120fbd0',1,'slmp::LabelArrayReadResult::data_bytes'],['../structslmp_1_1_label_array_write_point.html#a7ed47d28d83731bcce2636bb20651f19',1,'slmp::LabelArrayWritePoint::data_bytes'],['../structslmp_1_1_label_random_write_point.html#a2f68d95d5e9bbc687097ca79365fff6f',1,'slmp::LabelRandomWritePoint::data_bytes']]],
+  ['dec_3',['dec',['../namespaceslmp_1_1dev.html#aabc0a6c65975edd52410318f4d06188f',1,'slmp::dev']]],
+  ['decno_4',['DecNo',['../structslmp_1_1dev_1_1_dec_no.html',1,'slmp::dev']]],
+  ['definition_5',['Device Definition',['../group___s_l_m_p___devices.html',1,'']]],
+  ['design_20philosophy_6',['Design Philosophy',['../index.html#autotoc_md11',1,'']]],
+  ['dev_5fno_7',['dev_no',['../structslmp_1_1_ext_device_spec.html#a4e894bcac2878cbbad852505d44c5c65',1,'slmp::ExtDeviceSpec']]],
+  ['development_20ci_8',['Development &amp;amp; CI',['../index.html#autotoc_md26',1,'']]],
+  ['device_9',['device',['../structslmp_1_1highlevel_1_1_address_spec.html#a14c5dc2cf0394668b2fac587b85ba4fe',1,'slmp::highlevel::AddressSpec::device'],['../structslmp_1_1_device_block_read.html#a878085e56ab2429299eacac865884515',1,'slmp::DeviceBlockRead::device'],['../structslmp_1_1_device_block_write.html#ae75f3d00af6ae14432e6f537773ba75b',1,'slmp::DeviceBlockWrite::device']]],
+  ['device_20codes_10',['Device Support (PLC Device Codes)',['../index.html#autotoc_md22',1,'']]],
+  ['device_20definition_11',['Device Definition',['../group___s_l_m_p___devices.html',1,'']]],
+  ['device_20support_20plc_20device_20codes_12',['Device Support (PLC Device Codes)',['../index.html#autotoc_md22',1,'']]],
+  ['deviceaddress_13',['DeviceAddress',['../structslmp_1_1_device_address.html',1,'slmp']]],
+  ['deviceblockread_14',['DeviceBlockRead',['../structslmp_1_1_device_block_read.html',1,'slmp']]],
+  ['deviceblockwrite_15',['DeviceBlockWrite',['../structslmp_1_1_device_block_write.html',1,'slmp']]],
+  ['devicecode_16',['DeviceCode',['../group___s_l_m_p___devices.html#gaa263202128d36069394170b3ec9e024e',1,'slmp']]],
+  ['devkitc_20size_20comparison_20samples_17',['ESP32-DevKitC Size Comparison Samples',['../index.html#autotoc_md14',1,'']]],
+  ['docs_18',['Related Docs',['../dir_d28a4824dc47e487b107a5db32ef43c4.html#autotoc_md9',1,'']]],
+  ['documentation_19',['Documentation',['../index.html#autotoc_md24',1,'']]],
+  ['dt_5fid_20',['dt_id',['../structslmp_1_1_label_array_read_result.html#a1284baac1834d9ba24fc76c2120faf61',1,'slmp::LabelArrayReadResult::dt_id'],['../structslmp_1_1_label_random_read_result.html#a47e0ec3c826e0478211da39e489d7e70',1,'slmp::LabelRandomReadResult::dt_id']]],
+  ['dword_21',['Dword',['../group___s_l_m_p___high_level.html#ggaacc025f347ed3edcd039af929e383ffea7bc8da6f76557940afbe9761ca2e0864',1,'slmp::highlevel']]],
+  ['dword_5fdevices_22',['dword_devices',['../structslmp_1_1highlevel_1_1_read_plan.html#a64fb641bb63f9676a03fd16c2a89783b',1,'slmp::highlevel::ReadPlan']]],
+  ['dx_23',['DX',['../namespaceslmp_1_1dev.html#a758726ee049487d51911a8685a784792',1,'slmp::dev::DX()'],['../group___s_l_m_p___devices.html#ggaa263202128d36069394170b3ec9e024ea72a530b2433264cef373d8fcca5662c1',1,'slmp::DX']]],
+  ['dy_24',['DY',['../namespaceslmp_1_1dev.html#aebba6ef82776facc203f6741a11805ce',1,'slmp::dev::DY()'],['../group___s_l_m_p___devices.html#ggaa263202128d36069394170b3ec9e024ea8e33631037901075c85616c9b60441e4',1,'slmp::DY']]]
+];
