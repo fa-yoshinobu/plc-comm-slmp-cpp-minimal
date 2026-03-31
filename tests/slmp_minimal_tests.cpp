@@ -1632,6 +1632,68 @@ void testHighLevelParserAndTypedHelpers() {
     }
 }
 
+void testHighLevelAddressFormatting() {
+    {
+        char normalized[32] = {};
+        assert(slmp::highlevel::normalizeAddress(" d200:f ", normalized, sizeof(normalized)) == slmp::Error::Ok);
+        assert(std::string(normalized) == "D200:F");
+    }
+
+    {
+        char normalized[32] = {};
+        assert(slmp::highlevel::normalizeAddress(" x1a ", normalized, sizeof(normalized)) == slmp::Error::Ok);
+        assert(std::string(normalized) == "X1A");
+    }
+
+    {
+        char normalized[32] = {};
+        assert(slmp::highlevel::normalizeAddress("d50.a", normalized, sizeof(normalized)) == slmp::Error::Ok);
+        assert(std::string(normalized) == "D50.A");
+    }
+
+    {
+        slmp::highlevel::AddressSpec spec{};
+        assert(slmp::highlevel::parseAddressSpec("RD100:D", spec) == slmp::Error::Ok);
+        char formatted[32] = {};
+        assert(slmp::highlevel::formatAddressSpec(spec, formatted, sizeof(formatted)) == slmp::Error::Ok);
+        assert(std::string(formatted) == "RD100:D");
+    }
+
+    {
+        slmp::highlevel::AddressSpec spec{};
+        spec.device = slmp::dev::M(slmp::dev::dec(1000));
+        spec.type = slmp::highlevel::ValueType::Bit;
+        spec.explicit_type = true;
+        char formatted[32] = {};
+        assert(slmp::highlevel::formatAddressSpec(spec, formatted, sizeof(formatted)) == slmp::Error::Ok);
+        assert(std::string(formatted) == "M1000:BIT");
+    }
+
+    {
+        slmp::highlevel::AddressSpec spec{};
+        spec.device = slmp::dev::D(slmp::dev::dec(50));
+        spec.type = slmp::highlevel::ValueType::Bit;
+        spec.bit_index = 10;
+        char formatted[32] = {};
+        assert(slmp::highlevel::formatAddressSpec(spec, formatted, sizeof(formatted)) == slmp::Error::Ok);
+        assert(std::string(formatted) == "D50.A");
+    }
+
+    {
+        char normalized[6] = {};
+        assert(slmp::highlevel::normalizeAddress("D200:F", normalized, sizeof(normalized)) == slmp::Error::BufferTooSmall);
+    }
+
+    {
+        slmp::highlevel::AddressSpec invalid{};
+        invalid.device = slmp::dev::M(slmp::dev::dec(100));
+        invalid.type = slmp::highlevel::ValueType::Bit;
+        invalid.bit_index = 1;
+        char formatted[32] = {};
+        assert(slmp::highlevel::formatAddressSpec(invalid, formatted, sizeof(formatted)) == slmp::Error::InvalidArgument);
+    }
+}
+
 void testHighLevelNamedReadAndPoller() {
     MockTransport transport;
     uint8_t tx_buffer[256] = {};
@@ -1717,6 +1779,7 @@ int main() {
     testAsyncRemoteControl();
     testAsyncSelfTestAndClearError();
     testHighLevelParserAndTypedHelpers();
+    testHighLevelAddressFormatting();
     testHighLevelNamedReadAndPoller();
     std::puts("slmp_minimal_tests: ok");
     return 0;

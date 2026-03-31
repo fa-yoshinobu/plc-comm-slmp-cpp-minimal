@@ -68,6 +68,8 @@ It demonstrates:
 - `writeNamed`
 - `Poller`
 - `parseAddressSpec`
+- `normalizeAddress`
+- `formatAddressSpec`
 
 It is intentionally small and compile-checked so you can copy it into a host or firmware project with minimal cleanup.
 

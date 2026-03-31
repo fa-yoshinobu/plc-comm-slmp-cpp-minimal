@@ -17,7 +17,7 @@ This file tracks the remaining tasks and issues for the SLMP C++ Minimal library
 ## 5. Cross-Stack API Alignment
 - [x] **Keep the optional high-level facade aligned by concept**: The public helper vocabulary now stays centered on `readTyped`, `writeTyped`, `writeBitInWord`, `readNamed`, and the reusable poll-plan flow.
 - [x] **Keep the minimal core minimal**: The user-facing helper layer remains in `slmp_high_level.h`; `slmp_minimal.h` stays buffer-oriented and allocation-free.
-- [ ] **Expose lightweight device parse/format helpers**: `parseAddressSpec()` is public now, but a lightweight public normalize/format helper is still worth adding so application code can round-trip user-facing addresses without duplicating tables.
-- [ ] **Keep semantic-boundary rules explicit**: Continue documenting that typed and named helpers preserve logical-value semantics by default, and that segmentation belongs only to explicit chunked APIs or protocol-defined boundaries.
+- [x] **Expose lightweight device parse/format helpers**: `normalizeAddress()` and `formatAddressSpec()` now round-trip user-facing addresses into one canonical uppercase spelling without forcing application code to duplicate device tables.
+- [x] **Keep semantic-boundary rules explicit**: README, usage guide, examples, and header comments now keep the rule explicit that typed and named helpers preserve logical-value semantics, while segmentation belongs only to explicit chunked APIs or protocol-defined boundaries.
 
 

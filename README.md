@@ -154,7 +154,7 @@ For application code, the recommended order is:
 5. Drop to `slmp_minimal.h` only when you need direct frame-level control, manual async state machines, or specialized embedded integration.
 
 Automatic profile probing is intentionally not part of the current API surface. Choose frame and compatibility mode explicitly for the target PLC.
-Use `parseAddressSpec()` when your application needs to validate or classify a user-provided high-level address before read/write.
+Use `parseAddressSpec()` when your application needs to validate or classify a user-provided high-level address before read/write, and use `normalizeAddress()` or `formatAddressSpec()` when you want one canonical uppercase spelling for storage or logging.
 
 ### High-Level Address Forms
 
@@ -202,6 +202,13 @@ slmp::highlevel::readWordsChunked(plc, "D1000", 1200, words, 960, true);
 ```
 
 Chunked helpers are explicit opt-in. Typed helpers, named snapshots, and other logical-value APIs do not silently change one caller-visible value into a different fallback request shape.
+
+```cpp
+char normalized[32] = {};
+if (slmp::highlevel::normalizeAddress(" d200:f ", normalized, sizeof(normalized)) == slmp::Error::Ok) {
+    // normalized -> "D200:F"
+}
+```
 
 ## Device Support (PLC Device Codes)
 

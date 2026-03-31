@@ -130,6 +130,13 @@ static const DeviceMeta* findDeviceMeta(const std::string& upper_text, std::stri
     return nullptr;
 }
 
+static const DeviceMeta* findDeviceMetaByCode(DeviceCode code) {
+    for (size_t i = 0; i < sizeof(kDeviceMetas) / sizeof(kDeviceMetas[0]); ++i) {
+        if (kDeviceMetas[i].code == code) return &kDeviceMetas[i];
+    }
+    return nullptr;
+}
+
 static Error parseDeviceOnly(const char* text, DeviceAddress& out, const DeviceMeta** out_meta = nullptr) {
     const std::string trimmed = trimAscii(text);
     if (trimmed.empty()) return Error::InvalidArgument;
@@ -246,6 +253,45 @@ static bool parseTypeText(const std::string& text, ValueType& out) {
         return true;
     }
     return false;
+}
+
+static const char* valueTypeSuffix(ValueType type) {
+    switch (type) {
+        case ValueType::Bit:
+            return "BIT";
+        case ValueType::U16:
+            return "U";
+        case ValueType::S16:
+            return "S";
+        case ValueType::U32:
+            return "D";
+        case ValueType::S32:
+            return "L";
+        case ValueType::Float32:
+            return "F";
+        default:
+            return nullptr;
+    }
+}
+
+static void appendUnsignedText(std::string& out, uint32_t value, uint8_t radix) {
+    char scratch[16] = {};
+    size_t length = 0U;
+    do {
+        const uint32_t digit = value % radix;
+        scratch[length++] = "0123456789ABCDEF"[digit];
+        value /= radix;
+    } while (value != 0U);
+    while (length > 0U) {
+        out.push_back(scratch[--length]);
+    }
+}
+
+static Error copyTextToBuffer(const std::string& text, char* out, size_t out_size) {
+    if (out == nullptr || out_size == 0U) return Error::InvalidArgument;
+    if (text.size() + 1U > out_size) return Error::BufferTooSmall;
+    memcpy(out, text.c_str(), text.size() + 1U);
+    return Error::Ok;
 }
 
 static Value decodeWordValue(uint16_t raw, ValueType type) {
@@ -474,6 +520,47 @@ Error parseAddressSpec(const char* address, AddressSpec& out) {
     out.bit_index = -1;
     out.explicit_type = false;
     return Error::Ok;
+}
+
+Error formatAddressSpec(const AddressSpec& spec, char* out, size_t out_size) {
+    const DeviceMeta* meta = findDeviceMetaByCode(spec.device.code);
+    if (meta == nullptr) return Error::UnsupportedDevice;
+    if (spec.bit_index < -1 || spec.bit_index > 15) return Error::InvalidArgument;
+
+    if (spec.bit_index >= 0) {
+        if (meta->bit_unit || spec.type != ValueType::Bit) return Error::InvalidArgument;
+    } else {
+        ValueType normalized_type = spec.type;
+        if (!normalizeRequestedType(*meta, normalized_type)) return Error::InvalidArgument;
+        if (normalized_type != spec.type) return Error::InvalidArgument;
+        if (!validateLongReadType(spec.device.code, spec.type)) return Error::InvalidArgument;
+    }
+
+    std::string formatted(meta->name);
+    appendUnsignedText(formatted, spec.device.number, meta->radix);
+
+    if (spec.bit_index >= 0) {
+        formatted.push_back('.');
+        appendUnsignedText(formatted, static_cast<uint32_t>(spec.bit_index), 16U);
+        return copyTextToBuffer(formatted, out, out_size);
+    }
+
+    const ValueType default_type = defaultValueType(*meta);
+    if (spec.explicit_type || spec.type != default_type) {
+        const char* suffix = valueTypeSuffix(spec.type);
+        if (suffix == nullptr) return Error::InvalidArgument;
+        formatted.push_back(':');
+        formatted += suffix;
+    }
+
+    return copyTextToBuffer(formatted, out, out_size);
+}
+
+Error normalizeAddress(const char* address, char* out, size_t out_size) {
+    AddressSpec spec{};
+    const Error err = parseAddressSpec(address, spec);
+    if (err != Error::Ok) return err;
+    return formatAddressSpec(spec, out, out_size);
 }
 
 Error readTyped(SlmpClient& client, const char* device, const char* dtype, Value& out) {

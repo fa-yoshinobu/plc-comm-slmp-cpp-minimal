@@ -99,6 +99,34 @@ The class-level naming policy should also stay aligned:
 
 - `slmp::SlmpClient` <-> `SlmpClient`
 
+## Address Helper Rules
+
+The high-level helper layer may expose string address utilities when the goal is
+canonical parsing or formatting, not hidden transport behavior.
+
+Public helper names:
+
+- `parseAddressSpec`
+- `normalizeAddress`
+- `formatAddressSpec`
+
+Rules:
+
+- `normalizeAddress` must return one canonical uppercase spelling.
+- `formatAddressSpec` must round-trip a parsed address without inventing a different logical request shape.
+- Address helpers must stay allocation-free for caller-owned buffers.
+
+## Request-Splitting Rules
+
+When a helper cannot preserve one caller-visible logical request, it must not
+silently change semantics.
+
+Rules:
+
+- typed or named helpers must not silently fall back to chunked behavior
+- protocol-defined boundaries are allowed only when they preserve logical value boundaries
+- any future chunked helper must use an explicit name such as `readWordsChunked`
+- fallback split retry with different semantics is not the default behavior
 ## Internal Naming Rules
 
 The embedded core may keep short internal names when the scope is narrow and protocol-local.

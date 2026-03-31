@@ -73,6 +73,7 @@ Important notes:
 - the optional high-level layer uses `std::string` and `std::vector`
 - the core client in `slmp_minimal.h` stays fixed-buffer and allocation-free
 - `parseAddressSpec()` is public when application code needs to validate or classify a user-facing address string before read/write
+- `normalizeAddress()` and `formatAddressSpec()` are public when application code wants one canonical uppercase spelling for storage, cache keys, or logs
 - chunked helpers are explicit opt-in; typed and named helpers preserve one logical value or one logical address item by default instead of silently retrying with different semantics
 
 ### Address Syntax Cheat Sheet
@@ -99,6 +100,22 @@ Direct bit devices should be addressed directly. `.bit` is reserved for word dev
 slmp::highlevel::writeTyped(plc, "D100", slmp::highlevel::Value::u16Value(321));
 slmp::highlevel::writeTyped(plc, "D200:F", slmp::highlevel::Value::float32Value(12.5f));
 slmp::highlevel::writeTyped(plc, "D50.3", slmp::highlevel::Value::bitValue(true));
+```
+
+### Address Normalize / Format Example
+
+```cpp
+char normalized[32] = {};
+if (slmp::highlevel::normalizeAddress(" x1a ", normalized, sizeof(normalized)) == slmp::Error::Ok) {
+    // normalized -> "X1A"
+}
+
+slmp::highlevel::AddressSpec spec{};
+if (slmp::highlevel::parseAddressSpec("D200:F", spec) == slmp::Error::Ok) {
+    char formatted[32] = {};
+    slmp::highlevel::formatAddressSpec(spec, formatted, sizeof(formatted));
+    // formatted -> "D200:F"
+}
 ```
 
 ### High-Level Mixed Snapshot Example

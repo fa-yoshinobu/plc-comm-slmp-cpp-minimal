@@ -228,6 +228,46 @@ using Snapshot = std::vector<NamedValue>;
 Error parseAddressSpec(const char* address, AddressSpec& out);
 
 /**
+ * @brief Format one parsed high-level address into canonical uppercase text.
+ *
+ * The formatted result uses Mitsubishi numbering rules for the target device
+ * family and preserves explicit dtype suffixes when the address needs them to
+ * round-trip one logical value.
+ *
+ * Examples:
+ * - `D100`
+ * - `D200:F`
+ * - `D50.A`
+ * - `X1A`
+ *
+ * @param spec Parsed address specification to format.
+ * @param out Caller-provided destination buffer.
+ * @param out_size Destination buffer size in bytes.
+ * @return @ref Error::Ok on success.
+ */
+Error formatAddressSpec(const AddressSpec& spec, char* out, size_t out_size);
+
+/**
+ * @brief Parse and immediately format one user-facing address into canonical text.
+ *
+ * This helper is useful when firmware accepts free-form user input and wants
+ * one normalized spelling for logging, caching, or configuration storage.
+ *
+ * Example:
+ * @code
+ * char normalized[32] = {};
+ * slmp::highlevel::normalizeAddress(" d200:f ", normalized, sizeof(normalized));
+ * // normalized -> "D200:F"
+ * @endcode
+ *
+ * @param address User-facing address string.
+ * @param out Caller-provided destination buffer.
+ * @param out_size Destination buffer size in bytes.
+ * @return @ref Error::Ok on success.
+ */
+Error normalizeAddress(const char* address, char* out, size_t out_size);
+
+/**
  * @brief Read one logical value by device string and explicit dtype.
  *
  * Supported dtypes: `BIT`, `U`, `S`, `D`, `L`, `F`.
