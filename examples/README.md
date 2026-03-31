@@ -44,6 +44,7 @@ Then compare the generated binaries:
 The low-level sample intentionally avoids `slmp_high_level.cpp`.
 The high-level sample intentionally includes it and uses explicit frame/mode selection,
 `connect`, `readTyped`, and `Poller`, so the size difference is easy to observe.
+Large contiguous reads stay behind explicit chunked helpers instead of appearing as hidden fallback behavior.
 
 Current reference build numbers:
 
@@ -66,6 +67,7 @@ It demonstrates:
 - `readNamed`
 - `writeNamed`
 - `Poller`
+- `parseAddressSpec`
 
 It is intentionally small and compile-checked so you can copy it into a host or firmware project with minimal cleanup.
 

@@ -72,6 +72,8 @@ Important notes:
 - direct bit devices should be addressed directly, for example `M1000`
 - the optional high-level layer uses `std::string` and `std::vector`
 - the core client in `slmp_minimal.h` stays fixed-buffer and allocation-free
+- `parseAddressSpec()` is public when application code needs to validate or classify a user-facing address string before read/write
+- chunked helpers are explicit opt-in; typed and named helpers preserve one logical value or one logical address item by default instead of silently retrying with different semantics
 
 ### Address Syntax Cheat Sheet
 
@@ -143,6 +145,8 @@ slmp::highlevel::readWordsChunked(plc, "D1000", 1200, words, 960, true);
 std::vector<uint32_t> dwords;
 slmp::highlevel::readDWordsChunked(plc, "D2000", 600, dwords, 480, true);
 ```
+
+Use the chunked helpers only when the caller accepts explicit segmentation at the configured boundaries. They are not fallback behavior for `readTyped`, `writeTyped`, `readNamed`, or `writeNamed`.
 
 ## 3. Basic Synchronous Usage
 
