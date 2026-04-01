@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- add public `normalizeAddress()` and `formatAddressSpec()` helpers to the optional high-level facade so application code can canonicalize string device addresses without duplicating parser logic
+- refresh README, usage guide, example guide, and API policy notes to describe the public address-normalization helpers and the no-hidden-split rule more directly
+
 ## 0.4.1
 
 - republish the PlatformIO package after the console split so the registry metadata and package contents match the library-only layout

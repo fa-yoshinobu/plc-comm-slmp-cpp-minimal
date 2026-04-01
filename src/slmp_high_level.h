@@ -243,6 +243,8 @@ Error parseAddressSpec(const char* address, AddressSpec& out);
  * @param spec Parsed address specification to format.
  * @param out Caller-provided destination buffer.
  * @param out_size Destination buffer size in bytes.
+ * @note This helper does not communicate with the PLC. It only formats the
+ * parsed logical address into canonical text.
  * @return @ref Error::Ok on success.
  */
 Error formatAddressSpec(const AddressSpec& spec, char* out, size_t out_size);
@@ -263,6 +265,7 @@ Error formatAddressSpec(const AddressSpec& spec, char* out, size_t out_size);
  * @param address User-facing address string.
  * @param out Caller-provided destination buffer.
  * @param out_size Destination buffer size in bytes.
+ * @note This helper performs parse + format only. No PLC request is issued.
  * @return @ref Error::Ok on success.
  */
 Error normalizeAddress(const char* address, char* out, size_t out_size);
@@ -349,6 +352,8 @@ Error writeTyped(SlmpClient& client, const char* address, const Value& value);
  * When @p allow_split is `false`, oversize requests fail instead of silently
  * issuing multiple protocol frames.
  *
+ * @note The helper never splits one 32-bit logical value across requests.
+ *
  * @param client Connected low-level client instance.
  * @param start Start address such as `D1000`.
  * @param count Number of words to read.
@@ -371,6 +376,9 @@ Error readWordsChunked(
  *
  * Chunk boundaries are aligned to full dwords so each returned element still
  * maps cleanly to one logical 32-bit value.
+ *
+ * When @p allow_split is `false`, oversize requests fail instead of silently
+ * issuing multiple protocol frames.
  *
  * @param client Connected low-level client instance.
  * @param start Start address such as `D2000`.
@@ -494,7 +502,7 @@ class Poller {
      * @return @ref Error::Ok on success.
      */
     Error readOnce(SlmpClient& client, Snapshot& out) const;
-    /** @brief Return the currently stored compiled plan. */
+    /** @brief Return the currently stored compiled plan for inspection or reuse. */
     const ReadPlan& plan() const { return plan_; }
 
   private:
