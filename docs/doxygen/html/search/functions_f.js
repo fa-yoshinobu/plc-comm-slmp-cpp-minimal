@@ -1,6 +1,8 @@
 var searchData=
 [
-  ['u16value_0',['u16Value',['../structslmp_1_1highlevel_1_1_value.html#a89ce02d98be67984fc812a848f9b8a86',1,'slmp::highlevel::Value']]],
-  ['u32value_1',['u32Value',['../structslmp_1_1highlevel_1_1_value.html#a18b4ed055f2b3c47ec1873fcc2258aa6',1,'slmp::highlevel::Value']]],
-  ['update_2',['update',['../classslmp_1_1_slmp_client.html#af1d2feadcedd61933408a935b6d66047',1,'slmp::SlmpClient']]]
+  ['target_0',['target',['../classslmp_1_1_slmp_client.html#ad9f5d2e43b49a7d1b392af8508f733e5',1,'slmp::SlmpClient']]],
+  ['tc_1',['TC',['../namespaceslmp_1_1dev.html#af28d7897b1c29b1659401012cbac6875',1,'slmp::dev']]],
+  ['timeoutms_2',['timeoutMs',['../classslmp_1_1_slmp_client.html#a53a72234bf4bc4108fdd8fcc219f107f',1,'slmp::SlmpClient']]],
+  ['tn_3',['TN',['../namespaceslmp_1_1dev.html#a4bb2afb8de457d2994d64b07c3bfd834',1,'slmp::dev']]],
+  ['ts_4',['TS',['../namespaceslmp_1_1dev.html#a309c914ff738cf8428aafb52ce3450f9',1,'slmp::dev']]]
 ];

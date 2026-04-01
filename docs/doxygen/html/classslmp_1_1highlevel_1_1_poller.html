@@ -108,13 +108,13 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a919d6089ae8e4c230fe3119e3b5649b7" id="r_a919d6089ae8e4c230fe3119e3b5649b7"><td class="memItemLeft"><a class="el" href="group___s_l_m_p___core.html#gaf5303f40fbe1fe48112db91b1f7a7acf">Error</a>&#160;</td><td class="memItemRight"><a class="el" href="#a919d6089ae8e4c230fe3119e3b5649b7">readOnce</a> (<a class="el" href="classslmp_1_1_slmp_client.html">SlmpClient</a> &amp;client, <a class="el" href="group___s_l_m_p___high_level.html#ga7fe3b7c441e9c579a801142f98161a12">Snapshot</a> &amp;out) const</td></tr>
 <tr class="memdesc:a919d6089ae8e4c230fe3119e3b5649b7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Execute one snapshot read with the stored compiled plan.  <br /></td></tr>
 <tr class="memitem:a8713799ae9a637e792ee366866545af4" id="r_a8713799ae9a637e792ee366866545af4"><td class="memItemLeft">const <a class="el" href="structslmp_1_1highlevel_1_1_read_plan.html">ReadPlan</a> &amp;&#160;</td><td class="memItemRight"><a class="el" href="#a8713799ae9a637e792ee366866545af4">plan</a> () const</td></tr>
-<tr class="memdesc:a8713799ae9a637e792ee366866545af4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the currently stored compiled plan.  <br /></td></tr>
+<tr class="memdesc:a8713799ae9a637e792ee366866545af4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the currently stored compiled plan for inspection or reuse.  <br /></td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Reusable snapshot poller that keeps one compiled read plan. </p>
 <p>This class does not sleep. The caller controls timing and repeatedly calls <a class="el" href="#a919d6089ae8e4c230fe3119e3b5649b7" title="readOnce">readOnce</a> from a scheduler, main loop, or RTOS task. </p>
 
-<p class="definition">Definition at line <a class="el" href="slmp__high__level_8h_source.html#l00438">438</a> of file <a class="el" href="slmp__high__level_8h_source.html">slmp_high_level.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="slmp__high__level_8h_source.html#l00486">486</a> of file <a class="el" href="slmp__high__level_8h_source.html">slmp_high_level.h</a>.</p>
 </div><a name="doc-constructors" id="doc-constructors"></a><h2 id="header-doc-constructors" class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a2799fd0bf72a7a6abb97394d95a6b7d4" name="a2799fd0bf72a7a6abb97394d95a6b7d4"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a2799fd0bf72a7a6abb97394d95a6b7d4">&#9670;&#160;</a></span>Poller() <span class="overload">[1/2]</span></h2>
@@ -166,7 +166,7 @@ Public Member Functions</h2></td></tr>
 
 <p>Construct a poller from an already-compiled plan. </p>
 
-<p class="definition">Definition at line <a class="el" href="slmp__high__level_8h_source.html#l00442">442</a> of file <a class="el" href="slmp__high__level_8h_source.html">slmp_high_level.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="slmp__high__level_8h_source.html#l00490">490</a> of file <a class="el" href="slmp__high__level_8h_source.html">slmp_high_level.h</a>.</p>
 
 </div>
 </div>
@@ -195,7 +195,7 @@ Public Member Functions</h2></td></tr>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd><a class="el" href="group___s_l_m_p___core.html#ggaf5303f40fbe1fe48112db91b1f7a7acfaa60852f204ed8028c1c58808b746d115" title="Error::Ok">Error::Ok</a> on success. </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="slmp__high__level_8cpp_source.html#l00797">797</a> of file <a class="el" href="slmp__high__level_8cpp_source.html">slmp_high_level.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="slmp__high__level_8cpp_source.html#l00884">884</a> of file <a class="el" href="slmp__high__level_8cpp_source.html">slmp_high_level.cpp</a>.</p>
 
 </div>
 </div>
@@ -222,9 +222,9 @@ Public Member Functions</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p>Return the currently stored compiled plan. </p>
+<p>Return the currently stored compiled plan for inspection or reuse. </p>
 
-<p class="definition">Definition at line <a class="el" href="slmp__high__level_8h_source.html#l00458">458</a> of file <a class="el" href="slmp__high__level_8h_source.html">slmp_high_level.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="slmp__high__level_8h_source.html#l00506">506</a> of file <a class="el" href="slmp__high__level_8h_source.html">slmp_high_level.h</a>.</p>
 
 </div>
 </div>
@@ -257,7 +257,7 @@ Public Member Functions</h2></td></tr>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd><a class="el" href="group___s_l_m_p___core.html#ggaf5303f40fbe1fe48112db91b1f7a7acfaa60852f204ed8028c1c58808b746d115" title="Error::Ok">Error::Ok</a> on success. </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="slmp__high__level_8cpp_source.html#l00801">801</a> of file <a class="el" href="slmp__high__level_8cpp_source.html">slmp_high_level.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="slmp__high__level_8cpp_source.html#l00888">888</a> of file <a class="el" href="slmp__high__level_8cpp_source.html">slmp_high_level.cpp</a>.</p>
 
 </div>
 </div>

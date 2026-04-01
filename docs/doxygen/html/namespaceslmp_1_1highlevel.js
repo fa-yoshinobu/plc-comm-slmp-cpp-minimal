@@ -23,6 +23,8 @@ var namespaceslmp_1_1highlevel =
       [ "Float32", "group___s_l_m_p___high_level.html#gga7f961bceccf7bfbdac0d549e07fce193a166495adc0d0f53bee6baecc577f5204", null ]
     ] ],
     [ "compileReadPlan", "group___s_l_m_p___high_level.html#gab354746024377be97d1311fefc5202e2", null ],
+    [ "formatAddressSpec", "group___s_l_m_p___high_level.html#ga89070029f9d133359d19629ffc369b3c", null ],
+    [ "normalizeAddress", "group___s_l_m_p___high_level.html#gaa8c1067d3cb5349399badad47d018dac", null ],
     [ "parseAddressSpec", "group___s_l_m_p___high_level.html#ga36d7391f145b4492ef4f3b7e1eaec8a9", null ],
     [ "readDWordsChunked", "group___s_l_m_p___high_level.html#ga8b27d19c3b35a8f0689cc7aa16c63ab2", null ],
     [ "readNamed", "group___s_l_m_p___high_level.html#ga3fba5e3a27656be04a941c7d14dbff96", null ],

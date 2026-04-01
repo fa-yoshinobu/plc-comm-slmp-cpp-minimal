@@ -84,7 +84,7 @@ var NAVTREEINDEX =
 [
 "annotated.html",
 "classslmp_1_1_slmp_client.html#ab962482ad1ffd0536d7bb17de0c39303",
-"namespaceslmp_1_1dev.html#a0d537fdaadb7b6fd25c310ec0c57e723"
+"namespaceslmp_1_1dev.html"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronization';

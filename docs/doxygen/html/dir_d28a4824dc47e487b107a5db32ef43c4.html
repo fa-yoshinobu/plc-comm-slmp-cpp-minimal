@@ -140,7 +140,7 @@ ESP32 Size Comparison</h2>
 <li><span class="tt">.pio/build/esp32-devkitc-low-level/firmware.bin</span></li>
 <li><span class="tt">.pio/build/esp32-devkitc-high-level/firmware.bin</span></li>
 </ul>
-<p>The low-level sample intentionally avoids <span class="tt"><a class="el" href="slmp__high__level_8cpp.html">slmp_high_level.cpp</a></span>. The high-level sample intentionally includes it and uses explicit frame/mode selection, <span class="tt">connect</span>, <span class="tt">readTyped</span>, and <span class="tt">Poller</span>, so the size difference is easy to observe.</p>
+<p>The low-level sample intentionally avoids <span class="tt"><a class="el" href="slmp__high__level_8cpp.html">slmp_high_level.cpp</a></span>. The high-level sample intentionally includes it and uses explicit frame/mode selection, <span class="tt">connect</span>, <span class="tt">readTyped</span>, and <span class="tt">Poller</span>, so the size difference is easy to observe. Large contiguous reads stay behind explicit chunked helpers instead of appearing as hidden fallback behavior.</p>
 <p>Current reference build numbers:</p>
 <ul>
 <li>low-level sample: Flash <span class="tt">749717</span> bytes, RAM <span class="tt">45064</span> bytes</li>
@@ -160,6 +160,9 @@ What To Learn From Each Sample</h2>
 <li><span class="tt">readNamed</span></li>
 <li><span class="tt">writeNamed</span></li>
 <li><span class="tt">Poller</span></li>
+<li><span class="tt">parseAddressSpec</span></li>
+<li><span class="tt">normalizeAddress</span></li>
+<li><span class="tt">formatAddressSpec</span></li>
 </ul>
 <p>It is intentionally small and compile-checked so you can copy it into a host or firmware project with minimal cleanup.</p>
 <h3 class="doxsection"><a class="anchor" id="autotoc_md7"></a>
