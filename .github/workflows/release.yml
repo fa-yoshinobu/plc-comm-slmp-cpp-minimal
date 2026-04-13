@@ -20,6 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Clone shared verification vectors
+        run: |
+          target="$GITHUB_WORKSPACE/../plc-comm-slmp-cross-verify"
+          rm -rf "$target"
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/fa-yoshinobu/plc-comm-slmp-cross-verify.git "$target"
+          git -C "$target" sparse-checkout set specs/shared
+
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
@@ -30,6 +37,9 @@ jobs:
           pip install platformio
           sudo apt-get update
           sudo apt-get install -y doxygen zip
+
+      - name: Generate shared spec header
+        run: python scripts/generate_shared_spec.py
 
       - name: Build host tests
         run: g++ -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests

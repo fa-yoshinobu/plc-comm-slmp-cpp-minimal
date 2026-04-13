@@ -45,6 +45,9 @@ The goal is not to force one style. The goal is to let firmware stay predictable
 - **Broad Hardware Support**: Board-agnostic design for Wi-Fi and Ethernet (Arduino-compatible).
 - **Binary 3E/4E**: Supports both modern and legacy SLMP frames.
 - **CI-Ready**: Host-side G++ testing and size regression monitoring.
+- **Cross-Verify Shared Vectors**: Host tests regenerate `tests/generated_shared_spec.h`
+  from `plc-comm-slmp-cross-verify/specs/shared` so frame/address/device
+  expectations stay aligned with the cross-library parity harness.
 - **Maintained Samples**: Small low-level, high-level, and compile-checked host examples.
 
 ## Quick Start

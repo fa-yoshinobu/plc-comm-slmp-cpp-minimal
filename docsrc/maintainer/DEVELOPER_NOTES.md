@@ -35,9 +35,14 @@ You can verify the protocol core on a desktop PC without a real PLC.
 ### Running Tests
 Use the PlatformIO environment or a local GCC:
 ```powershell
+# Clone plc-comm-slmp-cross-verify next to this repo first, or pass --cross-verify-dir
 # Run all host-side tests
 python scripts\run_function_tests.py --compiler g++
 ```
+
+The host tests regenerate `tests/generated_shared_spec.h` from
+`../plc-comm-slmp-cross-verify/specs/shared` before building. Use
+`--cross-verify-dir <path>` if the verification repo lives elsewhere.
 
 ### Coverage
 The host tests cover:

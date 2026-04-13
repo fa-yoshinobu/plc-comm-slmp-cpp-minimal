@@ -14,6 +14,7 @@ from pathlib import Path
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--compiler", default="g++")
+    parser.add_argument("--cross-verify-dir", default="")
     parser.add_argument("--skip-unit", action="store_true")
     parser.add_argument("--skip-socket", action="store_true")
     parser.add_argument("--host", default="127.0.0.1")
@@ -88,12 +89,11 @@ def run_socket_integration(project_dir: Path, args: argparse.Namespace) -> None:
 def main() -> int:
     args = parse_args()
     project_dir = Path(__file__).resolve().parents[1]
-    root_dir = project_dir.parent
 
-    subprocess.check_call(
-        [sys.executable, "scripts/generate_slmp_cpp_shared_spec.py"],
-        cwd=root_dir,
-    )
+    generate_cmd = [sys.executable, "scripts/generate_shared_spec.py"]
+    if args.cross_verify_dir:
+        generate_cmd.extend(["--cross-verify-dir", args.cross_verify_dir])
+    subprocess.check_call(generate_cmd, cwd=project_dir)
 
     if not args.skip_unit:
         build_and_run_unit_tests(project_dir, args.compiler)
