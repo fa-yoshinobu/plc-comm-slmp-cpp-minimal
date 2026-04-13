@@ -1464,7 +1464,7 @@ void testHighLevelParserAndTypedHelpers() {
         };
         const ParseCase parse_cases[] = {
             {"Z100", slmp::DeviceCode::Z, slmp::highlevel::ValueType::U16, false},
-            {"LZ100", slmp::DeviceCode::LZ, slmp::highlevel::ValueType::U16, false},
+            {"LZ100", slmp::DeviceCode::LZ, slmp::highlevel::ValueType::U32, false},
             {"RD100", slmp::DeviceCode::RD, slmp::highlevel::ValueType::U16, false},
             {"LTN100", slmp::DeviceCode::LTN, slmp::highlevel::ValueType::U32, false},
             {"LSTN100", slmp::DeviceCode::LSTN, slmp::highlevel::ValueType::U32, false},
@@ -1624,11 +1624,51 @@ void testHighLevelParserAndTypedHelpers() {
         uint8_t rx_buffer[128] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
 
-        transport.queueResponse(makeResponse(makeGenericRequest(0x1401, 0x0002), 0x0000, {}));
-        const slmp::highlevel::Value value = slmp::highlevel::Value::u16Value(0x1234U);
+        transport.queueResponse(makeResponse(makeGenericRequest(0x1402, 0x0002), 0x0000, {}));
+        const slmp::highlevel::Value value = slmp::highlevel::Value::u32Value(0x12345678UL);
         assert(slmp::highlevel::writeTyped(plc, "LZ100", value) == slmp::Error::Ok);
-        assertDirectRequestHeader(transport.lastWrite(), 0x1401, 0x0002, {slmp::DeviceCode::LZ, 100U});
-        assert(readLe16(transport.lastWrite().data() + 27) == 0x1234U);
+        assert(readLe16(transport.lastWrite().data() + 15) == 0x1402U);
+        assert(readLe16(transport.lastWrite().data() + 17) == 0x0002U);
+        assert(transport.lastWrite()[19] == 0x00U);
+        assert(transport.lastWrite()[20] == 0x01U);
+        assert(readLe32(transport.lastWrite().data() + 21) == 100U);
+        assert(readLe16(transport.lastWrite().data() + 25) == static_cast<uint16_t>(slmp::DeviceCode::LZ));
+        assert(readLe32(transport.lastWrite().data() + 27) == 0x12345678UL);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x1402, 0x0002), 0x0000, {}));
+        const slmp::highlevel::Value value = slmp::highlevel::Value::u32Value(0x12345678UL);
+        assert(slmp::highlevel::writeTyped(plc, "LTN100", value) == slmp::Error::Ok);
+        assert(readLe16(transport.lastWrite().data() + 15) == 0x1402U);
+        assert(readLe16(transport.lastWrite().data() + 17) == 0x0002U);
+        assert(transport.lastWrite()[19] == 0x00U);
+        assert(transport.lastWrite()[20] == 0x01U);
+        assert(readLe32(transport.lastWrite().data() + 21) == 100U);
+        assert(readLe16(transport.lastWrite().data() + 25) == static_cast<uint16_t>(slmp::DeviceCode::LTN));
+        assert(readLe32(transport.lastWrite().data() + 27) == 0x12345678UL);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x1402, 0x0003), 0x0000, {}));
+        const slmp::highlevel::Value value = slmp::highlevel::Value::bitValue(true);
+        assert(slmp::highlevel::writeTyped(plc, "LTC100", value) == slmp::Error::Ok);
+        assert(readLe16(transport.lastWrite().data() + 15) == 0x1402U);
+        assert(readLe16(transport.lastWrite().data() + 17) == 0x0003U);
+        assert(transport.lastWrite()[19] == 0x01U);
+        assert(readLe32(transport.lastWrite().data() + 20) == 100U);
+        assert(readLe16(transport.lastWrite().data() + 24) == static_cast<uint16_t>(slmp::DeviceCode::LTC));
+        assert(readLe16(transport.lastWrite().data() + 26) == 0x0001U);
     }
 }
 

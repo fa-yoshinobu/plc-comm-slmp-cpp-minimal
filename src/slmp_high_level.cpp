@@ -159,6 +159,14 @@ static bool valueTypeUsesDword(ValueType type) {
     return type == ValueType::U32 || type == ValueType::S32 || type == ValueType::Float32;
 }
 
+enum class WriteRoute : uint8_t {
+    Word,
+    Dword,
+    Bit,
+    RandomDword,
+    RandomBit,
+};
+
 static bool getLongReadAccess(DeviceCode code, LongReadAccess& out) {
     switch (code) {
         case DeviceCode::LTN:
@@ -198,6 +206,9 @@ static ValueType defaultValueType(const DeviceMeta& meta) {
     if (getLongReadAccess(meta.code, long_read) && long_read.role == LongReadRole::Current) {
         return ValueType::U32;
     }
+    if (meta.code == DeviceCode::LZ) {
+        return ValueType::U32;
+    }
     return meta.bit_unit ? ValueType::Bit : ValueType::U16;
 }
 
@@ -210,6 +221,33 @@ static bool validateLongReadType(DeviceCode code, ValueType type) {
         return type == ValueType::U32 || type == ValueType::S32;
     }
     return type == ValueType::Bit;
+}
+
+static WriteRoute resolveWriteRoute(const AddressSpec& spec) {
+    if (spec.type == ValueType::Bit) {
+        switch (spec.device.code) {
+            case DeviceCode::LTS:
+            case DeviceCode::LTC:
+            case DeviceCode::LSTS:
+            case DeviceCode::LSTC:
+                return WriteRoute::RandomBit;
+            default:
+                return WriteRoute::Bit;
+        }
+    }
+
+    if (valueTypeUsesDword(spec.type)) {
+        switch (spec.device.code) {
+            case DeviceCode::LTN:
+            case DeviceCode::LSTN:
+            case DeviceCode::LZ:
+                return WriteRoute::RandomDword;
+            default:
+                return WriteRoute::Dword;
+        }
+    }
+
+    return WriteRoute::Word;
 }
 
 static bool normalizeRequestedType(const DeviceMeta& meta, ValueType& type) {
@@ -676,9 +714,24 @@ Error writeTyped(SlmpClient& client, const char* device, const char* dtype, cons
     if (err != Error::Ok) return err;
     if (spec.bit_index >= 0 || spec.type != value.type) return Error::InvalidArgument;
 
-    if (spec.type == ValueType::Bit) return client.writeOneBit(spec.device, value.bit);
-    if (valueTypeUsesDword(spec.type)) return client.writeOneDWord(spec.device, encodeDwordValue(value));
-    return client.writeOneWord(spec.device, encodeWordValue(value));
+    switch (resolveWriteRoute(spec)) {
+        case WriteRoute::RandomBit: {
+            const DeviceAddress devices[] = {spec.device};
+            const bool values[] = {value.bit};
+            return client.writeRandomBits(devices, values, 1);
+        }
+        case WriteRoute::Bit:
+            return client.writeOneBit(spec.device, value.bit);
+        case WriteRoute::RandomDword: {
+            const DeviceAddress devices[] = {spec.device};
+            const uint32_t values[] = {encodeDwordValue(value)};
+            return client.writeRandomWords(nullptr, nullptr, 0, devices, values, 1);
+        }
+        case WriteRoute::Dword:
+            return client.writeOneDWord(spec.device, encodeDwordValue(value));
+        default:
+            return client.writeOneWord(spec.device, encodeWordValue(value));
+    }
 }
 
 Error writeTyped(SlmpClient& client, const char* address, const Value& value) {
@@ -690,9 +743,24 @@ Error writeTyped(SlmpClient& client, const char* address, const Value& value) {
         return writeBitInWord(client, trimAscii(address).substr(0, trimAscii(address).find('.')).c_str(), spec.bit_index, value.bit);
     }
     if (spec.type != value.type) return Error::InvalidArgument;
-    if (spec.type == ValueType::Bit) return client.writeOneBit(spec.device, value.bit);
-    if (valueTypeUsesDword(spec.type)) return client.writeOneDWord(spec.device, encodeDwordValue(value));
-    return client.writeOneWord(spec.device, encodeWordValue(value));
+    switch (resolveWriteRoute(spec)) {
+        case WriteRoute::RandomBit: {
+            const DeviceAddress devices[] = {spec.device};
+            const bool values[] = {value.bit};
+            return client.writeRandomBits(devices, values, 1);
+        }
+        case WriteRoute::Bit:
+            return client.writeOneBit(spec.device, value.bit);
+        case WriteRoute::RandomDword: {
+            const DeviceAddress devices[] = {spec.device};
+            const uint32_t values[] = {encodeDwordValue(value)};
+            return client.writeRandomWords(nullptr, nullptr, 0, devices, values, 1);
+        }
+        case WriteRoute::Dword:
+            return client.writeOneDWord(spec.device, encodeDwordValue(value));
+        default:
+            return client.writeOneWord(spec.device, encodeWordValue(value));
+    }
 }
 
 Error readWordsChunked(
