@@ -88,6 +88,12 @@ def run_socket_integration(project_dir: Path, args: argparse.Namespace) -> None:
 def main() -> int:
     args = parse_args()
     project_dir = Path(__file__).resolve().parents[1]
+    root_dir = project_dir.parent
+
+    subprocess.check_call(
+        [sys.executable, "scripts/generate_slmp_cpp_shared_spec.py"],
+        cwd=root_dir,
+    )
 
     if not args.skip_unit:
         build_and_run_unit_tests(project_dir, args.compiler)

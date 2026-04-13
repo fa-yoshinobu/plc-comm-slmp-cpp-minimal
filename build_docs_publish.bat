@@ -1,11 +1,11 @@
 @echo off
 setlocal
-set "DOCS_OUTPUT_DIR=%TEMP%\plc-docs\plc-comm-slmp-cpp-minimal"
+set "DOCS_OUTPUT_DIR=docs"
 set "DOXYGEN_OUTPUT_DIR=%DOCS_OUTPUT_DIR%\doxygen"
 set "TEMP_DOXYFILE=.tmp_doxyfile"
 
 echo ===================================================
-echo [DOCS] Generating Doxygen Documentation...
+echo [DOCS] Publishing Doxygen Documentation...
 echo [DOCS] Output: %DOCS_OUTPUT_DIR%
 echo ===================================================
 
@@ -31,7 +31,7 @@ if %errorlevel% equ 0 (
     echo ===================================================
     copy /y docsrc\index.html "%DOCS_OUTPUT_DIR%\index.html" >nul
     del /q %TEMP_DOXYFILE% >nul 2>&1
-    echo [SUCCESS] Documentation generated at: %DOCS_OUTPUT_DIR%/doxygen/html/index.html
+    echo [SUCCESS] Documentation published at: %DOCS_OUTPUT_DIR%/doxygen/html/index.html
     echo ===================================================
     exit /b 0
 ) else (

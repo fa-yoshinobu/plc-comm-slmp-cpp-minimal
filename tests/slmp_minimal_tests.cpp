@@ -10,7 +10,7 @@
 #include "slmp_high_level.h"
 #include "slmp_minimal.h"
 #include "slmp_utility.h"
-#include "python_golden_frames.h"
+#include "generated_shared_spec.h"
 
 namespace {
 
@@ -1057,177 +1057,120 @@ void testTransportFailuresAndReconnectHelper() {
     assert(reconnect.consumeConnectedEdge());
 }
 
-void testPythonCompatibilityGoldenFrames() {
-    {
+void testSharedDeviceVectors() {
+    for (const auto& vec : shared_spec::device_vectors::kCases) {
         MockTransport transport;
         uint8_t tx_buffer[128] = {};
         uint8_t rx_buffer[128] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setCompatibilityMode(vec.mode);
 
-        transport.queueResponse(makeResponse(std::vector<uint8_t>(python_golden::kReadTypeNameRequest, python_golden::kReadTypeNameRequest + python_golden::size(python_golden::kReadTypeNameRequest)), 0x0000, {
-            'Q', '0', '3', 'U', 'D', 'V', 'C', 'P', 'U', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 0x34, 0x12
-        }));
-        slmp::TypeNameInfo type_name = {};
-        assert(plc.readTypeName(type_name) == slmp::Error::Ok);
+        const uint16_t subcommand = vec.bit_access
+            ? (vec.mode == slmp::CompatibilityMode::Legacy ? 0x0001U : 0x0003U)
+            : (vec.mode == slmp::CompatibilityMode::Legacy ? 0x0000U : 0x0002U);
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, subcommand), 0x0000, vec.bit_access
+            ? std::vector<uint8_t>{0x10}
+            : std::vector<uint8_t>{0x34, 0x12}));
+
+        const slmp::DeviceAddress device{vec.code, vec.number};
+        if (vec.bit_access) {
+            bool value = false;
+            assert(plc.readOneBit(device, value) == slmp::Error::Ok);
+        } else {
+            uint16_t value = 0U;
+            assert(plc.readOneWord(device, value) == slmp::Error::Ok);
+        }
+
+        assert(transport.lastWrite().size() >= 19U + vec.expected_size);
         assertBytesEqual(
-            transport.lastWrite(),
-            python_golden::kReadTypeNameRequest,
-            python_golden::size(python_golden::kReadTypeNameRequest)
-        );
+            std::vector<uint8_t>(transport.lastWrite().begin() + 19, transport.lastWrite().begin() + 19 + vec.expected_size),
+            vec.expected,
+            vec.expected_size);
+    }
+}
+
+void testSharedCppAddressVectors() {
+    for (const auto& normalize_case : shared_spec::normalize_cases::kCases) {
+        char normalized[32] = {};
+        assert(slmp::highlevel::normalizeAddress(normalize_case.input, normalized, sizeof(normalized)) == slmp::Error::Ok);
+        assert(std::string(normalized) == normalize_case.expected);
     }
 
-    {
-        MockTransport transport;
-        uint8_t tx_buffer[128] = {};
-        uint8_t rx_buffer[128] = {};
-        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    for (const auto& parse_case : shared_spec::cpp_parse_cases::kCases) {
+        slmp::highlevel::AddressSpec spec{};
+        const slmp::Error err = slmp::highlevel::parseAddressSpec(parse_case.input, spec);
+        assert(err == parse_case.expected_error);
+        if (!parse_case.has_value_expectation) {
+            continue;
+        }
 
-        transport.queueResponse(makeResponse(
-            std::vector<uint8_t>(
-                python_golden::kReadWordsD1002Request,
-                python_golden::kReadWordsD1002Request + python_golden::size(python_golden::kReadWordsD1002Request)
-            ),
-            0x0000,
-            {0x34, 0x12, 0x78, 0x56}
-        ));
-        uint16_t words[2] = {};
-        assert(plc.readWords(slmp::dev::D(slmp::dev::dec(100)), 2, words, 2) == slmp::Error::Ok);
-        assertBytesEqual(
-            transport.lastWrite(),
-            python_golden::kReadWordsD1002Request,
-            python_golden::size(python_golden::kReadWordsD1002Request)
-        );
+        assert(spec.device.code == parse_case.code);
+        assert(spec.device.number == parse_case.number);
+        assert(spec.type == parse_case.value_type);
+        assert(spec.explicit_type == parse_case.explicit_type);
+        assert(spec.bit_index == parse_case.bit_index);
     }
+}
 
-    {
-        MockTransport transport;
-        uint8_t tx_buffer[128] = {};
-        uint8_t rx_buffer[128] = {};
-        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-
-        transport.queueResponse(makeResponse(
-            std::vector<uint8_t>(
-                python_golden::kWriteBitsM101TrueRequest,
-                python_golden::kWriteBitsM101TrueRequest + python_golden::size(python_golden::kWriteBitsM101TrueRequest)
-            ),
-            0x0000,
-            {}
-        ));
-        assert(plc.writeOneBit(slmp::dev::M(slmp::dev::dec(101)), true) == slmp::Error::Ok);
-        assertBytesEqual(
-            transport.lastWrite(),
-            python_golden::kWriteBitsM101TrueRequest,
-            python_golden::size(python_golden::kWriteBitsM101TrueRequest)
-        );
-    }
-
-    {
+void testSharedGoldenFrames() {
+    for (const auto& frame : shared_spec::frame_vectors::kCases) {
         MockTransport transport;
         uint8_t tx_buffer[256] = {};
         uint8_t rx_buffer[256] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
 
         transport.queueResponse(makeResponse(
-            std::vector<uint8_t>(
-                python_golden::kReadRandomRequest,
-                python_golden::kReadRandomRequest + python_golden::size(python_golden::kReadRandomRequest)
-            ),
+            std::vector<uint8_t>(frame.request, frame.request + frame.request_size),
             0x0000,
-            {0x11, 0x11, 0x22, 0x22, 0x78, 0x56, 0x34, 0x12}
+            std::vector<uint8_t>(frame.response_data, frame.response_data + frame.response_data_size)
         ));
-        const slmp::DeviceAddress random_words[] = {
-            slmp::dev::D(slmp::dev::dec(100)),
-            slmp::dev::D(slmp::dev::dec(101)),
-        };
-        const slmp::DeviceAddress random_dwords[] = {
-            slmp::dev::D(slmp::dev::dec(200)),
-        };
-        uint16_t word_values[2] = {};
-        uint32_t dword_values[1] = {};
-        assert(plc.readRandom(random_words, 2, word_values, 2, random_dwords, 1, dword_values, 1) == slmp::Error::Ok);
+
+        if (std::strcmp(frame.operation, "read_type_name") == 0) {
+            slmp::TypeNameInfo type_name = {};
+            assert(plc.readTypeName(type_name) == slmp::Error::Ok);
+        } else if (std::strcmp(frame.operation, "read_words") == 0) {
+            uint16_t words[2] = {};
+            assert(plc.readWords(slmp::dev::D(slmp::dev::dec(100)), 2, words, 2) == slmp::Error::Ok);
+        } else if (std::strcmp(frame.operation, "write_bits") == 0) {
+            assert(plc.writeOneBit(slmp::dev::M(slmp::dev::dec(101)), true) == slmp::Error::Ok);
+        } else if (std::strcmp(frame.operation, "read_random") == 0) {
+            const slmp::DeviceAddress random_words[] = {
+                slmp::dev::D(slmp::dev::dec(100)),
+                slmp::dev::D(slmp::dev::dec(101)),
+            };
+            const slmp::DeviceAddress random_dwords[] = {
+                slmp::dev::D(slmp::dev::dec(200)),
+            };
+            uint16_t word_values[2] = {};
+            uint32_t dword_values[1] = {};
+            assert(plc.readRandom(random_words, 2, word_values, 2, random_dwords, 1, dword_values, 1) == slmp::Error::Ok);
+        } else if (std::strcmp(frame.operation, "write_random_bits") == 0) {
+            const slmp::DeviceAddress random_bits[] = {
+                slmp::dev::M(slmp::dev::dec(100)),
+                slmp::dev::Y(slmp::dev::hex(0x20)),
+            };
+            const bool bit_values[] = {true, false};
+            assert(plc.writeRandomBits(random_bits, bit_values, 2) == slmp::Error::Ok);
+        } else if (std::strcmp(frame.operation, "read_block") == 0) {
+            const slmp::DeviceBlockRead word_blocks[] = {
+                slmp::dev::blockRead(slmp::dev::D(slmp::dev::dec(300)), 2),
+            };
+            const slmp::DeviceBlockRead bit_blocks[] = {
+                slmp::dev::blockRead(slmp::dev::M(slmp::dev::dec(200)), 1),
+            };
+            uint16_t block_words[2] = {};
+            uint16_t block_bits[1] = {};
+            assert(plc.readBlock(word_blocks, 1, bit_blocks, 1, block_words, 2, block_bits, 1) == slmp::Error::Ok);
+        } else if (std::strcmp(frame.operation, "remote_password_unlock") == 0) {
+            assert(plc.remotePasswordUnlock("secret1") == slmp::Error::Ok);
+        } else {
+            assert(false);
+        }
+
         assertBytesEqual(
             transport.lastWrite(),
-            python_golden::kReadRandomRequest,
-            python_golden::size(python_golden::kReadRandomRequest)
-        );
-    }
-
-    {
-        MockTransport transport;
-        uint8_t tx_buffer[256] = {};
-        uint8_t rx_buffer[256] = {};
-        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-
-        transport.queueResponse(makeResponse(
-            std::vector<uint8_t>(
-                python_golden::kWriteRandomBitsRequest,
-                python_golden::kWriteRandomBitsRequest + python_golden::size(python_golden::kWriteRandomBitsRequest)
-            ),
-            0x0000,
-            {}
-        ));
-        const slmp::DeviceAddress random_bits[] = {
-            slmp::dev::M(slmp::dev::dec(100)),
-            slmp::dev::Y(slmp::dev::hex(0x20)),
-        };
-        const bool bit_values[] = {true, false};
-        assert(plc.writeRandomBits(random_bits, bit_values, 2) == slmp::Error::Ok);
-        assertBytesEqual(
-            transport.lastWrite(),
-            python_golden::kWriteRandomBitsRequest,
-            python_golden::size(python_golden::kWriteRandomBitsRequest)
-        );
-    }
-
-    {
-        MockTransport transport;
-        uint8_t tx_buffer[256] = {};
-        uint8_t rx_buffer[256] = {};
-        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-
-        transport.queueResponse(makeResponse(
-            std::vector<uint8_t>(
-                python_golden::kReadBlockRequest,
-                python_golden::kReadBlockRequest + python_golden::size(python_golden::kReadBlockRequest)
-            ),
-            0x0000,
-            {0x34, 0x12, 0x78, 0x56, 0x05, 0x00}
-        ));
-        const slmp::DeviceBlockRead word_blocks[] = {
-            slmp::dev::blockRead(slmp::dev::D(slmp::dev::dec(300)), 2),
-        };
-        const slmp::DeviceBlockRead bit_blocks[] = {
-            slmp::dev::blockRead(slmp::dev::M(slmp::dev::dec(200)), 1),
-        };
-        uint16_t block_words[2] = {};
-        uint16_t block_bits[1] = {};
-        assert(plc.readBlock(word_blocks, 1, bit_blocks, 1, block_words, 2, block_bits, 1) == slmp::Error::Ok);
-        assertBytesEqual(
-            transport.lastWrite(),
-            python_golden::kReadBlockRequest,
-            python_golden::size(python_golden::kReadBlockRequest)
-        );
-    }
-
-    {
-        MockTransport transport;
-        uint8_t tx_buffer[128] = {};
-        uint8_t rx_buffer[128] = {};
-        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-
-        transport.queueResponse(makeResponse(
-            std::vector<uint8_t>(
-                python_golden::kRemoteUnlockRequest,
-                python_golden::kRemoteUnlockRequest + python_golden::size(python_golden::kRemoteUnlockRequest)
-            ),
-            0x0000,
-            {}
-        ));
-        assert(plc.remotePasswordUnlock("secret1") == slmp::Error::Ok);
-        assertBytesEqual(
-            transport.lastWrite(),
-            python_golden::kRemoteUnlockRequest,
-            python_golden::size(python_golden::kRemoteUnlockRequest)
+            frame.request,
+            frame.request_size
         );
     }
 }
@@ -1813,7 +1756,9 @@ int main() {
     testAsyncWriteBlockOptions();
     testValidationAndBoundaryFailures();
     testTransportFailuresAndReconnectHelper();
-    testPythonCompatibilityGoldenFrames();
+    testSharedDeviceVectors();
+    testSharedCppAddressVectors();
+    testSharedGoldenFrames();
     testProtocolFailures();
     testPayloadValidationFailures();
     testAsyncRemoteControl();
