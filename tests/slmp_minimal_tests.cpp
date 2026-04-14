@@ -1227,7 +1227,17 @@ void testSharedDeviceVectors() {
 void testSharedCppAddressVectors() {
     for (const auto& normalize_case : shared_spec::normalize_cases::kCases) {
         char normalized[32] = {};
-        assert(slmp::highlevel::normalizeAddress(normalize_case.input, normalized, sizeof(normalized)) == slmp::Error::Ok);
+        const bool needs_family =
+            normalize_case.input != nullptr &&
+            (normalize_case.input[0] == 'x' || normalize_case.input[0] == 'X' ||
+             normalize_case.input[0] == 'y' || normalize_case.input[0] == 'Y' ||
+             ((normalize_case.input[0] == ' ' || normalize_case.input[0] == '\t') &&
+              (normalize_case.input[1] == 'x' || normalize_case.input[1] == 'X' ||
+               normalize_case.input[1] == 'y' || normalize_case.input[1] == 'Y')));
+        const slmp::Error err = needs_family
+            ? slmp::highlevel::normalizeAddress(normalize_case.input, slmp::highlevel::PlcFamily::IqR, normalized, sizeof(normalized))
+            : slmp::highlevel::normalizeAddress(normalize_case.input, normalized, sizeof(normalized));
+        assert(err == slmp::Error::Ok);
         assert(std::string(normalized) == normalize_case.expected);
     }
 
@@ -1759,8 +1769,15 @@ void testHighLevelAddressFormatting() {
 
     {
         char normalized[32] = {};
-        assert(slmp::highlevel::normalizeAddress(" x1a ", normalized, sizeof(normalized)) == slmp::Error::Ok);
+        assert(slmp::highlevel::normalizeAddress(" x1a ", normalized, sizeof(normalized)) == slmp::Error::InvalidArgument);
+        assert(slmp::highlevel::normalizeAddress(" x1a ", slmp::highlevel::PlcFamily::IqR, normalized, sizeof(normalized)) == slmp::Error::Ok);
         assert(std::string(normalized) == "X1A");
+    }
+
+    {
+        char normalized[32] = {};
+        assert(slmp::highlevel::normalizeAddress(" y217 ", slmp::highlevel::PlcFamily::IqF, normalized, sizeof(normalized)) == slmp::Error::Ok);
+        assert(std::string(normalized) == "Y217");
     }
 
     {
@@ -1775,6 +1792,16 @@ void testHighLevelAddressFormatting() {
         char formatted[32] = {};
         assert(slmp::highlevel::formatAddressSpec(spec, formatted, sizeof(formatted)) == slmp::Error::Ok);
         assert(std::string(formatted) == "RD100:D");
+    }
+
+    {
+        slmp::highlevel::AddressSpec spec{};
+        assert(slmp::highlevel::parseAddressSpec("X217", slmp::highlevel::PlcFamily::IqF, spec) == slmp::Error::Ok);
+        assert(spec.device.code == slmp::DeviceCode::X);
+        assert(spec.device.number == 0x8FU);
+        char formatted[32] = {};
+        assert(slmp::highlevel::formatAddressSpec(spec, slmp::highlevel::PlcFamily::IqF, formatted, sizeof(formatted)) == slmp::Error::Ok);
+        assert(std::string(formatted) == "X217");
     }
 
     {
@@ -2038,6 +2065,27 @@ void testHighLevelDeviceRangeCatalog() {
     }
 }
 
+void testHighLevelPlcFamilyDefaults() {
+    {
+        const slmp::highlevel::PlcFamilyDefaults defaults = slmp::highlevel::plcFamilyDefaults(slmp::highlevel::PlcFamily::IqL);
+        assert(defaults.frame_type == slmp::FrameType::Frame4E);
+        assert(defaults.compatibility_mode == slmp::CompatibilityMode::iQR);
+        assert(defaults.address_family == slmp::highlevel::PlcFamily::IqR);
+        assert(defaults.range_family == slmp::highlevel::DeviceRangeFamily::IqR);
+        assert(std::string(slmp::highlevel::plcFamilyLabel(slmp::highlevel::PlcFamily::IqL)) == "iq-l");
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[64] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        slmp::highlevel::configureClientForPlcFamily(plc, slmp::highlevel::PlcFamily::IqF);
+        assert(plc.frameType() == slmp::FrameType::Frame3E);
+        assert(plc.compatibilityMode() == slmp::CompatibilityMode::Legacy);
+    }
+}
+
 void testCpuOperationState() {
     {
         MockTransport transport;
@@ -2107,6 +2155,7 @@ int main() {
     testHighLevelAddressFormatting();
     testHighLevelNamedReadAndPoller();
     testHighLevelDeviceRangeCatalog();
+    testHighLevelPlcFamilyDefaults();
     testCpuOperationState();
     std::puts("slmp_minimal_tests: ok");
     return 0;

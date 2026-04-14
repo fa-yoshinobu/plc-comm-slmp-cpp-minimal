@@ -100,8 +100,7 @@ uint8_t rx_buffer[128];
 slmp::SlmpClient plc(transport, tx_buffer, 128, rx_buffer, 128);
 
 void setup() {
-    plc.setFrameType(slmp::FrameType::Frame4E);
-    plc.setCompatibilityMode(slmp::CompatibilityMode::iQR);
+    slmp::highlevel::configureClientForPlcFamily(plc, slmp::highlevel::PlcFamily::IqR);
     slmp::TypeNameInfo info = {};
     if (!plc.connect("192.168.250.100", 1025)) {
         return;
@@ -151,13 +150,12 @@ void loop() {
 For application code, the recommended order is:
 
 1. Create the fixed-buffer `slmp::SlmpClient`.
-2. Set `FrameType` and `CompatibilityMode` explicitly for the target PLC.
+2. Set one explicit `PlcFamily` through `configureClientForPlcFamily(...)`.
 3. Connect with `plc.connect(...)`.
 4. Use `readTyped`, `writeTyped`, `readNamed`, `writeNamed`, and `Poller`.
 5. Drop to `slmp_minimal.h` only when you need direct frame-level control, manual async state machines, or specialized embedded integration.
 
-Automatic profile probing is intentionally not part of the current API surface. Choose frame and compatibility mode explicitly for the target PLC.
-Use `parseAddressSpec()` when your application needs to validate or classify a user-provided high-level address before read/write, and use `normalizeAddress()` or `formatAddressSpec()` when you want one canonical uppercase spelling for storage or logging.
+Automatic profile probing is intentionally not part of the current API surface. The high-level helper layer derives fixed `frame` and `compatibility mode` defaults from one explicit `PlcFamily`. Use `parseAddressSpec()`, `normalizeAddress()`, or `formatAddressSpec()` with an explicit family whenever you need to handle string `X/Y` addresses.
 
 ### High-Level Address Forms
 
@@ -177,7 +175,9 @@ Notes:
 
 - `.bit` notation is valid only for word devices such as `D50.3`.
 - Direct bit devices should be addressed directly, for example `M1000`, `X20`, or `Y1A`.
-- `X`, `Y`, `B`, `W`, `SB`, `SW`, `DX`, and `DY` keep Mitsubishi hexadecimal numbering rules.
+- `B`, `W`, `SB`, `SW`, `DX`, and `DY` keep Mitsubishi hexadecimal numbering rules.
+- High-level string `X/Y` addresses require an explicit `PlcFamily`.
+- `PlcFamily::IqF` interprets string `X/Y` in octal. Other supported families use hexadecimal string `X/Y`.
 
 ### Optional High-Level Layer Notes
 The high-level layer lives in `slmp_high_level.h`.
@@ -193,9 +193,9 @@ The high-level layer also exposes explicit PLC-family device-range helpers. This
 
 ```cpp
 slmp::highlevel::DeviceRangeCatalog catalog;
-const slmp::Error err = slmp::highlevel::readDeviceRangeCatalogForFamily(
+const slmp::Error err = slmp::highlevel::readDeviceRangeCatalogForPlcFamily(
     plc,
-    slmp::highlevel::DeviceRangeFamily::QnU,
+    slmp::highlevel::PlcFamily::QnU,
     catalog);
 
 if (err == slmp::Error::Ok) {
@@ -203,7 +203,7 @@ if (err == slmp::Error::Ok) {
 }
 ```
 
-Supported families are `IqR`, `MxF`, `MxR`, `IqF`, `QCpu`, `LCpu`, `QnU`, and `QnUDV`.
+Supported `PlcFamily` values are `IqF`, `IqR`, `IqL`, `MxF`, `MxR`, `QCpu`, `LCpu`, `QnU`, and `QnUDV`.
 
 ### More High-Level Examples
 
@@ -228,6 +228,10 @@ Chunked helpers are explicit opt-in. Typed helpers, named snapshots, and other l
 char normalized[32] = {};
 if (slmp::highlevel::normalizeAddress(" d200:f ", normalized, sizeof(normalized)) == slmp::Error::Ok) {
     // normalized -> "D200:F"
+}
+
+if (slmp::highlevel::normalizeAddress(" y217 ", slmp::highlevel::PlcFamily::IqF, normalized, sizeof(normalized)) == slmp::Error::Ok) {
+    // normalized -> "Y217"
 }
 ```
 

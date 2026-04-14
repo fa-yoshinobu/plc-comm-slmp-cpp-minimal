@@ -106,7 +106,7 @@ slmp::highlevel::writeTyped(plc, "D50.3", slmp::highlevel::Value::bitValue(true)
 
 ```cpp
 char normalized[32] = {};
-if (slmp::highlevel::normalizeAddress(" x1a ", normalized, sizeof(normalized)) == slmp::Error::Ok) {
+if (slmp::highlevel::normalizeAddress(" x1a ", slmp::highlevel::PlcFamily::IqR, normalized, sizeof(normalized)) == slmp::Error::Ok) {
     // normalized -> "X1A"
 }
 
@@ -285,7 +285,7 @@ plc.setFrameType(slmp::FrameType::Frame3E);
 plc.setCompatibilityMode(slmp::CompatibilityMode::Legacy);
 ```
 
-Choose the frame and compatibility mode explicitly before `connect()`. The library does not probe profiles automatically.
+Choose one explicit `PlcFamily` before `connect()`. The high-level facade derives fixed frame and compatibility defaults from that family and does not probe profiles automatically.
 
 ### Monitor Cycle (0x0801 / 0x0802)
 Register a list once to reduce overhead, then poll repeatedly:

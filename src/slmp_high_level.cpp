@@ -22,6 +22,40 @@ struct DeviceMeta {
     bool batchable_word;
 };
 
+static PlcFamilyDefaults plcFamilyDefaultsImpl(PlcFamily family) {
+    switch (family) {
+        case PlcFamily::IqF:
+            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcFamily::IqF, DeviceRangeFamily::IqF};
+        case PlcFamily::IqR:
+            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcFamily::IqR, DeviceRangeFamily::IqR};
+        case PlcFamily::IqL:
+            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcFamily::IqR, DeviceRangeFamily::IqR};
+        case PlcFamily::MxF:
+            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcFamily::MxF, DeviceRangeFamily::MxF};
+        case PlcFamily::MxR:
+            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcFamily::MxR, DeviceRangeFamily::MxR};
+        case PlcFamily::QCpu:
+            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcFamily::QCpu, DeviceRangeFamily::QCpu};
+        case PlcFamily::LCpu:
+            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcFamily::LCpu, DeviceRangeFamily::LCpu};
+        case PlcFamily::QnU:
+            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcFamily::QnU, DeviceRangeFamily::QnU};
+        case PlcFamily::QnUDV:
+        default:
+            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcFamily::QnUDV, DeviceRangeFamily::QnUDV};
+    }
+}
+
+static bool requiresExplicitPlcFamily(const DeviceMeta& meta) {
+    return meta.code == DeviceCode::X || meta.code == DeviceCode::Y;
+}
+
+static uint8_t effectiveDeviceRadix(const DeviceMeta& meta, const PlcFamily* family) {
+    if (family != nullptr && plcFamilyDefaultsImpl(*family).address_family == PlcFamily::IqF && requiresExplicitPlcFamily(meta))
+        return 8U;
+    return meta.radix;
+}
+
 enum class LongReadRole : uint8_t {
     Current,
     Contact,
@@ -138,7 +172,7 @@ static const DeviceMeta* findDeviceMetaByCode(DeviceCode code) {
     return nullptr;
 }
 
-static Error parseDeviceOnly(const char* text, DeviceAddress& out, const DeviceMeta** out_meta = nullptr) {
+static Error parseDeviceOnly(const char* text, DeviceAddress& out, const DeviceMeta** out_meta = nullptr, const PlcFamily* family = nullptr) {
     const std::string trimmed = trimAscii(text);
     if (trimmed.empty()) return Error::InvalidArgument;
     const std::string upper = upperAscii(trimmed);
@@ -146,9 +180,10 @@ static Error parseDeviceOnly(const char* text, DeviceAddress& out, const DeviceM
     std::string number_part;
     const DeviceMeta* meta = findDeviceMeta(upper, number_part);
     if (meta == nullptr) return Error::UnsupportedDevice;
+    if (family == nullptr && requiresExplicitPlcFamily(*meta)) return Error::InvalidArgument;
 
     uint32_t number = 0U;
-    if (!parseUnsignedNumber(number_part, meta->radix, number)) return Error::InvalidArgument;
+    if (!parseUnsignedNumber(number_part, effectiveDeviceRadix(*meta, family), number)) return Error::InvalidArgument;
 
     out.code = meta->code;
     out.number = number;
@@ -953,6 +988,31 @@ static std::string formatDeviceRangeAddress(const char* device, DeviceRangeNotat
 
 }  // namespace
 
+const char* plcFamilyLabel(PlcFamily family) {
+    switch (family) {
+        case PlcFamily::IqF: return "iq-f";
+        case PlcFamily::IqR: return "iq-r";
+        case PlcFamily::IqL: return "iq-l";
+        case PlcFamily::MxF: return "mx-f";
+        case PlcFamily::MxR: return "mx-r";
+        case PlcFamily::QCpu: return "qcpu";
+        case PlcFamily::LCpu: return "lcpu";
+        case PlcFamily::QnU: return "qnu";
+        case PlcFamily::QnUDV: return "qnudv";
+        default: return "";
+    }
+}
+
+PlcFamilyDefaults plcFamilyDefaults(PlcFamily family) {
+    return plcFamilyDefaultsImpl(family);
+}
+
+void configureClientForPlcFamily(SlmpClient& client, PlcFamily family) {
+    const PlcFamilyDefaults defaults = plcFamilyDefaultsImpl(family);
+    client.setFrameType(defaults.frame_type);
+    client.setCompatibilityMode(defaults.compatibility_mode);
+}
+
 const char* deviceRangeFamilyLabel(DeviceRangeFamily family) {
     return deviceRangeFamilyLabelImpl(family);
 }
@@ -1009,6 +1069,10 @@ Error readDeviceRangeCatalogForFamily(SlmpClient& client, DeviceRangeFamily fami
     return Error::Ok;
 }
 
+Error readDeviceRangeCatalogForPlcFamily(SlmpClient& client, PlcFamily family, DeviceRangeCatalog& out) {
+    return readDeviceRangeCatalogForFamily(client, plcFamilyDefaultsImpl(family).range_family, out);
+}
+
 Value Value::bitValue(bool value) {
     Value out;
     out.type = ValueType::Bit;
@@ -1051,7 +1115,13 @@ Value Value::float32Value(float value) {
     return out;
 }
 
-Error parseAddressSpec(const char* address, AddressSpec& out) {
+static Error readTypedImpl(SlmpClient& client, const PlcFamily* family, const char* device, const char* dtype, Value& out);
+static Error readTypedImpl(SlmpClient& client, const PlcFamily* family, const char* address, Value& out);
+static Error writeBitInWordImpl(SlmpClient& client, const PlcFamily* family, const char* device, int bit_index, bool value);
+static Error writeTypedImpl(SlmpClient& client, const PlcFamily* family, const char* device, const char* dtype, const Value& value);
+static Error writeTypedImpl(SlmpClient& client, const PlcFamily* family, const char* address, const Value& value);
+
+static Error parseAddressSpecImpl(const char* address, const PlcFamily* family, AddressSpec& out) {
     const std::string text = trimAscii(address);
     if (text.empty()) return Error::InvalidArgument;
 
@@ -1059,7 +1129,7 @@ Error parseAddressSpec(const char* address, AddressSpec& out) {
     if (colon != std::string::npos) {
         DeviceAddress device{};
         const DeviceMeta* meta = nullptr;
-        const Error err = parseDeviceOnly(text.substr(0, colon).c_str(), device, &meta);
+        const Error err = parseDeviceOnly(text.substr(0, colon).c_str(), device, &meta, family);
         if (err != Error::Ok) return err;
 
         ValueType type = ValueType::U16;
@@ -1078,7 +1148,7 @@ Error parseAddressSpec(const char* address, AddressSpec& out) {
     if (dot != std::string::npos) {
         DeviceAddress device{};
         const DeviceMeta* meta = nullptr;
-        const Error err = parseDeviceOnly(text.substr(0, dot).c_str(), device, &meta);
+        const Error err = parseDeviceOnly(text.substr(0, dot).c_str(), device, &meta, family);
         if (err != Error::Ok) return err;
         if (meta->bit_unit) return Error::InvalidArgument;
 
@@ -1095,7 +1165,7 @@ Error parseAddressSpec(const char* address, AddressSpec& out) {
 
     DeviceAddress device{};
     const DeviceMeta* meta = nullptr;
-    const Error err = parseDeviceOnly(text.c_str(), device, &meta);
+    const Error err = parseDeviceOnly(text.c_str(), device, &meta, family);
     if (err != Error::Ok) return err;
     out.device = device;
     out.type = defaultValueType(*meta);
@@ -1104,10 +1174,19 @@ Error parseAddressSpec(const char* address, AddressSpec& out) {
     return Error::Ok;
 }
 
-Error formatAddressSpec(const AddressSpec& spec, char* out, size_t out_size) {
+Error parseAddressSpec(const char* address, AddressSpec& out) {
+    return parseAddressSpecImpl(address, nullptr, out);
+}
+
+Error parseAddressSpec(const char* address, PlcFamily family, AddressSpec& out) {
+    return parseAddressSpecImpl(address, &family, out);
+}
+
+static Error formatAddressSpecImpl(const AddressSpec& spec, const PlcFamily* family, char* out, size_t out_size) {
     const DeviceMeta* meta = findDeviceMetaByCode(spec.device.code);
     if (meta == nullptr) return Error::UnsupportedDevice;
     if (spec.bit_index < -1 || spec.bit_index > 15) return Error::InvalidArgument;
+    if (family == nullptr && requiresExplicitPlcFamily(*meta)) return Error::InvalidArgument;
 
     if (spec.bit_index >= 0) {
         if (meta->bit_unit || spec.type != ValueType::Bit) return Error::InvalidArgument;
@@ -1119,7 +1198,7 @@ Error formatAddressSpec(const AddressSpec& spec, char* out, size_t out_size) {
     }
 
     std::string formatted(meta->name);
-    appendUnsignedText(formatted, spec.device.number, meta->radix);
+    appendUnsignedText(formatted, spec.device.number, effectiveDeviceRadix(*meta, family));
 
     if (spec.bit_index >= 0) {
         formatted.push_back('.');
@@ -1138,14 +1217,33 @@ Error formatAddressSpec(const AddressSpec& spec, char* out, size_t out_size) {
     return copyTextToBuffer(formatted, out, out_size);
 }
 
+Error formatAddressSpec(const AddressSpec& spec, char* out, size_t out_size) {
+    return formatAddressSpecImpl(spec, nullptr, out, out_size);
+}
+
+Error formatAddressSpec(const AddressSpec& spec, PlcFamily family, char* out, size_t out_size) {
+    return formatAddressSpecImpl(spec, &family, out, out_size);
+}
+
 Error normalizeAddress(const char* address, char* out, size_t out_size) {
     AddressSpec spec{};
-    const Error err = parseAddressSpec(address, spec);
+    const Error err = parseAddressSpecImpl(address, nullptr, spec);
     if (err != Error::Ok) return err;
-    return formatAddressSpec(spec, out, out_size);
+    return formatAddressSpecImpl(spec, nullptr, out, out_size);
+}
+
+Error normalizeAddress(const char* address, PlcFamily family, char* out, size_t out_size) {
+    AddressSpec spec{};
+    const Error err = parseAddressSpecImpl(address, &family, spec);
+    if (err != Error::Ok) return err;
+    return formatAddressSpecImpl(spec, &family, out, out_size);
 }
 
 Error readTyped(SlmpClient& client, const char* device, const char* dtype, Value& out) {
+    return readTypedImpl(client, nullptr, device, dtype, out);
+}
+
+static Error readTypedImpl(SlmpClient& client, const PlcFamily* family, const char* device, const char* dtype, Value& out) {
     if (device == nullptr || dtype == nullptr) return Error::InvalidArgument;
     const std::string address = trimAscii(device);
     const std::string suffix = trimAscii(dtype);
@@ -1153,7 +1251,7 @@ Error readTyped(SlmpClient& client, const char* device, const char* dtype, Value
 
     AddressSpec spec{};
     const std::string merged = address + ":" + suffix;
-    Error err = parseAddressSpec(merged.c_str(), spec);
+    Error err = parseAddressSpecImpl(merged.c_str(), family, spec);
     if (err != Error::Ok) return err;
     if (spec.bit_index >= 0) return Error::InvalidArgument;
 
@@ -1189,9 +1287,17 @@ Error readTyped(SlmpClient& client, const char* device, const char* dtype, Value
     return Error::Ok;
 }
 
+Error readTyped(SlmpClient& client, PlcFamily family, const char* device, const char* dtype, Value& out) {
+    return readTypedImpl(client, &family, device, dtype, out);
+}
+
 Error readTyped(SlmpClient& client, const char* address, Value& out) {
+    return readTypedImpl(client, nullptr, address, out);
+}
+
+static Error readTypedImpl(SlmpClient& client, const PlcFamily* family, const char* address, Value& out) {
     AddressSpec spec{};
-    Error err = parseAddressSpec(address, spec);
+    Error err = parseAddressSpecImpl(address, family, spec);
     if (err != Error::Ok) return err;
 
     if (spec.bit_index >= 0) {
@@ -1234,11 +1340,19 @@ Error readTyped(SlmpClient& client, const char* address, Value& out) {
     return Error::Ok;
 }
 
+Error readTyped(SlmpClient& client, PlcFamily family, const char* address, Value& out) {
+    return readTypedImpl(client, &family, address, out);
+}
+
 Error writeBitInWord(SlmpClient& client, const char* device, int bit_index, bool value) {
+    return writeBitInWordImpl(client, nullptr, device, bit_index, value);
+}
+
+static Error writeBitInWordImpl(SlmpClient& client, const PlcFamily* family, const char* device, int bit_index, bool value) {
     if (device == nullptr || bit_index < 0 || bit_index > 15) return Error::InvalidArgument;
     DeviceAddress base{};
     const DeviceMeta* meta = nullptr;
-    Error err = parseDeviceOnly(device, base, &meta);
+    Error err = parseDeviceOnly(device, base, &meta, family);
     if (err != Error::Ok) return err;
     if (meta->bit_unit) return Error::InvalidArgument;
 
@@ -1250,11 +1364,19 @@ Error writeBitInWord(SlmpClient& client, const char* device, int bit_index, bool
     return client.writeOneWord(base, word);
 }
 
+Error writeBitInWord(SlmpClient& client, PlcFamily family, const char* device, int bit_index, bool value) {
+    return writeBitInWordImpl(client, &family, device, bit_index, value);
+}
+
 Error writeTyped(SlmpClient& client, const char* device, const char* dtype, const Value& value) {
+    return writeTypedImpl(client, nullptr, device, dtype, value);
+}
+
+static Error writeTypedImpl(SlmpClient& client, const PlcFamily* family, const char* device, const char* dtype, const Value& value) {
     if (device == nullptr || dtype == nullptr) return Error::InvalidArgument;
     const std::string merged = trimAscii(device) + ":" + trimAscii(dtype);
     AddressSpec spec{};
-    Error err = parseAddressSpec(merged.c_str(), spec);
+    Error err = parseAddressSpecImpl(merged.c_str(), family, spec);
     if (err != Error::Ok) return err;
     if (spec.bit_index >= 0 || spec.type != value.type) return Error::InvalidArgument;
 
@@ -1278,13 +1400,21 @@ Error writeTyped(SlmpClient& client, const char* device, const char* dtype, cons
     }
 }
 
+Error writeTyped(SlmpClient& client, PlcFamily family, const char* device, const char* dtype, const Value& value) {
+    return writeTypedImpl(client, &family, device, dtype, value);
+}
+
 Error writeTyped(SlmpClient& client, const char* address, const Value& value) {
+    return writeTypedImpl(client, nullptr, address, value);
+}
+
+static Error writeTypedImpl(SlmpClient& client, const PlcFamily* family, const char* address, const Value& value) {
     AddressSpec spec{};
-    Error err = parseAddressSpec(address, spec);
+    Error err = parseAddressSpecImpl(address, family, spec);
     if (err != Error::Ok) return err;
     if (spec.bit_index >= 0) {
         if (value.type != ValueType::Bit) return Error::InvalidArgument;
-        return writeBitInWord(client, trimAscii(address).substr(0, trimAscii(address).find('.')).c_str(), spec.bit_index, value.bit);
+        return writeBitInWordImpl(client, family, trimAscii(address).substr(0, trimAscii(address).find('.')).c_str(), spec.bit_index, value.bit);
     }
     if (spec.type != value.type) return Error::InvalidArgument;
     switch (resolveWriteRoute(spec)) {
@@ -1305,6 +1435,10 @@ Error writeTyped(SlmpClient& client, const char* address, const Value& value) {
         default:
             return client.writeOneWord(spec.device, encodeWordValue(value));
     }
+}
+
+Error writeTyped(SlmpClient& client, PlcFamily family, const char* address, const Value& value) {
+    return writeTypedImpl(client, &family, address, value);
 }
 
 Error readWordsChunked(
@@ -1373,7 +1507,7 @@ Error readDWordsChunked(
     return Error::Ok;
 }
 
-Error compileReadPlan(const std::vector<std::string>& addresses, ReadPlan& out) {
+static Error compileReadPlanImpl(const std::vector<std::string>& addresses, const PlcFamily* family, ReadPlan& out) {
     out.entries.clear();
     out.word_devices.clear();
     out.dword_devices.clear();
@@ -1381,7 +1515,7 @@ Error compileReadPlan(const std::vector<std::string>& addresses, ReadPlan& out) 
 
     for (size_t i = 0; i < addresses.size(); ++i) {
         AddressSpec spec{};
-        Error err = parseAddressSpec(addresses[i].c_str(), spec);
+        Error err = parseAddressSpecImpl(addresses[i].c_str(), family, spec);
         if (err != Error::Ok) return err;
 
         const DeviceMeta* meta = nullptr;
@@ -1392,7 +1526,8 @@ Error compileReadPlan(const std::vector<std::string>& addresses, ReadPlan& out) 
                     ? addresses[i].substr(0, addresses[i].find(':')).c_str()
                     : addresses[i].c_str(),
             verified,
-            &meta);
+            &meta,
+            family);
         if (err != Error::Ok) return err;
 
         BatchKind kind = BatchKind::None;
@@ -1423,9 +1558,24 @@ Error compileReadPlan(const std::vector<std::string>& addresses, ReadPlan& out) 
     return Error::Ok;
 }
 
+Error compileReadPlan(const std::vector<std::string>& addresses, ReadPlan& out) {
+    return compileReadPlanImpl(addresses, nullptr, out);
+}
+
+Error compileReadPlan(const std::vector<std::string>& addresses, PlcFamily family, ReadPlan& out) {
+    return compileReadPlanImpl(addresses, &family, out);
+}
+
 Error readNamed(SlmpClient& client, const std::vector<std::string>& addresses, Snapshot& out) {
     ReadPlan plan;
-    Error err = compileReadPlan(addresses, plan);
+    Error err = compileReadPlanImpl(addresses, nullptr, plan);
+    if (err != Error::Ok) return err;
+    return readNamed(client, plan, out);
+}
+
+Error readNamed(SlmpClient& client, PlcFamily family, const std::vector<std::string>& addresses, Snapshot& out) {
+    ReadPlan plan;
+    Error err = compileReadPlanImpl(addresses, &family, plan);
     if (err != Error::Ok) return err;
     return readNamed(client, plan, out);
 }
@@ -1487,14 +1637,26 @@ Error readNamed(SlmpClient& client, const ReadPlan& plan, Snapshot& out) {
 
 Error writeNamed(SlmpClient& client, const Snapshot& updates) {
     for (size_t i = 0; i < updates.size(); ++i) {
-        const Error err = writeTyped(client, updates[i].address.c_str(), updates[i].value);
+        const Error err = writeTypedImpl(client, nullptr, updates[i].address.c_str(), updates[i].value);
+        if (err != Error::Ok) return err;
+    }
+    return Error::Ok;
+}
+
+Error writeNamed(SlmpClient& client, PlcFamily family, const Snapshot& updates) {
+    for (size_t i = 0; i < updates.size(); ++i) {
+        const Error err = writeTypedImpl(client, &family, updates[i].address.c_str(), updates[i].value);
         if (err != Error::Ok) return err;
     }
     return Error::Ok;
 }
 
 Error Poller::compile(const std::vector<std::string>& addresses) {
-    return compileReadPlan(addresses, plan_);
+    return compileReadPlanImpl(addresses, nullptr, plan_);
+}
+
+Error Poller::compile(const std::vector<std::string>& addresses, PlcFamily family) {
+    return compileReadPlanImpl(addresses, &family, plan_);
 }
 
 Error Poller::readOnce(SlmpClient& client, Snapshot& out) const {

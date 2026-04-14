@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.4.6
+
+- add `PlcFamily`, `configureClientForPlcFamily()`, and family-aware high-level parse/normalize/read/write overloads so the optional facade can derive fixed frame/profile defaults from one explicit family
+- make high-level string `X/Y` addresses require explicit `PlcFamily`, use octal for `IqF`, keep other supported families hexadecimal, and refresh host tests and docs for the stricter family model
+
 ## 0.4.5
 
 - add device-range catalog helpers and CPU operation-state decoding helpers to the optional high-level facade

@@ -52,7 +52,7 @@ The most reliable way to verify your setup in this repository is to start from t
 1. Connect your board to the same network as the PLC.
 2. Open `examples/esp32_devkitc_low_level` or `examples/esp32_devkitc_high_level`.
 3. Update the IP address and port (default 1025) to match your PLC.
-4. Set the correct `frame` and `compatibility mode` explicitly in code.
+4. Set one explicit `PlcFamily` in the high-level sample or set the low-level `frame` and `compatibility mode` explicitly.
 5. Build and flash the sketch, then confirm one known device read succeeds.
 
 If you need interactive serial consoles or the W6300 Ethernet bring-up tooling, use the companion console-app repository instead.
@@ -61,7 +61,7 @@ If you need interactive serial consoles or the W6300 Ethernet bring-up tooling, 
 
 After transport bring-up works, the fastest application-level smoke test is:
 
-1. Set the explicit frame and compatibility mode for the target PLC.
+1. Set one explicit `PlcFamily` for the target PLC.
 2. Connect with `plc.connect(...)`.
 3. Read one known word such as `D100`.
 4. Read one mixed snapshot such as `{"SM400", "D100", "D200:F"}`.
@@ -72,8 +72,7 @@ Minimal sequence:
 ```cpp
 #include <slmp_high_level.h>
 
-plc.setFrameType(slmp::FrameType::Frame4E);
-plc.setCompatibilityMode(slmp::CompatibilityMode::iQR);
+slmp::highlevel::configureClientForPlcFamily(plc, slmp::highlevel::PlcFamily::IqR);
 
 slmp::TypeNameInfo info = {};
 if (plc.connect("192.168.250.100", 1025)) {

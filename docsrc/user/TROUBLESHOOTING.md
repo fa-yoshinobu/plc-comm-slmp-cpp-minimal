@@ -64,12 +64,16 @@ You can also reproduce this locally with:
 
 ## X/Y/B/W device numbers look wrong
 
-These device families use hexadecimal numbering in normal Mitsubishi notation.
+`B/W/SB/SW/DX/DY` use hexadecimal numbering in normal Mitsubishi notation.
+High-level string `X/Y` also need one explicit `PlcFamily`:
+
+- `PlcFamily::IqF` uses octal string `X/Y`
+- all other supported families use hexadecimal string `X/Y`
 
 Examples:
 
-- `X20` should be passed as `0x20`
-- `Y1A` should be passed as `0x1A`
+- `X20` with `PlcFamily::IqR` should be passed as `0x20`
+- `Y217` with `PlcFamily::IqF` should be passed as octal `0217`
 - `D100` stays `100`
 
 Typed helpers make this harder to mix up:
@@ -93,6 +97,7 @@ Common mistakes:
 - `M1000.0`
 - `X20.0`
 - `Y1A.0`
+- string `X/Y` without an explicit `PlcFamily`
 
 Direct bit devices must be addressed directly. `.bit` notation is valid only for word devices such as `D50.3`.
 
