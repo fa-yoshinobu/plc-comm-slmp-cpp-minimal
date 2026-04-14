@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.4.5
+
+- add device-range catalog helpers and CPU operation-state decoding helpers to the optional high-level facade
+- expand host regression coverage and README guidance for the new device-range and CPU-state helpers
+
 ## 0.4.4
 
 - add guard logic for unsupported long-timer direct reads and unsupported `LCS/LCC` random, block, and monitor-registration paths so the minimal client matches the shared cross-library consistency rules
