@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.4.7
+
+- align the high-level examples and user docs with the existing `PlcFamily` defaults so the standard route now consistently starts from `configureClientForPlcFamily(...)`
+- update compile-checked high-level samples to use family-aware overloads for `readTyped`, `readNamed`, `writeNamed`, and `Poller::compile`
+
 ## 0.4.6
 
 - add `PlcFamily`, `configureClientForPlcFamily()`, and family-aware high-level parse/normalize/read/write overloads so the optional facade can derive fixed frame/profile defaults from one explicit family
