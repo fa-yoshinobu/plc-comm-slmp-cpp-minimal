@@ -43,6 +43,15 @@ void appendLe32(std::vector<uint8_t>& out, uint32_t value) {
     out.push_back(static_cast<uint8_t>((value >> 24) & 0xFFU));
 }
 
+std::vector<uint8_t> makeWordPayload(const std::vector<uint16_t>& words) {
+    std::vector<uint8_t> data;
+    data.reserve(words.size() * 2U);
+    for (size_t i = 0; i < words.size(); ++i) {
+        appendLe16(data, words[i]);
+    }
+    return data;
+}
+
 std::vector<uint8_t> makeResponse(const std::vector<uint8_t>& request, uint16_t end_code, const std::vector<uint8_t>& data) {
     std::vector<uint8_t> out;
     out.reserve(15U + data.size());
@@ -285,11 +294,32 @@ void assertDirectRequestHeader(
     const slmp::DeviceAddress& device,
     uint16_t expected_points = 1U
 ) {
-    assert(readLe16(request.data() + 15) == command);
-    assert(readLe16(request.data() + 17) == subcommand);
-    assert(readLe24(request.data() + 19) == device.number);
-    assert(readLe16(request.data() + 23) == static_cast<uint16_t>(device.code));
-    assert(readLe16(request.data() + 25) == expected_points);
+    const size_t header_size = (request.size() >= 2U && request[0] == 0x50U && request[1] == 0x00U) ? 15U : 19U;
+    assert(readLe16(request.data() + header_size - 4U) == command);
+    assert(readLe16(request.data() + header_size - 2U) == subcommand);
+    const size_t payload_offset = header_size;
+    const bool legacy_spec = (subcommand == 0x0000U || subcommand == 0x0001U);
+    assert(request.size() >= payload_offset + (legacy_spec ? 6U : 8U));
+    if (legacy_spec) {
+        assert(readLe24(request.data() + payload_offset) == device.number);
+        assert(static_cast<uint16_t>(request[payload_offset + 3U]) == static_cast<uint16_t>(device.code));
+        assert(readLe16(request.data() + payload_offset + 4U) == expected_points);
+        return;
+    }
+
+    assert(readLe32(request.data() + payload_offset) == device.number);
+    assert(readLe16(request.data() + payload_offset + 4U) == static_cast<uint16_t>(device.code));
+    assert(readLe16(request.data() + payload_offset + 6U) == expected_points);
+}
+
+const slmp::highlevel::DeviceRangeEntry* findDeviceRangeEntry(
+    const slmp::highlevel::DeviceRangeCatalog& catalog,
+    const char* device
+) {
+    for (size_t i = 0; i < catalog.entries.size(); ++i) {
+        if (catalog.entries[i].device == device) return &catalog.entries[i];
+    }
+    return nullptr;
 }
 
 void testAdditionalDeviceHelpers() {
@@ -1839,6 +1869,210 @@ void testHighLevelNamedReadAndPoller() {
     assert(!snapshot[4].value.bit);
 }
 
+void testHighLevelDeviceRangeCatalog() {
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setCompatibilityMode(slmp::CompatibilityMode::Legacy);
+
+        std::vector<uint16_t> registers(46U, 0U);
+        registers[0] = 1024U;   // SD260
+        registers[2] = 1024U;   // SD262
+        registers[4] = 7680U;   // SD264
+        registers[6] = 256U;    // SD266
+        registers[8] = 512U;    // SD268
+        registers[10] = 128U;   // SD270
+        registers[14] = 7680U;  // SD274
+        registers[20] = 8000U;  // SD280
+        registers[22] = 512U;   // SD282
+        registers[24] = 512U;   // SD284
+        registers[28] = 512U;   // SD288
+        registers[30] = 16U;    // SD290
+        registers[32] = 256U;   // SD292
+        registers[38] = 64U;    // SD298
+        registers[40] = 20U;    // SD300
+        registers[42] = 2U;     // SD302
+        registers[44] = 0x8000U; // SD304
+        registers[45] = 0x0000U; // SD305
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0000U), 0x0000U, makeWordPayload(registers)));
+
+        slmp::highlevel::DeviceRangeCatalog catalog;
+        assert(slmp::highlevel::readDeviceRangeCatalogForFamily(
+            plc,
+            slmp::highlevel::DeviceRangeFamily::IqF,
+            catalog) == slmp::Error::Ok);
+
+        assertDirectRequestHeader(
+            transport.lastWrite(),
+            0x0401U,
+            0x0000U,
+            slmp::dev::SD(slmp::dev::dec(260)),
+            46U);
+        assert(catalog.family == slmp::highlevel::DeviceRangeFamily::IqF);
+        assert(catalog.model == "IQ-F");
+
+        const slmp::highlevel::DeviceRangeEntry* x = findDeviceRangeEntry(catalog, "X");
+        assert(x != nullptr);
+        assert(x->supported);
+        assert(x->has_point_count);
+        assert(x->point_count == 1024U);
+        assert(x->notation == slmp::highlevel::DeviceRangeNotation::Base8);
+        assert(x->address_range == "X0000-X1777");
+
+        const slmp::highlevel::DeviceRangeEntry* y = findDeviceRangeEntry(catalog, "Y");
+        assert(y != nullptr);
+        assert(y->supported);
+        assert(y->has_point_count);
+        assert(y->point_count == 1024U);
+        assert(y->notation == slmp::highlevel::DeviceRangeNotation::Base8);
+        assert(y->address_range == "Y0000-Y1777");
+
+        const slmp::highlevel::DeviceRangeEntry* r = findDeviceRangeEntry(catalog, "R");
+        assert(r != nullptr);
+        assert(r->supported);
+        assert(r->has_point_count);
+        assert(r->point_count == 32768U);
+        assert(r->has_upper_bound);
+        assert(r->upper_bound == 32767U);
+        assert(r->address_range == "R0-R32767");
+
+        const slmp::highlevel::DeviceRangeEntry* v = findDeviceRangeEntry(catalog, "V");
+        assert(v != nullptr);
+        assert(!v->supported);
+        assert(!v->has_point_count);
+        assert(!v->has_upper_bound);
+        assert(v->address_range.empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setCompatibilityMode(slmp::CompatibilityMode::Legacy);
+
+        std::vector<uint16_t> registers(26U, 0U);
+        registers[0] = 8192U;   // SD286 low
+        registers[1] = 0U;      // SD287 high
+        registers[2] = 8192U;   // SD288 low
+        registers[3] = 0U;      // SD289 high
+        registers[4] = 8192U;   // SD290
+        registers[5] = 8192U;   // SD291
+        registers[7] = 8192U;   // SD293
+        registers[9] = 2048U;   // SD295
+        registers[10] = 2048U;  // SD296
+        registers[11] = 2048U;  // SD297
+        registers[12] = 8192U;  // SD298
+        registers[13] = 2048U;  // SD299
+        registers[14] = 16U;    // SD300
+        registers[15] = 1024U;  // SD301
+        registers[18] = 2048U;  // SD304
+        registers[19] = 20U;    // SD305
+        registers[22] = 12288U; // SD308 low
+        registers[23] = 0U;     // SD309 high
+        registers[24] = 8192U;  // SD310 low
+        registers[25] = 0U;     // SD311 high
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0000U), 0x0000U, makeWordPayload(registers)));
+
+        slmp::highlevel::DeviceRangeCatalog catalog;
+        assert(slmp::highlevel::readDeviceRangeCatalogForFamily(
+            plc,
+            slmp::highlevel::DeviceRangeFamily::QnU,
+            catalog) == slmp::Error::Ok);
+
+        assertDirectRequestHeader(
+            transport.lastWrite(),
+            0x0401U,
+            0x0000U,
+            slmp::dev::SD(slmp::dev::dec(286)),
+            26U);
+        assert(catalog.family == slmp::highlevel::DeviceRangeFamily::QnU);
+        assert(catalog.model == "QnU");
+
+        const slmp::highlevel::DeviceRangeEntry* sts = findDeviceRangeEntry(catalog, "STS");
+        assert(sts != nullptr);
+        assert(sts->supported);
+        assert(sts->has_point_count);
+        assert(sts->point_count == 16U);
+        assert(sts->address_range == "STS0-STS15");
+
+        const slmp::highlevel::DeviceRangeEntry* stc = findDeviceRangeEntry(catalog, "STC");
+        assert(stc != nullptr);
+        assert(stc->supported);
+        assert(stc->has_point_count);
+        assert(stc->point_count == 16U);
+        assert(stc->address_range == "STC0-STC15");
+
+        const slmp::highlevel::DeviceRangeEntry* stn = findDeviceRangeEntry(catalog, "STN");
+        assert(stn != nullptr);
+        assert(stn->supported);
+        assert(stn->has_point_count);
+        assert(stn->point_count == 16U);
+        assert(stn->address_range == "STN0-STN15");
+
+        const slmp::highlevel::DeviceRangeEntry* cs = findDeviceRangeEntry(catalog, "CS");
+        assert(cs != nullptr);
+        assert(cs->supported);
+        assert(cs->has_point_count);
+        assert(cs->point_count == 1024U);
+        assert(cs->address_range == "CS0-CS1023");
+
+        const slmp::highlevel::DeviceRangeEntry* z = findDeviceRangeEntry(catalog, "Z");
+        assert(z != nullptr);
+        assert(z->supported);
+        assert(z->has_point_count);
+        assert(z->point_count == 20U);
+        assert(z->address_range == "Z0-Z19");
+
+        const slmp::highlevel::DeviceRangeEntry* r = findDeviceRangeEntry(catalog, "R");
+        assert(r != nullptr);
+        assert(r->supported);
+        assert(r->has_point_count);
+        assert(r->point_count == 0U);
+        assert(!r->has_upper_bound);
+        assert(r->address_range.empty());
+    }
+}
+
+void testCpuOperationState() {
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[64] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        std::vector<uint8_t> request = makeGenericRequest(0x0401U, 0x0002U);
+        transport.queueResponse(makeResponse(request, 0x0000U, {0xA2, 0x00}));
+
+        slmp::CpuOperationState state{};
+        assert(plc.readCpuOperationState(state) == slmp::Error::Ok);
+        assertDirectRequestHeader(transport.lastWrite(), 0x0401U, 0x0002U, slmp::dev::SD(slmp::dev::dec(203)));
+        assert(state.status == slmp::CpuOperationStatus::Stop);
+        assert(state.raw_status_word == 0x00A2U);
+        assert(state.raw_code == 0x02U);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[64] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        std::vector<uint8_t> request = makeGenericRequest(0x0401U, 0x0002U);
+        transport.queueResponse(makeResponse(request, 0x0000U, {0xF5, 0x00}));
+
+        slmp::CpuOperationState state{};
+        assert(plc.readCpuOperationState(state) == slmp::Error::Ok);
+        assert(state.status == slmp::CpuOperationStatus::Unknown);
+        assert(state.raw_status_word == 0x00F5U);
+        assert(state.raw_code == 0x05U);
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -1872,6 +2106,8 @@ int main() {
     testHighLevelParserAndTypedHelpers();
     testHighLevelAddressFormatting();
     testHighLevelNamedReadAndPoller();
+    testHighLevelDeviceRangeCatalog();
+    testCpuOperationState();
     std::puts("slmp_minimal_tests: ok");
     return 0;
 }

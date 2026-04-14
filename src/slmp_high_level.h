@@ -197,6 +197,100 @@ struct NamedValue {
 using Snapshot = std::vector<NamedValue>;
 
 /**
+ * @enum DeviceRangeFamily
+ * @brief Explicit PLC family used for device-range SD block reads.
+ *
+ * The caller selects the family. This helper does not call `ReadTypeName`.
+ */
+enum class DeviceRangeFamily : uint8_t {
+    IqR,
+    MxF,
+    MxR,
+    IqF,
+    QCpu,
+    LCpu,
+    QnU,
+    QnUDV,
+};
+
+/**
+ * @enum DeviceRangeCategory
+ * @brief Logical grouping for one device-range entry.
+ */
+enum class DeviceRangeCategory : uint8_t {
+    Bit,
+    Word,
+    TimerCounter,
+    Index,
+    FileRefresh,
+};
+
+/**
+ * @enum DeviceRangeNotation
+ * @brief Rendered public address numbering style for one device family.
+ */
+enum class DeviceRangeNotation : uint8_t {
+    Base10,
+    Base8,
+    Base16,
+};
+
+/**
+ * @struct DeviceRangeEntry
+ * @brief One device-range row for one public device code such as `D` or `STS`.
+ */
+struct DeviceRangeEntry {
+    std::string device;                 ///< Public device code such as `D` or `X`.
+    DeviceRangeCategory category = DeviceRangeCategory::Word; ///< Logical category for grouping.
+    bool is_bit_device = false;         ///< True when this device is normally bit-addressed.
+    bool supported = false;             ///< False when the family does not support this device.
+    uint32_t lower_bound = 0U;          ///< Always zero in the current family rules.
+    uint32_t upper_bound = 0U;          ///< Inclusive last address when @ref has_upper_bound is true.
+    bool has_upper_bound = false;       ///< True when a finite last address is known.
+    uint32_t point_count = 0U;          ///< Configured point count when @ref has_point_count is true.
+    bool has_point_count = false;       ///< True when the PLC/configuration exposes a usable count.
+    std::string address_range;          ///< Preformatted range such as `X0000-X1777` or empty when unavailable.
+    DeviceRangeNotation notation = DeviceRangeNotation::Base10; ///< Rendered numbering style.
+    std::string source;                 ///< Rule source such as `SD300` or `Fixed family limit`.
+    std::string notes;                  ///< Optional family-specific note.
+};
+
+/**
+ * @struct DeviceRangeCatalog
+ * @brief Resolved device-range catalog for one explicit family selection.
+ */
+struct DeviceRangeCatalog {
+    std::string model;                  ///< Synthetic family label such as `IQ-F`.
+    uint16_t model_code = 0U;           ///< Always zero for explicit-family reads.
+    bool has_model_code = false;        ///< False because no type-name query is used here.
+    DeviceRangeFamily family = DeviceRangeFamily::IqR; ///< Caller-selected PLC family.
+    std::vector<DeviceRangeEntry> entries; ///< Device rows in stable output order.
+};
+
+/**
+ * @brief Return the stable label for one explicit device-range family.
+ * @param family Selected device-range family.
+ * @return Family label text such as `IQ-F`.
+ */
+const char* deviceRangeFamilyLabel(DeviceRangeFamily family);
+
+/**
+ * @brief Read the configured device-range catalog for one explicit PLC family.
+ *
+ * This helper reads the family-specific `SD` block with exactly one PLC request
+ * and formats entries such as `points=1024` and `range=X0000-X1777`.
+ *
+ * The caller chooses the PLC family explicitly. This helper does not call
+ * `ReadTypeName`.
+ *
+ * @param client Connected low-level client instance.
+ * @param family Explicit PLC family to use for the `SD` block mapping.
+ * @param out Receives the resolved device-range catalog.
+ * @return @ref Error::Ok on success.
+ */
+Error readDeviceRangeCatalogForFamily(SlmpClient& client, DeviceRangeFamily family, DeviceRangeCatalog& out);
+
+/**
  * @brief Parse a high-level address string.
  *
  * Accepted forms:

@@ -187,6 +187,24 @@ The high-level layer lives in `slmp_high_level.h`.
 - The core `slmp_minimal.h` client remains the fixed-buffer, no-allocation transport and protocol layer.
 - You can compile it out with `SLMP_MINIMAL_ENABLE_HIGH_LEVEL=0` when image size matters and the high-level helpers are not used.
 
+### Device Range Catalogs
+
+The high-level layer also exposes explicit PLC-family device-range helpers. This path does not call `ReadTypeName`. The caller chooses the family and the helper reads the family-specific `SD` block once to build a catalog of `point_count`, inclusive `upper_bound`, and formatted ranges such as `X0000-X1777`.
+
+```cpp
+slmp::highlevel::DeviceRangeCatalog catalog;
+const slmp::Error err = slmp::highlevel::readDeviceRangeCatalogForFamily(
+    plc,
+    slmp::highlevel::DeviceRangeFamily::QnU,
+    catalog);
+
+if (err == slmp::Error::Ok) {
+    // catalog.entries -> X/Y/M/... with point_count and address_range
+}
+```
+
+Supported families are `IqR`, `MxF`, `MxR`, `IqF`, `QCpu`, `LCpu`, `QnU`, and `QnUDV`.
+
 ### More High-Level Examples
 
 ```cpp

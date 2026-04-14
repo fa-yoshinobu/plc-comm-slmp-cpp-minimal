@@ -472,6 +472,27 @@ struct TypeNameInfo {
 };
 
 /**
+ * @enum CpuOperationStatus
+ * @brief Decoded CPU operation state from the lower 4 bits of SD203.
+ */
+enum class CpuOperationStatus : uint8_t {
+    Unknown = 0xFF,
+    Run = 0x00,
+    Stop = 0x02,
+    Pause = 0x03,
+};
+
+/**
+ * @struct CpuOperationState
+ * @brief Decoded CPU operation state read from SD203.
+ */
+struct CpuOperationState {
+    CpuOperationStatus status = CpuOperationStatus::Unknown; ///< Decoded operation state.
+    uint16_t raw_status_word = 0U; ///< Full raw word value read from SD203.
+    uint8_t raw_code = 0U; ///< Lower 4-bit masked status code from SD203.
+};
+
+/**
  * @class ITransport
  * @brief Abstract interface for the underlying transport layer (TCP/UDP/Serial).
  * 
@@ -614,6 +635,12 @@ class SlmpClient {
      * @return Operation result.
      */
     Error readTypeName(TypeNameInfo& out);
+    /**
+     * @brief Read SD203 and decode the CPU operation state from the lower 4 bits.
+     * @param out Receives the decoded state and raw masked code.
+     * @return Operation result.
+     */
+    Error readCpuOperationState(CpuOperationState& out);
     /** 
      * @brief Read contiguous word devices.
      * @param device Start address.
@@ -1341,4 +1368,3 @@ size_t formatHexBytes(const uint8_t* data, size_t length, char* out, size_t out_
 }  // namespace slmp
 
 #endif
-

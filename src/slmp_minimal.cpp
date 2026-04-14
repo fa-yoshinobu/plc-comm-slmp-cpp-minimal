@@ -1242,6 +1242,34 @@ Error SlmpClient::readTypeName(TypeNameInfo& out) {
     return last_error_;
 }
 
+Error SlmpClient::readCpuOperationState(CpuOperationState& out) {
+    uint16_t status_word = 0U;
+    Error err = readWords(dev::SD(dev::dec(203)), 1, &status_word, 1);
+    if (err != Error::Ok) return err;
+
+    const uint8_t raw_code = static_cast<uint8_t>(status_word & 0x000FU);
+    CpuOperationStatus status = CpuOperationStatus::Unknown;
+    switch (raw_code) {
+        case 0x00U:
+            status = CpuOperationStatus::Run;
+            break;
+        case 0x02U:
+            status = CpuOperationStatus::Stop;
+            break;
+        case 0x03U:
+            status = CpuOperationStatus::Pause;
+            break;
+        default:
+            status = CpuOperationStatus::Unknown;
+            break;
+    }
+
+    out.status = status;
+    out.raw_status_word = status_word;
+    out.raw_code = raw_code;
+    return Error::Ok;
+}
+
 Error SlmpClient::beginReadWords(
     const DeviceAddress& device,
     uint16_t points,

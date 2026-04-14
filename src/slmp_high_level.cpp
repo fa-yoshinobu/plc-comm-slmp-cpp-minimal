@@ -2,6 +2,7 @@
 
 #if SLMP_MINIMAL_ENABLE_HIGH_LEVEL
 
+#include <algorithm>
 #include <ctype.h>
 #include <string.h>
 
@@ -463,7 +464,550 @@ static Error readRandomMaps(
     return Error::Ok;
 }
 
+template <typename T, size_t N>
+constexpr size_t countOf(const T (&)[N]) { return N; }
+
+struct DeviceRangeItemDevice {
+    const char* name;
+    bool is_bit_device;
+};
+
+struct DeviceRangeRowSpec {
+    const char* item;
+    DeviceRangeCategory category;
+    const DeviceRangeItemDevice* devices;
+    size_t device_count;
+    DeviceRangeNotation notation;
+};
+
+enum class DeviceRangeValueKind : uint8_t {
+    Unsupported,
+    Undefined,
+    Fixed,
+    WordRegister,
+    DWordRegister,
+    WordRegisterClipped,
+    DWordRegisterClipped,
+};
+
+struct DeviceRangeValueSpecInternal {
+    DeviceRangeValueKind kind;
+    uint16_t reg;
+    uint32_t fixed_value;
+    uint32_t clip_value;
+    const char* source;
+    const char* notes;
+};
+
+struct DeviceRangeRuleSpec {
+    const char* item;
+    DeviceRangeValueSpecInternal value;
+};
+
+struct DeviceRangeProfileSpec {
+    DeviceRangeFamily family;
+    uint16_t register_start;
+    uint16_t register_count;
+    const DeviceRangeRuleSpec* rules;
+    size_t rule_count;
+};
+
+constexpr DeviceRangeValueSpecInternal rangeFixed(uint32_t value, const char* source) {
+    return {DeviceRangeValueKind::Fixed, 0U, value, 0U, source, nullptr};
+}
+
+constexpr DeviceRangeValueSpecInternal rangeWord(uint16_t reg, const char* source, const char* notes = nullptr) {
+    return {DeviceRangeValueKind::WordRegister, reg, 0U, 0U, source, notes};
+}
+
+constexpr DeviceRangeValueSpecInternal rangeDWord(uint16_t reg, const char* source, const char* notes = nullptr) {
+    return {DeviceRangeValueKind::DWordRegister, reg, 0U, 0U, source, notes};
+}
+
+constexpr DeviceRangeValueSpecInternal rangeWordClipped(uint16_t reg, uint32_t clip, const char* source, const char* notes = nullptr) {
+    return {DeviceRangeValueKind::WordRegisterClipped, reg, 0U, clip, source, notes};
+}
+
+constexpr DeviceRangeValueSpecInternal rangeDWordClipped(uint16_t reg, uint32_t clip, const char* source, const char* notes = nullptr) {
+    return {DeviceRangeValueKind::DWordRegisterClipped, reg, 0U, clip, source, notes};
+}
+
+constexpr DeviceRangeValueSpecInternal rangeUnsupported(const char* notes) {
+    return {DeviceRangeValueKind::Unsupported, 0U, 0U, 0U, "Unsupported", notes};
+}
+
+constexpr DeviceRangeValueSpecInternal rangeUndefined(const char* notes) {
+    return {DeviceRangeValueKind::Undefined, 0U, 0U, 0U, "Undefined", notes};
+}
+
+const DeviceRangeItemDevice kXDevice[] = {{"X", true}};
+const DeviceRangeItemDevice kYDevice[] = {{"Y", true}};
+const DeviceRangeItemDevice kMDevice[] = {{"M", true}};
+const DeviceRangeItemDevice kBDevice[] = {{"B", true}};
+const DeviceRangeItemDevice kSBDevice[] = {{"SB", true}};
+const DeviceRangeItemDevice kFDevice[] = {{"F", true}};
+const DeviceRangeItemDevice kVDevice[] = {{"V", true}};
+const DeviceRangeItemDevice kLDevice[] = {{"L", true}};
+const DeviceRangeItemDevice kSDevice[] = {{"S", true}};
+const DeviceRangeItemDevice kDDevice[] = {{"D", false}};
+const DeviceRangeItemDevice kWDevice[] = {{"W", false}};
+const DeviceRangeItemDevice kSWDevice[] = {{"SW", false}};
+const DeviceRangeItemDevice kRDevice[] = {{"R", false}};
+const DeviceRangeItemDevice kTDevices[] = {{"TS", true}, {"TC", true}, {"TN", false}};
+const DeviceRangeItemDevice kSTDevices[] = {{"STS", true}, {"STC", true}, {"STN", false}};
+const DeviceRangeItemDevice kCDevices[] = {{"CS", true}, {"CC", true}, {"CN", false}};
+const DeviceRangeItemDevice kLTDevices[] = {{"LTS", true}, {"LTC", true}, {"LTN", false}};
+const DeviceRangeItemDevice kLSTDevices[] = {{"LSTS", true}, {"LSTC", true}, {"LSTN", false}};
+const DeviceRangeItemDevice kLCDevices[] = {{"LCS", true}, {"LCC", true}, {"LCN", false}};
+const DeviceRangeItemDevice kZDevice[] = {{"Z", false}};
+const DeviceRangeItemDevice kLZDevice[] = {{"LZ", false}};
+const DeviceRangeItemDevice kZRDevice[] = {{"ZR", false}};
+const DeviceRangeItemDevice kRDDevice[] = {{"RD", false}};
+const DeviceRangeItemDevice kSMDevice[] = {{"SM", true}};
+const DeviceRangeItemDevice kSDDevice[] = {{"SD", false}};
+
+const DeviceRangeRowSpec kDeviceRangeRows[] = {
+    {"X", DeviceRangeCategory::Bit, kXDevice, countOf(kXDevice), DeviceRangeNotation::Base16},
+    {"Y", DeviceRangeCategory::Bit, kYDevice, countOf(kYDevice), DeviceRangeNotation::Base16},
+    {"M", DeviceRangeCategory::Bit, kMDevice, countOf(kMDevice), DeviceRangeNotation::Base10},
+    {"B", DeviceRangeCategory::Bit, kBDevice, countOf(kBDevice), DeviceRangeNotation::Base16},
+    {"SB", DeviceRangeCategory::Bit, kSBDevice, countOf(kSBDevice), DeviceRangeNotation::Base16},
+    {"F", DeviceRangeCategory::Bit, kFDevice, countOf(kFDevice), DeviceRangeNotation::Base10},
+    {"V", DeviceRangeCategory::Bit, kVDevice, countOf(kVDevice), DeviceRangeNotation::Base10},
+    {"L", DeviceRangeCategory::Bit, kLDevice, countOf(kLDevice), DeviceRangeNotation::Base10},
+    {"S", DeviceRangeCategory::Bit, kSDevice, countOf(kSDevice), DeviceRangeNotation::Base10},
+    {"D", DeviceRangeCategory::Word, kDDevice, countOf(kDDevice), DeviceRangeNotation::Base10},
+    {"W", DeviceRangeCategory::Word, kWDevice, countOf(kWDevice), DeviceRangeNotation::Base16},
+    {"SW", DeviceRangeCategory::Word, kSWDevice, countOf(kSWDevice), DeviceRangeNotation::Base16},
+    {"R", DeviceRangeCategory::Word, kRDevice, countOf(kRDevice), DeviceRangeNotation::Base10},
+    {"T", DeviceRangeCategory::TimerCounter, kTDevices, countOf(kTDevices), DeviceRangeNotation::Base10},
+    {"ST", DeviceRangeCategory::TimerCounter, kSTDevices, countOf(kSTDevices), DeviceRangeNotation::Base10},
+    {"C", DeviceRangeCategory::TimerCounter, kCDevices, countOf(kCDevices), DeviceRangeNotation::Base10},
+    {"LT", DeviceRangeCategory::TimerCounter, kLTDevices, countOf(kLTDevices), DeviceRangeNotation::Base10},
+    {"LST", DeviceRangeCategory::TimerCounter, kLSTDevices, countOf(kLSTDevices), DeviceRangeNotation::Base10},
+    {"LC", DeviceRangeCategory::TimerCounter, kLCDevices, countOf(kLCDevices), DeviceRangeNotation::Base10},
+    {"Z", DeviceRangeCategory::Index, kZDevice, countOf(kZDevice), DeviceRangeNotation::Base10},
+    {"LZ", DeviceRangeCategory::Index, kLZDevice, countOf(kLZDevice), DeviceRangeNotation::Base10},
+    {"ZR", DeviceRangeCategory::FileRefresh, kZRDevice, countOf(kZRDevice), DeviceRangeNotation::Base10},
+    {"RD", DeviceRangeCategory::FileRefresh, kRDDevice, countOf(kRDDevice), DeviceRangeNotation::Base10},
+    {"SM", DeviceRangeCategory::Bit, kSMDevice, countOf(kSMDevice), DeviceRangeNotation::Base10},
+    {"SD", DeviceRangeCategory::Word, kSDDevice, countOf(kSDDevice), DeviceRangeNotation::Base10},
+};
+
+const DeviceRangeRuleSpec kIqRRangeRules[] = {
+    {"X", rangeDWord(260U, "SD260-SD261 (32-bit)")},
+    {"Y", rangeDWord(262U, "SD262-SD263 (32-bit)")},
+    {"M", rangeDWord(264U, "SD264-SD265 (32-bit)")},
+    {"B", rangeDWord(266U, "SD266-SD267 (32-bit)")},
+    {"SB", rangeDWord(268U, "SD268-SD269 (32-bit)")},
+    {"F", rangeDWord(270U, "SD270-SD271 (32-bit)")},
+    {"V", rangeDWord(272U, "SD272-SD273 (32-bit)")},
+    {"L", rangeDWord(274U, "SD274-SD275 (32-bit)")},
+    {"S", rangeDWord(276U, "SD276-SD277 (32-bit)")},
+    {"D", rangeDWord(280U, "SD280-SD281 (32-bit)")},
+    {"W", rangeDWord(282U, "SD282-SD283 (32-bit)")},
+    {"SW", rangeDWord(284U, "SD284-SD285 (32-bit)")},
+    {"R", rangeDWordClipped(306U, 32768U, "SD306-SD307 (32-bit)", "Upper bound is clipped to 32768.")},
+    {"T", rangeDWord(288U, "SD288-SD289 (32-bit)")},
+    {"ST", rangeDWord(290U, "SD290-SD291 (32-bit)")},
+    {"C", rangeDWord(292U, "SD292-SD293 (32-bit)")},
+    {"LT", rangeDWord(294U, "SD294-SD295 (32-bit)")},
+    {"LST", rangeDWord(296U, "SD296-SD297 (32-bit)")},
+    {"LC", rangeDWord(298U, "SD298-SD299 (32-bit)")},
+    {"Z", rangeWord(300U, "SD300")},
+    {"LZ", rangeWord(302U, "SD302")},
+    {"ZR", rangeDWord(306U, "SD306-SD307 (32-bit)")},
+    {"RD", rangeDWord(308U, "SD308-SD309 (32-bit)")},
+    {"SM", rangeFixed(4096U, "Fixed family limit")},
+    {"SD", rangeFixed(4096U, "Fixed family limit")},
+};
+
+const DeviceRangeRuleSpec kMxFRangeRules[] = {
+    {"X", rangeDWord(260U, "SD260-SD261 (32-bit)")},
+    {"Y", rangeDWord(262U, "SD262-SD263 (32-bit)")},
+    {"M", rangeDWord(264U, "SD264-SD265 (32-bit)")},
+    {"B", rangeDWord(266U, "SD266-SD267 (32-bit)")},
+    {"SB", rangeDWord(268U, "SD268-SD269 (32-bit)")},
+    {"F", rangeDWord(270U, "SD270-SD271 (32-bit)")},
+    {"V", rangeDWord(272U, "SD272-SD273 (32-bit)")},
+    {"L", rangeDWord(274U, "SD274-SD275 (32-bit)")},
+    {"S", rangeUnsupported("Not supported on MX-F.")},
+    {"D", rangeDWord(280U, "SD280-SD281 (32-bit)")},
+    {"W", rangeDWord(282U, "SD282-SD283 (32-bit)")},
+    {"SW", rangeDWord(284U, "SD284-SD285 (32-bit)")},
+    {"R", rangeDWordClipped(306U, 32768U, "SD306-SD307 (32-bit)", "Upper bound is clipped to 32768.")},
+    {"T", rangeDWord(288U, "SD288-SD289 (32-bit)")},
+    {"ST", rangeDWord(290U, "SD290-SD291 (32-bit)")},
+    {"C", rangeDWord(292U, "SD292-SD293 (32-bit)")},
+    {"LT", rangeDWord(294U, "SD294-SD295 (32-bit)")},
+    {"LST", rangeDWord(296U, "SD296-SD297 (32-bit)")},
+    {"LC", rangeDWord(298U, "SD298-SD299 (32-bit)")},
+    {"Z", rangeWord(300U, "SD300")},
+    {"LZ", rangeWord(302U, "SD302")},
+    {"ZR", rangeDWord(306U, "SD306-SD307 (32-bit)")},
+    {"RD", rangeDWord(308U, "SD308-SD309 (32-bit)")},
+    {"SM", rangeFixed(10000U, "Fixed family limit")},
+    {"SD", rangeFixed(10000U, "Fixed family limit")},
+};
+
+const DeviceRangeRuleSpec kMxRRangeRules[] = {
+    {"X", rangeDWord(260U, "SD260-SD261 (32-bit)")},
+    {"Y", rangeDWord(262U, "SD262-SD263 (32-bit)")},
+    {"M", rangeDWord(264U, "SD264-SD265 (32-bit)")},
+    {"B", rangeDWord(266U, "SD266-SD267 (32-bit)")},
+    {"SB", rangeDWord(268U, "SD268-SD269 (32-bit)")},
+    {"F", rangeDWord(270U, "SD270-SD271 (32-bit)")},
+    {"V", rangeDWord(272U, "SD272-SD273 (32-bit)")},
+    {"L", rangeDWord(274U, "SD274-SD275 (32-bit)")},
+    {"S", rangeUnsupported("Not supported on MX-R.")},
+    {"D", rangeDWord(280U, "SD280-SD281 (32-bit)")},
+    {"W", rangeDWord(282U, "SD282-SD283 (32-bit)")},
+    {"SW", rangeDWord(284U, "SD284-SD285 (32-bit)")},
+    {"R", rangeDWordClipped(306U, 32768U, "SD306-SD307 (32-bit)", "Upper bound is clipped to 32768.")},
+    {"T", rangeDWord(288U, "SD288-SD289 (32-bit)")},
+    {"ST", rangeDWord(290U, "SD290-SD291 (32-bit)")},
+    {"C", rangeDWord(292U, "SD292-SD293 (32-bit)")},
+    {"LT", rangeDWord(294U, "SD294-SD295 (32-bit)")},
+    {"LST", rangeDWord(296U, "SD296-SD297 (32-bit)")},
+    {"LC", rangeDWord(298U, "SD298-SD299 (32-bit)")},
+    {"Z", rangeWord(300U, "SD300")},
+    {"LZ", rangeWord(302U, "SD302")},
+    {"ZR", rangeDWord(306U, "SD306-SD307 (32-bit)")},
+    {"RD", rangeDWord(308U, "SD308-SD309 (32-bit)")},
+    {"SM", rangeFixed(4496U, "Fixed family limit")},
+    {"SD", rangeFixed(4496U, "Fixed family limit")},
+};
+
+const DeviceRangeRuleSpec kIqFRangeRules[] = {
+    {"X", rangeDWord(260U, "SD260-SD261 (32-bit)", "Manual addressing for iQ-F X devices is octal.")},
+    {"Y", rangeDWord(262U, "SD262-SD263 (32-bit)", "Manual addressing for iQ-F Y devices is octal.")},
+    {"M", rangeDWord(264U, "SD264-SD265 (32-bit)")},
+    {"B", rangeDWord(266U, "SD266-SD267 (32-bit)")},
+    {"SB", rangeDWord(268U, "SD268-SD269 (32-bit)")},
+    {"F", rangeDWord(270U, "SD270-SD271 (32-bit)")},
+    {"V", rangeUnsupported("Not supported on iQ-F.")},
+    {"L", rangeDWord(274U, "SD274-SD275 (32-bit)")},
+    {"S", rangeUnsupported("Not supported on iQ-F.")},
+    {"D", rangeDWord(280U, "SD280-SD281 (32-bit)")},
+    {"W", rangeDWord(282U, "SD282-SD283 (32-bit)")},
+    {"SW", rangeDWord(284U, "SD284-SD285 (32-bit)")},
+    {"R", rangeDWord(304U, "SD304-SD305 (32-bit)")},
+    {"T", rangeDWord(288U, "SD288-SD289 (32-bit)")},
+    {"ST", rangeDWord(290U, "SD290-SD291 (32-bit)")},
+    {"C", rangeDWord(292U, "SD292-SD293 (32-bit)")},
+    {"LT", rangeUnsupported("Not supported on iQ-F.")},
+    {"LST", rangeUnsupported("Not supported on iQ-F.")},
+    {"LC", rangeDWord(298U, "SD298-SD299 (32-bit)")},
+    {"Z", rangeWord(300U, "SD300")},
+    {"LZ", rangeWord(302U, "SD302")},
+    {"ZR", rangeUnsupported("Not supported on iQ-F.")},
+    {"RD", rangeUnsupported("Not supported on iQ-F.")},
+    {"SM", rangeFixed(10000U, "Fixed family limit")},
+    {"SD", rangeFixed(12000U, "Fixed family limit")},
+};
+
+const DeviceRangeRuleSpec kQCpuRangeRules[] = {
+    {"X", rangeWord(290U, "SD290")},
+    {"Y", rangeWord(291U, "SD291")},
+    {"M", rangeWordClipped(292U, 32768U, "SD292", "Upper bound is clipped to 32768.")},
+    {"B", rangeWordClipped(294U, 32768U, "SD294", "Upper bound is clipped to 32768.")},
+    {"SB", rangeWord(296U, "SD296")},
+    {"F", rangeWord(295U, "SD295")},
+    {"V", rangeWord(297U, "SD297")},
+    {"L", rangeWord(293U, "SD293")},
+    {"S", rangeWord(298U, "SD298")},
+    {"D", rangeWordClipped(302U, 32768U, "SD302", "Upper bound is clipped to 32768 and excludes extended area.")},
+    {"W", rangeWordClipped(303U, 32768U, "SD303", "Upper bound is clipped to 32768 and excludes extended area.")},
+    {"SW", rangeWord(304U, "SD304")},
+    {"R", rangeFixed(32768U, "Fixed family limit")},
+    {"T", rangeWord(299U, "SD299")},
+    {"ST", rangeWord(300U, "SD300")},
+    {"C", rangeWord(301U, "SD301")},
+    {"LT", rangeUnsupported("Not supported on QCPU.")},
+    {"LST", rangeUnsupported("Not supported on QCPU.")},
+    {"LC", rangeUnsupported("Not supported on QCPU.")},
+    {"Z", rangeFixed(10U, "Fixed family limit")},
+    {"LZ", rangeUnsupported("Not supported on QCPU.")},
+    {"ZR", rangeUndefined("No finite upper-bound register is defined for QCPU ZR.")},
+    {"RD", rangeUnsupported("Not supported on QCPU.")},
+    {"SM", rangeFixed(1024U, "Fixed family limit")},
+    {"SD", rangeFixed(1024U, "Fixed family limit")},
+};
+
+const DeviceRangeRuleSpec kLCpuRangeRules[] = {
+    {"X", rangeWord(290U, "SD290")},
+    {"Y", rangeWord(291U, "SD291")},
+    {"M", rangeDWord(286U, "SD286-SD287 (32-bit)")},
+    {"B", rangeDWord(288U, "SD288-SD289 (32-bit)")},
+    {"SB", rangeWord(296U, "SD296")},
+    {"F", rangeWord(295U, "SD295")},
+    {"V", rangeWord(297U, "SD297")},
+    {"L", rangeWord(293U, "SD293")},
+    {"S", rangeWord(298U, "SD298")},
+    {"D", rangeDWord(308U, "SD308-SD309 (32-bit)")},
+    {"W", rangeDWord(310U, "SD310-SD311 (32-bit)")},
+    {"SW", rangeWord(304U, "SD304")},
+    {"R", rangeDWordClipped(306U, 32768U, "SD306-SD307 (32-bit)", "Upper bound is clipped to 32768.")},
+    {"T", rangeWord(299U, "SD299")},
+    {"ST", rangeWord(300U, "SD300")},
+    {"C", rangeWord(301U, "SD301")},
+    {"LT", rangeUnsupported("Not supported on LCPU.")},
+    {"LST", rangeUnsupported("Not supported on LCPU.")},
+    {"LC", rangeUnsupported("Not supported on LCPU.")},
+    {"Z", rangeWord(305U, "SD305", "Requires ZZ = FFFFh for the reported upper bound.")},
+    {"LZ", rangeUnsupported("Not supported on LCPU.")},
+    {"ZR", rangeDWord(306U, "SD306-SD307 (32-bit)")},
+    {"RD", rangeUnsupported("Not supported on LCPU.")},
+    {"SM", rangeFixed(2048U, "Fixed family limit")},
+    {"SD", rangeFixed(2048U, "Fixed family limit")},
+};
+
+const DeviceRangeRuleSpec kQnURangeRules[] = {
+    {"X", rangeWord(290U, "SD290")},
+    {"Y", rangeWord(291U, "SD291")},
+    {"M", rangeDWord(286U, "SD286-SD287 (32-bit)")},
+    {"B", rangeDWord(288U, "SD288-SD289 (32-bit)")},
+    {"SB", rangeWord(296U, "SD296")},
+    {"F", rangeWord(295U, "SD295")},
+    {"V", rangeWord(297U, "SD297")},
+    {"L", rangeWord(293U, "SD293")},
+    {"S", rangeWord(298U, "SD298")},
+    {"D", rangeDWord(308U, "SD308-SD309 (32-bit)")},
+    {"W", rangeDWord(310U, "SD310-SD311 (32-bit)")},
+    {"SW", rangeWord(304U, "SD304")},
+    {"R", rangeDWordClipped(306U, 32768U, "SD306-SD307 (32-bit)", "Upper bound is clipped to 32768.")},
+    {"T", rangeWord(299U, "SD299")},
+    {"ST", rangeWord(300U, "SD300")},
+    {"C", rangeWord(301U, "SD301")},
+    {"LT", rangeUnsupported("Not supported on QnU.")},
+    {"LST", rangeUnsupported("Not supported on QnU.")},
+    {"LC", rangeUnsupported("Not supported on QnU.")},
+    {"Z", rangeWord(305U, "SD305", "Requires ZZ = FFFFh for the reported upper bound.")},
+    {"LZ", rangeUnsupported("Not supported on QnU.")},
+    {"ZR", rangeDWord(306U, "SD306-SD307 (32-bit)")},
+    {"RD", rangeUnsupported("Not supported on QnU.")},
+    {"SM", rangeFixed(2048U, "Fixed family limit")},
+    {"SD", rangeFixed(2048U, "Fixed family limit")},
+};
+
+const DeviceRangeRuleSpec kQnUDVRangeRules[] = {
+    {"X", rangeWord(290U, "SD290")},
+    {"Y", rangeWord(291U, "SD291")},
+    {"M", rangeDWord(286U, "SD286-SD287 (32-bit)")},
+    {"B", rangeDWord(288U, "SD288-SD289 (32-bit)")},
+    {"SB", rangeWord(296U, "SD296")},
+    {"F", rangeWord(295U, "SD295")},
+    {"V", rangeWord(297U, "SD297")},
+    {"L", rangeWord(293U, "SD293")},
+    {"S", rangeWord(298U, "SD298")},
+    {"D", rangeDWord(308U, "SD308-SD309 (32-bit)")},
+    {"W", rangeDWord(310U, "SD310-SD311 (32-bit)")},
+    {"SW", rangeWord(304U, "SD304")},
+    {"R", rangeDWordClipped(306U, 32768U, "SD306-SD307 (32-bit)", "Upper bound is clipped to 32768.")},
+    {"T", rangeWord(299U, "SD299")},
+    {"ST", rangeWord(300U, "SD300")},
+    {"C", rangeWord(301U, "SD301")},
+    {"LT", rangeUnsupported("Not supported on QnUDV.")},
+    {"LST", rangeUnsupported("Not supported on QnUDV.")},
+    {"LC", rangeUnsupported("Not supported on QnUDV.")},
+    {"Z", rangeWord(305U, "SD305", "Requires ZZ = FFFFh for the reported upper bound.")},
+    {"LZ", rangeUnsupported("Not supported on QnUDV.")},
+    {"ZR", rangeDWord(306U, "SD306-SD307 (32-bit)")},
+    {"RD", rangeUnsupported("Not supported on QnUDV.")},
+    {"SM", rangeFixed(2048U, "Fixed family limit")},
+    {"SD", rangeFixed(2048U, "Fixed family limit")},
+};
+
+const DeviceRangeProfileSpec kDeviceRangeProfiles[] = {
+    {DeviceRangeFamily::IqR, 260U, 50U, kIqRRangeRules, countOf(kIqRRangeRules)},
+    {DeviceRangeFamily::MxF, 260U, 50U, kMxFRangeRules, countOf(kMxFRangeRules)},
+    {DeviceRangeFamily::MxR, 260U, 50U, kMxRRangeRules, countOf(kMxRRangeRules)},
+    {DeviceRangeFamily::IqF, 260U, 46U, kIqFRangeRules, countOf(kIqFRangeRules)},
+    {DeviceRangeFamily::QCpu, 290U, 15U, kQCpuRangeRules, countOf(kQCpuRangeRules)},
+    {DeviceRangeFamily::LCpu, 286U, 26U, kLCpuRangeRules, countOf(kLCpuRangeRules)},
+    {DeviceRangeFamily::QnU, 286U, 26U, kQnURangeRules, countOf(kQnURangeRules)},
+    {DeviceRangeFamily::QnUDV, 286U, 26U, kQnUDVRangeRules, countOf(kQnUDVRangeRules)},
+};
+
+static const char* deviceRangeFamilyLabelImpl(DeviceRangeFamily family) {
+    switch (family) {
+        case DeviceRangeFamily::IqR: return "IQ-R";
+        case DeviceRangeFamily::MxF: return "MX-F";
+        case DeviceRangeFamily::MxR: return "MX-R";
+        case DeviceRangeFamily::IqF: return "IQ-F";
+        case DeviceRangeFamily::QCpu: return "QCPU";
+        case DeviceRangeFamily::LCpu: return "LCPU";
+        case DeviceRangeFamily::QnU: return "QnU";
+        case DeviceRangeFamily::QnUDV: return "QnUDV";
+        default: return "";
+    }
+}
+
+static const DeviceRangeProfileSpec* findDeviceRangeProfile(DeviceRangeFamily family) {
+    for (size_t i = 0; i < countOf(kDeviceRangeProfiles); ++i) {
+        if (kDeviceRangeProfiles[i].family == family) return &kDeviceRangeProfiles[i];
+    }
+    return nullptr;
+}
+
+static const DeviceRangeRuleSpec* findDeviceRangeRule(const DeviceRangeProfileSpec& profile, const char* item) {
+    for (size_t i = 0; i < profile.rule_count; ++i) {
+        if (strcmp(profile.rules[i].item, item) == 0) return &profile.rules[i];
+    }
+    return nullptr;
+}
+
+static DeviceRangeNotation resolveDeviceRangeNotation(DeviceRangeFamily family, const char* device, DeviceRangeNotation fallback) {
+    if (family == DeviceRangeFamily::IqF &&
+        (strcmp(device, "X") == 0 || strcmp(device, "Y") == 0))
+        return DeviceRangeNotation::Base8;
+    return fallback;
+}
+
+static bool readDeviceRangeWord(const std::vector<uint16_t>& registers, uint16_t register_start, uint16_t reg, uint32_t& out) {
+    if (reg < register_start) return false;
+    const size_t index = static_cast<size_t>(reg - register_start);
+    if (index >= registers.size()) return false;
+    out = registers[index];
+    return true;
+}
+
+static bool readDeviceRangeDWord(const std::vector<uint16_t>& registers, uint16_t register_start, uint16_t reg, uint32_t& out) {
+    uint32_t low = 0U;
+    uint32_t high = 0U;
+    if (!readDeviceRangeWord(registers, register_start, reg, low)) return false;
+    if (!readDeviceRangeWord(registers, register_start, static_cast<uint16_t>(reg + 1U), high)) return false;
+    out = low | (high << 16U);
+    return true;
+}
+
+static Error evaluateDeviceRangePointCount(
+    const DeviceRangeValueSpecInternal& spec,
+    const std::vector<uint16_t>& registers,
+    uint16_t register_start,
+    bool& has_point_count,
+    uint32_t& point_count
+) {
+    has_point_count = false;
+    point_count = 0U;
+    switch (spec.kind) {
+        case DeviceRangeValueKind::Unsupported:
+        case DeviceRangeValueKind::Undefined:
+            return Error::Ok;
+        case DeviceRangeValueKind::Fixed:
+            has_point_count = true;
+            point_count = spec.fixed_value;
+            return Error::Ok;
+        case DeviceRangeValueKind::WordRegister:
+            if (!readDeviceRangeWord(registers, register_start, spec.reg, point_count)) return Error::ProtocolError;
+            has_point_count = true;
+            return Error::Ok;
+        case DeviceRangeValueKind::DWordRegister:
+            if (!readDeviceRangeDWord(registers, register_start, spec.reg, point_count)) return Error::ProtocolError;
+            has_point_count = true;
+            return Error::Ok;
+        case DeviceRangeValueKind::WordRegisterClipped:
+            if (!readDeviceRangeWord(registers, register_start, spec.reg, point_count)) return Error::ProtocolError;
+            point_count = std::min(point_count, spec.clip_value);
+            has_point_count = true;
+            return Error::Ok;
+        case DeviceRangeValueKind::DWordRegisterClipped:
+            if (!readDeviceRangeDWord(registers, register_start, spec.reg, point_count)) return Error::ProtocolError;
+            point_count = std::min(point_count, spec.clip_value);
+            has_point_count = true;
+            return Error::Ok;
+        default:
+            return Error::InvalidArgument;
+    }
+}
+
+static void appendUnsignedTextPadded(std::string& out, uint32_t value, uint8_t radix, size_t width) {
+    std::string formatted;
+    appendUnsignedText(formatted, value, radix);
+    if (formatted.size() < width) out.append(width - formatted.size(), '0');
+    out += formatted;
+}
+
+static std::string formatDeviceRangeAddress(const char* device, DeviceRangeNotation notation, bool has_upper_bound, uint32_t upper_bound) {
+    if (!has_upper_bound) return std::string();
+    std::string text(device);
+    if (notation == DeviceRangeNotation::Base10) {
+        text.push_back('0');
+        text.push_back('-');
+        text += device;
+        appendUnsignedText(text, upper_bound, 10U);
+        return text;
+    }
+
+    const uint8_t radix = (notation == DeviceRangeNotation::Base8) ? 8U : 16U;
+    std::string upper_text;
+    appendUnsignedText(upper_text, upper_bound, radix);
+    const size_t width = std::max<size_t>(3U, upper_text.size());
+
+    appendUnsignedTextPadded(text, 0U, radix, width);
+    text.push_back('-');
+    text += device;
+    appendUnsignedTextPadded(text, upper_bound, radix, width);
+    return text;
+}
+
 }  // namespace
+
+const char* deviceRangeFamilyLabel(DeviceRangeFamily family) {
+    return deviceRangeFamilyLabelImpl(family);
+}
+
+Error readDeviceRangeCatalogForFamily(SlmpClient& client, DeviceRangeFamily family, DeviceRangeCatalog& out) {
+    const DeviceRangeProfileSpec* profile = findDeviceRangeProfile(family);
+    if (profile == nullptr) return Error::InvalidArgument;
+
+    std::vector<uint16_t> registers(profile->register_count);
+    const Error read_error = client.readWords(dev::SD(dev::dec(profile->register_start)), profile->register_count, registers.data(), registers.size());
+    if (read_error != Error::Ok) return read_error;
+
+    out.model = deviceRangeFamilyLabelImpl(family);
+    out.model_code = 0U;
+    out.has_model_code = false;
+    out.family = family;
+    out.entries.clear();
+    out.entries.reserve(40U);
+
+    for (size_t row_index = 0; row_index < countOf(kDeviceRangeRows); ++row_index) {
+        const DeviceRangeRowSpec& row = kDeviceRangeRows[row_index];
+        const DeviceRangeRuleSpec* rule = findDeviceRangeRule(*profile, row.item);
+        if (rule == nullptr) return Error::InvalidArgument;
+
+        bool has_point_count = false;
+        uint32_t point_count = 0U;
+        const Error eval_error = evaluateDeviceRangePointCount(rule->value, registers, profile->register_start, has_point_count, point_count);
+        if (eval_error != Error::Ok) return eval_error;
+
+        const bool supported = rule->value.kind != DeviceRangeValueKind::Unsupported;
+        const bool has_upper_bound = has_point_count && point_count > 0U;
+        const uint32_t upper_bound = has_upper_bound ? (point_count - 1U) : 0U;
+
+        for (size_t device_index = 0; device_index < row.device_count; ++device_index) {
+            const DeviceRangeItemDevice& device = row.devices[device_index];
+            DeviceRangeEntry entry;
+            entry.device = device.name;
+            entry.category = row.category;
+            entry.is_bit_device = device.is_bit_device;
+            entry.supported = supported;
+            entry.lower_bound = 0U;
+            entry.upper_bound = upper_bound;
+            entry.has_upper_bound = has_upper_bound;
+            entry.point_count = point_count;
+            entry.has_point_count = has_point_count;
+            entry.notation = resolveDeviceRangeNotation(family, device.name, row.notation);
+            entry.address_range = formatDeviceRangeAddress(device.name, entry.notation, has_upper_bound, upper_bound);
+            entry.source = rule->value.source != nullptr ? rule->value.source : "";
+            entry.notes = rule->value.notes != nullptr ? rule->value.notes : "";
+            out.entries.push_back(entry);
+        }
+    }
+
+    return Error::Ok;
+}
 
 Value Value::bitValue(bool value) {
     Value out;
