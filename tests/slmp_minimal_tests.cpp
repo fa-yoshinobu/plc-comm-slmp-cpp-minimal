@@ -251,27 +251,27 @@ const DirectFunctionCase kDirectFunctionCases[] = {
     {"TS", slmp::DeviceCode::TS, 100, true, true, true},
     {"TC", slmp::DeviceCode::TC, 100, true, true, true},
     {"TN", slmp::DeviceCode::TN, 100, false, true, true},
-    {"LTS", slmp::DeviceCode::LTS, 100, true, false, true},
-    {"LTC", slmp::DeviceCode::LTC, 100, true, false, true},
-    {"LTN", slmp::DeviceCode::LTN, 100, false, false, true},
+    {"LTS", slmp::DeviceCode::LTS, 100, true, false, false},
+    {"LTC", slmp::DeviceCode::LTC, 100, true, false, false},
+    {"LTN", slmp::DeviceCode::LTN, 100, false, false, false},
     {"STS", slmp::DeviceCode::STS, 100, true, true, true},
     {"STC", slmp::DeviceCode::STC, 100, true, true, true},
     {"STN", slmp::DeviceCode::STN, 100, false, true, true},
-    {"LSTS", slmp::DeviceCode::LSTS, 100, true, false, true},
-    {"LSTC", slmp::DeviceCode::LSTC, 100, true, false, true},
-    {"LSTN", slmp::DeviceCode::LSTN, 100, false, false, true},
+    {"LSTS", slmp::DeviceCode::LSTS, 100, true, false, false},
+    {"LSTC", slmp::DeviceCode::LSTC, 100, true, false, false},
+    {"LSTN", slmp::DeviceCode::LSTN, 100, false, false, false},
     {"CS", slmp::DeviceCode::CS, 100, true, true, true},
     {"CC", slmp::DeviceCode::CC, 100, true, true, true},
     {"CN", slmp::DeviceCode::CN, 100, false, true, true},
-    {"LCS", slmp::DeviceCode::LCS, 100, true, true, true},
-    {"LCC", slmp::DeviceCode::LCC, 100, true, true, true},
-    {"LCN", slmp::DeviceCode::LCN, 100, false, true, true},
+    {"LCS", slmp::DeviceCode::LCS, 100, true, true, false},
+    {"LCC", slmp::DeviceCode::LCC, 100, true, true, false},
+    {"LCN", slmp::DeviceCode::LCN, 100, false, false, false},
     {"SB", slmp::DeviceCode::SB, 0x100, true, true, true},
     {"SW", slmp::DeviceCode::SW, 0x100, false, true, true},
     {"DX", slmp::DeviceCode::DX, 0x10, true, true, true},
     {"DY", slmp::DeviceCode::DY, 0x10, true, true, true},
     {"Z", slmp::DeviceCode::Z, 100, false, true, true},
-    {"LZ", slmp::DeviceCode::LZ, 100, false, true, true},
+    {"LZ", slmp::DeviceCode::LZ, 100, false, false, false},
     {"R", slmp::DeviceCode::R, 200, false, true, true},
     {"ZR", slmp::DeviceCode::ZR, 300, false, true, true},
     {"RD", slmp::DeviceCode::RD, 100, false, true, true},
@@ -721,6 +721,61 @@ void testUnsupportedLongFamilyCommandGuards() {
 
         const slmp::DeviceAddress word_devices[] = {slmp::dev::LCS(slmp::dev::dec(10))};
         assert(plc.registerMonitorDevices(word_devices, 1, nullptr, 0) == slmp::Error::UnsupportedDevice);
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        const slmp::ExtDeviceSpec word_devices[] = {
+            slmp::ExtDeviceSpec::linkDirect(1, slmp::DeviceCode::LCN, 10),
+        };
+        uint16_t word_values[1] = {};
+        assert(plc.readRandomExt(word_devices, 1, word_values, 1, nullptr, 0, nullptr, 0) == slmp::Error::UnsupportedDevice);
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        const slmp::ExtDeviceSpec dword_devices[] = {
+            slmp::ExtDeviceSpec::linkDirect(1, slmp::DeviceCode::LCS, 10),
+        };
+        uint32_t dword_values[1] = {};
+        assert(plc.readRandomExt(nullptr, 0, nullptr, 0, dword_devices, 1, dword_values, 1) == slmp::Error::UnsupportedDevice);
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        const slmp::ExtDeviceSpec word_devices[] = {
+            slmp::ExtDeviceSpec::linkDirect(1, slmp::DeviceCode::LZ, 0),
+        };
+        const uint16_t word_values[] = {1U};
+        assert(plc.writeRandomWordsExt(word_devices, word_values, 1, nullptr, nullptr, 0) == slmp::Error::UnsupportedDevice);
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        const slmp::ExtDeviceSpec word_devices[] = {
+            slmp::ExtDeviceSpec::linkDirect(1, slmp::DeviceCode::LCS, 10),
+        };
+        assert(plc.registerMonitorDevicesExt(word_devices, 1, nullptr, 0) == slmp::Error::UnsupportedDevice);
         assert(transport.lastWrite().empty());
     }
 }
@@ -1644,12 +1699,12 @@ void testHighLevelParserAndTypedHelpers() {
         uint8_t rx_buffer[128] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
 
-        transport.queueResponse(makeResponse(makeGenericRequest(0x0401, 0x0002), 0x0000, {0x08, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00}));
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0401, 0x0003), 0x0000, {0x10}));
         slmp::highlevel::Value value{};
         assert(slmp::highlevel::readTyped(plc, "LCS100", value) == slmp::Error::Ok);
         assert(value.type == slmp::highlevel::ValueType::Bit);
         assert(value.bit);
-        assertDirectRequestHeader(transport.lastWrite(), 0x0401, 0x0002, {slmp::DeviceCode::LCN, 100U}, 4U);
+        assertDirectRequestHeader(transport.lastWrite(), 0x0401, 0x0003, {slmp::DeviceCode::LCS, 100U});
     }
 
     {
@@ -1699,11 +1754,15 @@ void testHighLevelParserAndTypedHelpers() {
         uint8_t rx_buffer[128] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
 
-        transport.queueResponse(makeResponse(makeGenericRequest(0x1401, 0x0003), 0x0000, {}));
+        transport.queueResponse(makeResponse(makeGenericRequest(0x1402, 0x0003), 0x0000, {}));
         const slmp::highlevel::Value value = slmp::highlevel::Value::bitValue(true);
         assert(slmp::highlevel::writeTyped(plc, "LCC100", value) == slmp::Error::Ok);
-        assertDirectRequestHeader(transport.lastWrite(), 0x1401, 0x0003, {slmp::DeviceCode::LCC, 100U});
-        assert(transport.lastWrite()[27] == 0x10U);
+        assert(readLe16(transport.lastWrite().data() + 15) == 0x1402U);
+        assert(readLe16(transport.lastWrite().data() + 17) == 0x0003U);
+        assert(transport.lastWrite()[19] == 0x01U);
+        assert(readLe32(transport.lastWrite().data() + 20) == 100U);
+        assert(readLe16(transport.lastWrite().data() + 24) == static_cast<uint16_t>(slmp::DeviceCode::LCC));
+        assert(readLe16(transport.lastWrite().data() + 26) == 0x0001U);
     }
 
     {

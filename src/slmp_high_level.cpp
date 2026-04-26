@@ -259,6 +259,18 @@ static bool validateLongReadType(DeviceCode code, ValueType type) {
     return type == ValueType::Bit;
 }
 
+static bool isLongCounterStateDevice(DeviceCode code) {
+    return code == DeviceCode::LCS || code == DeviceCode::LCC;
+}
+
+static bool isRandomDwordScalarDevice(DeviceCode code) {
+    return code == DeviceCode::LCN || code == DeviceCode::LZ;
+}
+
+static Error readRandomDwordScalar(SlmpClient& client, const DeviceAddress& device, uint32_t& out) {
+    return client.readRandom(nullptr, 0, nullptr, 0, &device, 1, &out, 1);
+}
+
 static WriteRoute resolveWriteRoute(const AddressSpec& spec) {
     if (spec.type == ValueType::Bit) {
         switch (spec.device.code) {
@@ -266,6 +278,8 @@ static WriteRoute resolveWriteRoute(const AddressSpec& spec) {
             case DeviceCode::LTC:
             case DeviceCode::LSTS:
             case DeviceCode::LSTC:
+            case DeviceCode::LCS:
+            case DeviceCode::LCC:
                 return WriteRoute::RandomBit;
             default:
                 return WriteRoute::Bit;
@@ -276,6 +290,7 @@ static WriteRoute resolveWriteRoute(const AddressSpec& spec) {
         switch (spec.device.code) {
             case DeviceCode::LTN:
             case DeviceCode::LSTN:
+            case DeviceCode::LCN:
             case DeviceCode::LZ:
                 return WriteRoute::RandomDword;
             default:
@@ -421,16 +436,10 @@ static Error readLongLikePoint(
         return client.readLongRetentiveTimer(static_cast<int>(number), 1, &out, 1);
     }
 
-    uint16_t words[4] = {};
-    const DeviceAddress device{DeviceCode::LCN, number};
-    const Error err = client.readWords(device, 4, words, 4);
-    if (err != Error::Ok) return err;
-
-    out.current_value = static_cast<uint32_t>(words[0]) | (static_cast<uint32_t>(words[1]) << 16U);
-    out.status_word = words[2];
-    out.contact = (words[2] & 0x0002U) != 0U;
-    out.coil = (words[2] & 0x0001U) != 0U;
-    return Error::Ok;
+    // LCN current values use random dword read. LCS/LCC state reads use direct bit read.
+    // Do not fall back to a 4-word LCN block route here.
+    (void)number;
+    return Error::UnsupportedDevice;
 }
 
 static uint16_t encodeWordValue(const Value& value) {
@@ -1257,6 +1266,20 @@ static Error readTypedImpl(SlmpClient& client, const PlcFamily* family, const ch
 
     LongReadAccess long_read{};
     if (getLongReadAccess(spec.device.code, long_read)) {
+        if (long_read.base_code == DeviceCode::LCN && long_read.role == LongReadRole::Current) {
+            uint32_t raw = 0UL;
+            err = readRandomDwordScalar(client, spec.device, raw);
+            if (err != Error::Ok) return err;
+            out = decodeDwordValue(raw, spec.type);
+            return Error::Ok;
+        }
+        if (isLongCounterStateDevice(spec.device.code)) {
+            bool value = false;
+            err = client.readOneBit(spec.device, value);
+            if (err != Error::Ok) return err;
+            out = Value::bitValue(value);
+            return Error::Ok;
+        }
         LongTimerResult raw{};
         err = readLongLikePoint(client, long_read, spec.device.number, raw);
         if (err != Error::Ok) return err;
@@ -1274,7 +1297,9 @@ static Error readTypedImpl(SlmpClient& client, const PlcFamily* family, const ch
 
     if (valueTypeUsesDword(spec.type)) {
         uint32_t raw = 0UL;
-        err = client.readOneDWord(spec.device, raw);
+        err = isRandomDwordScalarDevice(spec.device.code)
+            ? readRandomDwordScalar(client, spec.device, raw)
+            : client.readOneDWord(spec.device, raw);
         if (err != Error::Ok) return err;
         out = decodeDwordValue(raw, spec.type);
         return Error::Ok;
@@ -1310,6 +1335,20 @@ static Error readTypedImpl(SlmpClient& client, const PlcFamily* family, const ch
 
     LongReadAccess long_read{};
     if (getLongReadAccess(spec.device.code, long_read)) {
+        if (long_read.base_code == DeviceCode::LCN && long_read.role == LongReadRole::Current) {
+            uint32_t raw = 0UL;
+            err = readRandomDwordScalar(client, spec.device, raw);
+            if (err != Error::Ok) return err;
+            out = decodeDwordValue(raw, spec.type);
+            return Error::Ok;
+        }
+        if (isLongCounterStateDevice(spec.device.code)) {
+            bool value = false;
+            err = client.readOneBit(spec.device, value);
+            if (err != Error::Ok) return err;
+            out = Value::bitValue(value);
+            return Error::Ok;
+        }
         LongTimerResult raw{};
         err = readLongLikePoint(client, long_read, spec.device.number, raw);
         if (err != Error::Ok) return err;
@@ -1327,7 +1366,9 @@ static Error readTypedImpl(SlmpClient& client, const PlcFamily* family, const ch
 
     if (valueTypeUsesDword(spec.type)) {
         uint32_t raw = 0UL;
-        err = client.readOneDWord(spec.device, raw);
+        err = isRandomDwordScalarDevice(spec.device.code)
+            ? readRandomDwordScalar(client, spec.device, raw)
+            : client.readOneDWord(spec.device, raw);
         if (err != Error::Ok) return err;
         out = decodeDwordValue(raw, spec.type);
         return Error::Ok;
@@ -1610,6 +1651,20 @@ Error readNamed(SlmpClient& client, const ReadPlan& plan, Snapshot& out) {
             case BatchKind::LongTimer: {
                 LongReadAccess long_read{};
                 if (!getLongReadAccess(entry.spec.device.code, long_read)) return Error::InvalidArgument;
+                if (long_read.base_code == DeviceCode::LCN && long_read.role == LongReadRole::Current) {
+                    uint32_t raw = 0UL;
+                    err = readRandomDwordScalar(client, entry.spec.device, raw);
+                    if (err != Error::Ok) return err;
+                    item.value = decodeDwordValue(raw, entry.spec.type);
+                    break;
+                }
+                if (isLongCounterStateDevice(entry.spec.device.code)) {
+                    bool value = false;
+                    err = client.readOneBit(entry.spec.device, value);
+                    if (err != Error::Ok) return err;
+                    item.value = Value::bitValue(value);
+                    break;
+                }
                 const DeviceAddress base_device{long_read.base_code, entry.spec.device.number};
                 const uint64_t key = deviceKey(base_device);
                 auto found = long_values.find(key);
@@ -1624,8 +1679,29 @@ Error readNamed(SlmpClient& client, const ReadPlan& plan, Snapshot& out) {
             }
             case BatchKind::None:
             default:
-                err = readTyped(client, entry.address.c_str(), item.value);
-                if (err != Error::Ok) return err;
+                if (entry.spec.bit_index >= 0) {
+                    uint16_t word = 0U;
+                    err = client.readOneWord(entry.spec.device, word);
+                    if (err != Error::Ok) return err;
+                    item.value = Value::bitValue(((word >> entry.spec.bit_index) & 1U) != 0U);
+                } else if (entry.spec.type == ValueType::Bit) {
+                    bool value = false;
+                    err = client.readOneBit(entry.spec.device, value);
+                    if (err != Error::Ok) return err;
+                    item.value = Value::bitValue(value);
+                } else if (valueTypeUsesDword(entry.spec.type)) {
+                    uint32_t raw = 0UL;
+                    err = isRandomDwordScalarDevice(entry.spec.device.code)
+                        ? readRandomDwordScalar(client, entry.spec.device, raw)
+                        : client.readOneDWord(entry.spec.device, raw);
+                    if (err != Error::Ok) return err;
+                    item.value = decodeDwordValue(raw, entry.spec.type);
+                } else {
+                    uint16_t raw = 0U;
+                    err = client.readOneWord(entry.spec.device, raw);
+                    if (err != Error::Ok) return err;
+                    item.value = decodeWordValue(raw, entry.spec.type);
+                }
                 break;
         }
 

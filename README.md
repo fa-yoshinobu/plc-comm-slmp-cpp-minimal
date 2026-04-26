@@ -18,7 +18,7 @@ Install from PlatformIO Registry:
 
 ```ini
 lib_deps =
-  fa-yoshinobu/slmp-connect-cpp-minimal@^0.4.3
+  fa-yoshinobu/slmp-connect-cpp-minimal@^0.4.8
 ```
 
 ## Design Philosophy
@@ -247,6 +247,15 @@ This minimal client focuses on direct device access. Actual availability depends
 | Word devices (direct / high-level) | SD, D, W, SW, TN, LTN, STN, LSTN, CN, LCN, Z, LZ, R, ZR, RD | Supported | `W/SW` use hexadecimal numbering. `LTN/LSTN` also have dedicated decoded helper APIs. |
 | Direct device codes that stay excluded from generic direct access | G, HG | Not supported | Use the dedicated module-buffer / extended-device APIs instead of normal direct-device helpers. |
 | Extended device access | `U\\G`, `U\\HG`, `J\\device` | Supported via dedicated APIs | Use `readWordsModuleBuf` / `writeWordsModuleBuf`, `readBitsModuleBuf` / `writeBitsModuleBuf`, `readWordsLinkDirect` / `writeWordsLinkDirect`, or the `ExtDeviceSpec` random-read helpers. |
+
+Long-family route notes:
+
+- `LTN`, `LSTN`, `LCN`, and `LZ` are 32-bit scalar forms in the high-level API.
+- `LCN` current-value reads and writes use random dword access in the high-level API.
+- `LTS`, `LTC`, `LSTS`, and `LSTC` state reads use the long timer 4-word decode helpers.
+- `LCS` and `LCC` state reads use direct bit read.
+- High-level state writes for `LTS`/`LTC`/`LSTS`/`LSTC`/`LCS`/`LCC` use random bit write (`0x1402`).
+- Low-level direct bit writes and direct word writes to these long-family logical forms are guarded before transport.
 
 ## Use Cases
 

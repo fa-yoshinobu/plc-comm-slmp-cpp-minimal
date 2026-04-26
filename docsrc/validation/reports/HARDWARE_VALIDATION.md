@@ -72,7 +72,7 @@ Use it together with:
 - Verified operator flow: `check` printed `guide`, `target`, and `command` before each write; the Atom front button accepted `OK` and advanced to the next step
 - Confirmed on this PLC through the recorded run: `X`, `Y`, `SD`, `D`, `SM`, `M`, `L`, `F`, `V`, `B`, `W`, `TS`, `TC`, `TN`, `STS`, `STC`, `STN`, `CS`, `CC`, `CN`, `SB`, `SW`, `DX`, `DY`, `R`, `ZR`
 - Observed as unsupported on this PLC and auto-skipped during the recorded run: `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `S`, `Z`, `LZ`, `RD`, `G`, `HG`
-- Library-side unsupported by design after this run: `LCS`, `LCC`, `LCN`
+- The recorded run predates the current high-level long-counter routes. Current code treats `LCN` as a random-dword 32-bit scalar and `LCS` / `LCC` as direct-bit state reads with random-bit state writes.
 - Current shipped Atom Matrix scenario uses non-leading addresses such as `SD100`, `SM100`, `D100`, `M100`, `R200`, and `ZR300`
 - Current shipped Atom Matrix scenario uses decimal write values and silently clears accepted `OK` writes back to `0`
 

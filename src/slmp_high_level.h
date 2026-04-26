@@ -146,7 +146,7 @@ enum class BatchKind : uint8_t {
     Word,       ///< Read through batched random word access.
     Dword,      ///< Read through batched random dword access.
     BitInWord,  ///< Read one bit from a batched word value.
-    LongTimer,  ///< Read one long-family point from a helper-backed 4-word block.
+    LongTimer,  ///< Read one long-family point through the helper-selected route.
 };
 
 /**

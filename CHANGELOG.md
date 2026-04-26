@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.4.8
+
+- tighten long-device route guards so `LTN/LSTN/LCN/LZ` avoid unsupported direct/raw word and dword paths, while supported random/named dword paths remain available
+- align `LCS/LCC` writes with the random/named bit route policy
+- keep family-aware high-level read plans from losing `X/Y` parsing context during plan execution
+
 ## 0.4.7
 
 - align the high-level examples and user docs with the existing `PlcFamily` defaults so the standard route now consistently starts from `configureClientForPlcFamily(...)`
