@@ -259,6 +259,7 @@ void configureClientForPlcFamily(SlmpClient& client, PlcFamily family);
  */
 enum class DeviceRangeFamily : uint8_t {
     IqR,
+    IqL,
     MxF,
     MxR,
     IqF,
@@ -332,8 +333,11 @@ const char* deviceRangeFamilyLabel(DeviceRangeFamily family);
 /**
  * @brief Read the configured device-range catalog for one explicit PLC family.
  *
- * This helper reads the family-specific `SD` block with exactly one PLC request
- * and formats entries such as `points=1024` and `range=X0000-X1777`.
+ * This helper reads the family-specific `SD` block and formats entries such as
+ * `points=1024` and `range=X0000-X1777`.
+ *
+ * `QCPU`, `LCPU`, `QnU`, and `QnUDV` also run direct read probes for runtime
+ * `Z`/`ZR` behavior after the `SD` block is loaded.
  *
  * The caller chooses the PLC family explicitly. This helper does not call
  * `ReadTypeName`.

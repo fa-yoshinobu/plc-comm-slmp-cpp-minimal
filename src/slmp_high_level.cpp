@@ -14,6 +14,8 @@ namespace highlevel {
 
 namespace {
 
+static const uint32_t kMaxRuntimeRangeProbeCount = 1048576U;
+
 struct DeviceMeta {
     const char* name;
     DeviceCode code;
@@ -29,7 +31,7 @@ static PlcFamilyDefaults plcFamilyDefaultsImpl(PlcFamily family) {
         case PlcFamily::IqR:
             return {FrameType::Frame4E, CompatibilityMode::iQR, PlcFamily::IqR, DeviceRangeFamily::IqR};
         case PlcFamily::IqL:
-            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcFamily::IqR, DeviceRangeFamily::IqR};
+            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcFamily::IqR, DeviceRangeFamily::IqL};
         case PlcFamily::MxF:
             return {FrameType::Frame4E, CompatibilityMode::iQR, PlcFamily::MxF, DeviceRangeFamily::MxF};
         case PlcFamily::MxR:
@@ -384,7 +386,6 @@ static Error copyTextToBuffer(const std::string& text, char* out, size_t out_siz
 }
 
 static Value decodeWordValue(uint16_t raw, ValueType type) {
-    Value value;
     switch (type) {
         case ValueType::Bit:
             return Value::bitValue(raw != 0U);
@@ -864,6 +865,7 @@ const DeviceRangeRuleSpec kQnUDVRangeRules[] = {
 
 const DeviceRangeProfileSpec kDeviceRangeProfiles[] = {
     {DeviceRangeFamily::IqR, 260U, 50U, kIqRRangeRules, countOf(kIqRRangeRules)},
+    {DeviceRangeFamily::IqL, 260U, 50U, kIqRRangeRules, countOf(kIqRRangeRules)},
     {DeviceRangeFamily::MxF, 260U, 50U, kMxFRangeRules, countOf(kMxFRangeRules)},
     {DeviceRangeFamily::MxR, 260U, 50U, kMxRRangeRules, countOf(kMxRRangeRules)},
     {DeviceRangeFamily::IqF, 260U, 46U, kIqFRangeRules, countOf(kIqFRangeRules)},
@@ -876,6 +878,7 @@ const DeviceRangeProfileSpec kDeviceRangeProfiles[] = {
 static const char* deviceRangeFamilyLabelImpl(DeviceRangeFamily family) {
     switch (family) {
         case DeviceRangeFamily::IqR: return "IQ-R";
+        case DeviceRangeFamily::IqL: return "iQ-L";
         case DeviceRangeFamily::MxF: return "MX-F";
         case DeviceRangeFamily::MxR: return "MX-R";
         case DeviceRangeFamily::IqF: return "IQ-F";
@@ -995,6 +998,112 @@ static std::string formatDeviceRangeAddress(const char* device, DeviceRangeNotat
     return text;
 }
 
+static bool usesRuntimeRangeProbe(DeviceRangeFamily family) {
+    return family == DeviceRangeFamily::QCpu ||
+           family == DeviceRangeFamily::LCpu ||
+           family == DeviceRangeFamily::QnU ||
+           family == DeviceRangeFamily::QnUDV;
+}
+
+static DeviceRangeEntry* findMutableDeviceRangeEntry(DeviceRangeCatalog& catalog, const char* device) {
+    for (size_t i = 0; i < catalog.entries.size(); ++i) {
+        if (catalog.entries[i].device == device) return &catalog.entries[i];
+    }
+    return nullptr;
+}
+
+static void replaceDeviceRangePointCount(
+    DeviceRangeCatalog& catalog,
+    const char* device,
+    uint32_t point_count,
+    const char* notes
+) {
+    DeviceRangeEntry* entry = findMutableDeviceRangeEntry(catalog, device);
+    if (entry == nullptr) return;
+
+    entry->supported = true;
+    entry->lower_bound = 0U;
+    entry->point_count = point_count;
+    entry->has_point_count = true;
+    entry->source = "Runtime access check";
+    entry->notes = (notes != nullptr) ? notes : "";
+
+    if (point_count == 0U) {
+        entry->upper_bound = 0U;
+        entry->has_upper_bound = false;
+        entry->address_range.clear();
+        return;
+    }
+
+    entry->upper_bound = point_count - 1U;
+    entry->has_upper_bound = true;
+    entry->address_range = formatDeviceRangeAddress(
+        entry->device.c_str(),
+        entry->notation,
+        true,
+        entry->upper_bound);
+}
+
+static bool canReadOneWord(SlmpClient& client, DeviceCode code, uint32_t number) {
+    uint16_t value = 0U;
+    return client.readWords({code, number}, 1U, &value, 1U) == Error::Ok;
+}
+
+static uint32_t resolveReadablePointCount(SlmpClient& client, DeviceCode code) {
+    if (!canReadOneWord(client, code, 0U)) return 0U;
+
+    const uint32_t upper_limit = kMaxRuntimeRangeProbeCount - 1U;
+    uint32_t low = 0U;
+    uint32_t high = 1U;
+    while (high < upper_limit && canReadOneWord(client, code, high)) {
+        low = high;
+        high = std::min(upper_limit, (high * 2U) + 1U);
+    }
+
+    if (high == upper_limit && canReadOneWord(client, code, high)) {
+        return kMaxRuntimeRangeProbeCount;
+    }
+
+    uint32_t left = low + 1U;
+    uint32_t right = high - 1U;
+    while (left <= right) {
+        const uint32_t mid = left + ((right - left) / 2U);
+        if (canReadOneWord(client, code, mid)) {
+            low = mid;
+            left = mid + 1U;
+        } else {
+            if (mid == 0U) break;
+            right = mid - 1U;
+        }
+    }
+
+    return low + 1U;
+}
+
+static void resolveRuntimeRangeLimits(SlmpClient& client, DeviceRangeFamily family, DeviceRangeCatalog& catalog) {
+    if (!usesRuntimeRangeProbe(family)) return;
+
+    if (family == DeviceRangeFamily::QCpu) {
+        replaceDeviceRangePointCount(
+            catalog,
+            "Z",
+            canReadOneWord(client, DeviceCode::Z, 15U) ? 16U : 10U,
+            "QCPU Z register count is selected by probing Z15.");
+    }
+
+    const uint32_t zr_count = resolveReadablePointCount(client, DeviceCode::ZR);
+    replaceDeviceRangePointCount(
+        catalog,
+        "ZR",
+        zr_count,
+        "ZR register count is selected by probing readable ZR addresses.");
+    replaceDeviceRangePointCount(
+        catalog,
+        "R",
+        std::min(zr_count, 32768U),
+        "R register count follows the probed ZR count and is capped at R32767.");
+}
+
 }  // namespace
 
 const char* plcFamilyLabel(PlcFamily family) {
@@ -1075,6 +1184,7 @@ Error readDeviceRangeCatalogForFamily(SlmpClient& client, DeviceRangeFamily fami
         }
     }
 
+    resolveRuntimeRangeLimits(client, family, out);
     return Error::Ok;
 }
 

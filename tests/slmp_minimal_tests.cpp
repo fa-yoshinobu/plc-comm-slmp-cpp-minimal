@@ -287,6 +287,13 @@ std::vector<uint8_t> makeGenericRequest(uint16_t command, uint16_t subcommand) {
     };
 }
 
+std::vector<uint8_t> makeGenericRequestWithSerial(uint16_t serial, uint16_t command, uint16_t subcommand) {
+    std::vector<uint8_t> request = makeGenericRequest(command, subcommand);
+    request[2] = static_cast<uint8_t>(serial & 0xFFU);
+    request[3] = static_cast<uint8_t>((serial >> 8) & 0xFFU);
+    return request;
+}
+
 void assertDirectRequestHeader(
     const std::vector<uint8_t>& request,
     uint16_t command,
@@ -2038,6 +2045,47 @@ void testHighLevelDeviceRangeCatalog() {
         uint8_t tx_buffer[256] = {};
         uint8_t rx_buffer[256] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        slmp::highlevel::configureClientForPlcFamily(plc, slmp::highlevel::PlcFamily::IqL);
+
+        std::vector<uint16_t> registers(50U, 0U);
+        registers[0] = 4096U;   // SD260 low
+        registers[1] = 0U;      // SD261 high
+        registers[2] = 4096U;   // SD262 low
+        registers[3] = 0U;      // SD263 high
+        registers[20] = 8192U;  // SD280 low
+        registers[21] = 0U;     // SD281 high
+        registers[46] = 4096U;  // SM
+        registers[47] = 0U;
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0002U), 0x0000U, makeWordPayload(registers)));
+
+        slmp::highlevel::DeviceRangeCatalog catalog;
+        assert(slmp::highlevel::readDeviceRangeCatalogForPlcFamily(
+            plc,
+            slmp::highlevel::PlcFamily::IqL,
+            catalog) == slmp::Error::Ok);
+
+        assertDirectRequestHeader(
+            transport.lastWrite(),
+            0x0401U,
+            0x0002U,
+            slmp::dev::SD(slmp::dev::dec(260)),
+            50U);
+        assert(catalog.family == slmp::highlevel::DeviceRangeFamily::IqL);
+        assert(catalog.model == "iQ-L");
+
+        const slmp::highlevel::DeviceRangeEntry* x = findDeviceRangeEntry(catalog, "X");
+        assert(x != nullptr);
+        assert(x->supported);
+        assert(x->has_point_count);
+        assert(x->point_count == 4096U);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
         plc.setCompatibilityMode(slmp::CompatibilityMode::Legacy);
 
         std::vector<uint16_t> registers(26U, 0U);
@@ -2062,7 +2110,17 @@ void testHighLevelDeviceRangeCatalog() {
         registers[24] = 8192U;  // SD310 low
         registers[25] = 0U;     // SD311 high
 
-        transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0000U), 0x0000U, makeWordPayload(registers)));
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(0U, 0x0401U, 0x0000U), 0x0000U, makeWordPayload(registers)));
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(1U, 0x0401U, 0x0000U), 0x0000U, {0x00, 0x00})); // ZR0
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(2U, 0x0401U, 0x0000U), 0x0000U, {0x00, 0x00})); // ZR1
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(3U, 0x0401U, 0x0000U), 0x0000U, {0x00, 0x00})); // ZR3
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(4U, 0x0401U, 0x0000U), 0x0000U, {0x00, 0x00})); // ZR7
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(5U, 0x0401U, 0x0000U), 0x0000U, {0x00, 0x00})); // ZR15
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(6U, 0x0401U, 0x0000U), 0x4031U, {}));         // ZR31
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(7U, 0x0401U, 0x0000U), 0x4031U, {}));         // ZR23
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(8U, 0x0401U, 0x0000U), 0x4031U, {}));         // ZR19
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(9U, 0x0401U, 0x0000U), 0x4031U, {}));         // ZR17
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(10U, 0x0401U, 0x0000U), 0x4031U, {}));        // ZR16
 
         slmp::highlevel::DeviceRangeCatalog catalog;
         assert(slmp::highlevel::readDeviceRangeCatalogForFamily(
@@ -2071,7 +2129,7 @@ void testHighLevelDeviceRangeCatalog() {
             catalog) == slmp::Error::Ok);
 
         assertDirectRequestHeader(
-            transport.lastWrite(),
+            transport.writeHistory().front(),
             0x0401U,
             0x0000U,
             slmp::dev::SD(slmp::dev::dec(286)),
@@ -2114,6 +2172,61 @@ void testHighLevelDeviceRangeCatalog() {
         assert(z->point_count == 20U);
         assert(z->address_range == "Z0-Z19");
 
+        const slmp::highlevel::DeviceRangeEntry* zr = findDeviceRangeEntry(catalog, "ZR");
+        assert(zr != nullptr);
+        assert(zr->supported);
+        assert(zr->has_point_count);
+        assert(zr->point_count == 16U);
+        assert(zr->has_upper_bound);
+        assert(zr->upper_bound == 15U);
+        assert(zr->address_range == "ZR0-ZR15");
+
+        const slmp::highlevel::DeviceRangeEntry* r = findDeviceRangeEntry(catalog, "R");
+        assert(r != nullptr);
+        assert(r->supported);
+        assert(r->has_point_count);
+        assert(r->point_count == 16U);
+        assert(r->has_upper_bound);
+        assert(r->upper_bound == 15U);
+        assert(r->address_range == "R0-R15");
+
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setCompatibilityMode(slmp::CompatibilityMode::Legacy);
+
+        std::vector<uint16_t> registers(15U, 0U);
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(0U, 0x0401U, 0x0000U), 0x0000U, makeWordPayload(registers)));
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(1U, 0x0401U, 0x0000U), 0x4031U, {})); // Z15
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(2U, 0x0401U, 0x0000U), 0x4031U, {})); // ZR0
+
+        slmp::highlevel::DeviceRangeCatalog catalog;
+        assert(slmp::highlevel::readDeviceRangeCatalogForFamily(
+            plc,
+            slmp::highlevel::DeviceRangeFamily::QCpu,
+            catalog) == slmp::Error::Ok);
+
+        const slmp::highlevel::DeviceRangeEntry* z = findDeviceRangeEntry(catalog, "Z");
+        assert(z != nullptr);
+        assert(z->supported);
+        assert(z->has_point_count);
+        assert(z->point_count == 10U);
+        assert(z->has_upper_bound);
+        assert(z->upper_bound == 9U);
+        assert(z->address_range == "Z0-Z9");
+
+        const slmp::highlevel::DeviceRangeEntry* zr = findDeviceRangeEntry(catalog, "ZR");
+        assert(zr != nullptr);
+        assert(zr->supported);
+        assert(zr->has_point_count);
+        assert(zr->point_count == 0U);
+        assert(!zr->has_upper_bound);
+        assert(zr->address_range.empty());
+
         const slmp::highlevel::DeviceRangeEntry* r = findDeviceRangeEntry(catalog, "R");
         assert(r != nullptr);
         assert(r->supported);
@@ -2130,7 +2243,7 @@ void testHighLevelPlcFamilyDefaults() {
         assert(defaults.frame_type == slmp::FrameType::Frame4E);
         assert(defaults.compatibility_mode == slmp::CompatibilityMode::iQR);
         assert(defaults.address_family == slmp::highlevel::PlcFamily::IqR);
-        assert(defaults.range_family == slmp::highlevel::DeviceRangeFamily::IqR);
+        assert(defaults.range_family == slmp::highlevel::DeviceRangeFamily::IqL);
         assert(std::string(slmp::highlevel::plcFamilyLabel(slmp::highlevel::PlcFamily::IqL)) == "iq-l");
     }
 

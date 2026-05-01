@@ -75,11 +75,9 @@ constexpr uint16_t kSubcommandBit = 0x0003;
 
 constexpr size_t kRequestHeaderSize4E = 19;
 constexpr size_t kResponsePrefixSize4E = 13;
-constexpr size_t kResponseHeaderWithoutDataSize4E = 15;
 
 constexpr size_t kRequestHeaderSize3E = 15;
 constexpr size_t kResponsePrefixSize3E = 9;
-constexpr size_t kResponseHeaderWithoutDataSize3E = 11;
 
 inline void writeLe16(uint8_t* out, uint16_t value) {
     out[0] = static_cast<uint8_t>(value & 0xFF);
@@ -468,10 +466,6 @@ inline bool isMixedWriteRetryEndCode(uint16_t end_code) {
         default:
             return false;
     }
-}
-
-inline char asciiUpper(char ch) {
-    return (ch >= 'a' && ch <= 'z') ? static_cast<char>(ch - ('a' - 'A')) : ch;
 }
 
 /**
