@@ -58,6 +58,14 @@ static uint8_t effectiveDeviceRadix(const DeviceMeta& meta, const PlcFamily* fam
     return meta.radix;
 }
 
+static bool isDeviceSupportedForPlcFamily(const DeviceMeta& meta, const PlcFamily* family) {
+    if (family != nullptr && plcFamilyDefaultsImpl(*family).address_family == PlcFamily::IqF &&
+        (meta.code == DeviceCode::DX || meta.code == DeviceCode::DY)) {
+        return false;
+    }
+    return true;
+}
+
 enum class LongReadRole : uint8_t {
     Current,
     Contact,
@@ -182,6 +190,7 @@ static Error parseDeviceOnly(const char* text, DeviceAddress& out, const DeviceM
     std::string number_part;
     const DeviceMeta* meta = findDeviceMeta(upper, number_part);
     if (meta == nullptr) return Error::UnsupportedDevice;
+    if (!isDeviceSupportedForPlcFamily(*meta, family)) return Error::UnsupportedDevice;
     if (family == nullptr && requiresExplicitPlcFamily(*meta)) return Error::InvalidArgument;
 
     uint32_t number = 0U;
@@ -1304,6 +1313,7 @@ Error parseAddressSpec(const char* address, PlcFamily family, AddressSpec& out) 
 static Error formatAddressSpecImpl(const AddressSpec& spec, const PlcFamily* family, char* out, size_t out_size) {
     const DeviceMeta* meta = findDeviceMetaByCode(spec.device.code);
     if (meta == nullptr) return Error::UnsupportedDevice;
+    if (!isDeviceSupportedForPlcFamily(*meta, family)) return Error::UnsupportedDevice;
     if (spec.bit_index < -1 || spec.bit_index > 15) return Error::InvalidArgument;
     if (family == nullptr && requiresExplicitPlcFamily(*meta)) return Error::InvalidArgument;
 
