@@ -1872,6 +1872,13 @@ void testHighLevelAddressFormatting() {
 
     {
         slmp::highlevel::AddressSpec spec{};
+        assert(slmp::highlevel::parseAddressSpec("DX10", slmp::highlevel::PlcFamily::IqF, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("DY10", slmp::highlevel::PlcFamily::IqF, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("DX10", slmp::highlevel::PlcFamily::IqR, spec) == slmp::Error::Ok);
+    }
+
+    {
+        slmp::highlevel::AddressSpec spec{};
         spec.device = slmp::dev::M(slmp::dev::dec(1000));
         spec.type = slmp::highlevel::ValueType::Bit;
         spec.explicit_type = true;

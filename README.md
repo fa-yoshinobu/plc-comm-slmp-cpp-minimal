@@ -181,6 +181,7 @@ Notes:
 - `.bit` notation is valid only for word devices such as `D50.3`.
 - Direct bit devices should be addressed directly, for example `M1000`, `X20`, or `Y1A`.
 - `B`, `W`, `SB`, `SW`, `DX`, and `DY` keep Mitsubishi hexadecimal numbering rules.
+- The high-level family-aware parser rejects `DX` and `DY` for `PlcFamily::IqF` before transport.
 - High-level string `X/Y` addresses require an explicit `PlcFamily`.
 - `PlcFamily::IqF` interprets string `X/Y` in octal. Other supported families use hexadecimal string `X/Y`.
 
@@ -246,7 +247,7 @@ This minimal client focuses on direct device access. Actual availability depends
 
 | Group | Codes | Status | Notes |
 | --- | --- | --- | --- |
-| Bit devices (direct / high-level) | SM, X, Y, M, L, F, V, B, TS, TC, LTS, LTC, STS, STC, LSTS, LSTC, CS, CC, LCS, LCC, SB, DX, DY | Supported | `X/Y/B/SB/DX/DY` use hexadecimal numbering. Long timer / counter bit families are iQ-R device codes. |
+| Bit devices (direct / high-level) | SM, X, Y, M, L, F, V, B, TS, TC, LTS, LTC, STS, STC, LSTS, LSTC, CS, CC, LCS, LCC, SB, DX, DY | Supported | `X/Y/B/SB/DX/DY` use hexadecimal numbering. `DX/DY` are rejected by the high-level family-aware parser for `PlcFamily::IqF`. Long timer / counter bit families are iQ-R device codes. |
 | Word devices (direct / high-level) | SD, D, W, SW, TN, LTN, STN, LSTN, CN, LCN, Z, LZ, R, ZR, RD | Supported | `W/SW` use hexadecimal numbering. `LTN/LSTN` also have dedicated decoded helper APIs. |
 | Direct device codes that stay excluded from generic direct access | G, HG | Not supported | Use the dedicated module-buffer / extended-device APIs instead of normal direct-device helpers. |
 | Extended device access | `U\\G`, `U\\HG`, `J\\device` | Supported via dedicated APIs | Use `readWordsModuleBuf` / `writeWordsModuleBuf`, `readBitsModuleBuf` / `writeBitsModuleBuf`, `readWordsLinkDirect` / `writeWordsLinkDirect`, or the `ExtDeviceSpec` random-read helpers. |
