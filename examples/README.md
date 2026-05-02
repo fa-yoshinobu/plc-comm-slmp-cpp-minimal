@@ -34,12 +34,16 @@ Build commands:
 ```bash
 pio run -e esp32-devkitc-low-level
 pio run -e esp32-devkitc-high-level
+pio run -e esp32-devkitc-low-level-no-udp
+pio run -e esp32-devkitc-high-level-no-udp
 ```
 
 Then compare the generated binaries:
 
 - `.pio/build/esp32-devkitc-low-level/firmware.bin`
 - `.pio/build/esp32-devkitc-high-level/firmware.bin`
+- `.pio/build/esp32-devkitc-low-level-no-udp/firmware.bin`
+- `.pio/build/esp32-devkitc-high-level-no-udp/firmware.bin`
 
 The low-level sample intentionally avoids `slmp_high_level.cpp`.
 The high-level sample intentionally includes it and uses explicit `PlcFamily`
@@ -49,9 +53,10 @@ Large contiguous reads stay behind explicit chunked helpers instead of appearing
 
 Current reference build numbers:
 
-- low-level sample: Flash `749717` bytes, RAM `45064` bytes
-- high-level sample: Flash `772181` bytes, RAM `45184` bytes
-- delta: Flash `+22464` bytes, RAM `+120` bytes
+- low-level sample: Flash `749909` bytes, RAM `45064` bytes
+- high-level sample: Flash `777525` bytes, RAM `45184` bytes
+- high-level delta: Flash `+27616` bytes, RAM `+120` bytes
+- disabling `SLMP_ENABLE_UDP_TRANSPORT` in these TCP-only samples: Flash `+0` bytes, RAM `+0` bytes
 
 Full measurement notes are stored in `docsrc/validation/reports/ESP32_DEVKITC_SIZE_COMPARISON.md`.
 

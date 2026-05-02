@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.4.10
+
+- add ESP32-DevKitC no-UDP size probe environments for low-level and high-level samples
+- refresh the ESP32 size baseline/report with current PlatformIO output and record that disabling `SLMP_ENABLE_UDP_TRANSPORT` has `0` byte Flash/RAM impact for the maintained TCP-only samples
+
 ## 0.4.9
 
 - bump the library revision for the cross-library SLMP parity release; the C++ route guards from `0.4.8` remain aligned with the updated shared verification suite

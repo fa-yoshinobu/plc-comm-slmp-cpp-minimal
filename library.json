@@ -1,6 +1,6 @@
 {
   "name": "slmp-connect-cpp-minimal",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "description": "Compact SLMP binary client for Arduino-compatible TCP and UDP transports with fixed caller-owned buffers.",
   "keywords": [
     "slmp",

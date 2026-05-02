@@ -18,7 +18,7 @@ Install from PlatformIO Registry:
 
 ```ini
 lib_deps =
-  fa-yoshinobu/slmp-connect-cpp-minimal@^0.4.9
+  fa-yoshinobu/slmp-connect-cpp-minimal@^0.4.10
 ```
 
 ## Design Philosophy
@@ -64,6 +64,8 @@ Build them with:
 ```bash
 pio run -e esp32-devkitc-low-level
 pio run -e esp32-devkitc-high-level
+pio run -e esp32-devkitc-low-level-no-udp
+pio run -e esp32-devkitc-high-level-no-udp
 ```
 
 Then compare:
@@ -73,9 +75,10 @@ Then compare:
 
 Measured on the current reference build:
 
-- low-level sample: Flash `749717` bytes, RAM `45064` bytes
-- high-level sample: Flash `772181` bytes, RAM `45184` bytes
-- delta: Flash `+22464` bytes, RAM `+120` bytes
+- low-level sample: Flash `749909` bytes, RAM `45064` bytes
+- high-level sample: Flash `777525` bytes, RAM `45184` bytes
+- high-level delta: Flash `+27616` bytes, RAM `+120` bytes
+- disabling `SLMP_ENABLE_UDP_TRANSPORT` in these TCP-only ESP32 samples: Flash `+0` bytes, RAM `+0` bytes
 
 The measurement log is stored in `docsrc/validation/reports/ESP32_DEVKITC_SIZE_COMPARISON.md`.
 

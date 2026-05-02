@@ -1,22 +1,40 @@
 {
-    "envs":  {
-                 "esp32-devkitc-low-level":  {
-                                                 "label":  "ESP32 low-level sample",
-                                                 "flash_used":  749717,
-                                                 "flash_total":  1310720,
-                                                 "ram_used":  45064,
-                                                 "ram_total":  327680,
-                                                 "allowed_flash_growth":  1024,
-                                                 "allowed_ram_growth":  64
-                                             },
-                 "esp32-devkitc-high-level":  {
-                                                  "label":  "ESP32 high-level sample",
-                                                  "flash_used":  772181,
-                                                  "flash_total":  1310720,
-                                                  "ram_used":  45184,
-                                                  "ram_total":  327680,
-                                                  "allowed_flash_growth":  1024,
-                                                  "allowed_ram_growth":  64
-                                              }
-             }
+  "envs": {
+    "esp32-devkitc-low-level": {
+      "label": "ESP32 low-level sample",
+      "flash_used": 749909,
+      "flash_total": 1310720,
+      "ram_used": 45064,
+      "ram_total": 327680,
+      "allowed_flash_growth": 1024,
+      "allowed_ram_growth": 64
+    },
+    "esp32-devkitc-low-level-no-udp": {
+      "label": "ESP32 low-level sample, UDP transport disabled",
+      "flash_used": 749909,
+      "flash_total": 1310720,
+      "ram_used": 45064,
+      "ram_total": 327680,
+      "allowed_flash_growth": 1024,
+      "allowed_ram_growth": 64
+    },
+    "esp32-devkitc-high-level": {
+      "label": "ESP32 high-level sample",
+      "flash_used": 777525,
+      "flash_total": 1310720,
+      "ram_used": 45184,
+      "ram_total": 327680,
+      "allowed_flash_growth": 1024,
+      "allowed_ram_growth": 64
+    },
+    "esp32-devkitc-high-level-no-udp": {
+      "label": "ESP32 high-level sample, UDP transport disabled",
+      "flash_used": 777525,
+      "flash_total": 1310720,
+      "ram_used": 45184,
+      "ram_total": 327680,
+      "allowed_flash_growth": 1024,
+      "allowed_ram_growth": 64
+    }
+  }
 }
