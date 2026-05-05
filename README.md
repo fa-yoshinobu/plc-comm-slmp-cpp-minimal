@@ -8,6 +8,12 @@
 
 ![Illustration](https://raw.githubusercontent.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal/main/docsrc/assets/melsec_rpi.png)
 
+[![ci](https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal/actions/workflows/ci.yml/badge.svg)](https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal/actions/workflows/ci.yml)
+[![release](https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal/actions/workflows/release.yml/badge.svg)](https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal/actions/workflows/release.yml)
+
+[![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![C++](https://img.shields.io/badge/C%2B%2B-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
+
 A lightweight, microcontroller-oriented C++ library for Mitsubishi SLMP (Seamless Message Protocol). The core client stays buffer-oriented and allocation-free, and an optional high-level layer adds string-address helpers for typed reads, mixed snapshots, and polling.
 
 PlatformIO Registry:
