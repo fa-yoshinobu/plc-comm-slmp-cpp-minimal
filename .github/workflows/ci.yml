@@ -85,6 +85,7 @@ jobs:
             coverage-summary.txt
             coverage.xml
             coverage.html
+          retention-days: 7
 
   platformio:
     runs-on: ubuntu-latest
