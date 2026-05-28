@@ -884,10 +884,10 @@ void testRemoteControl() {
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
 
         transport.queueResponse(makeResponse(makeGenericRequest(0x1001, 0x0000), 0x0000, {}));
-        assert(plc.remoteRun(false, 2U) == slmp::Error::Ok);
+        assert(plc.remoteRun() == slmp::Error::Ok);
         assert(readLe16(transport.lastWrite().data() + 15) == 0x1001U);
         assert(readLe16(transport.lastWrite().data() + 19) == 0x0001U);
-        assert(readLe16(transport.lastWrite().data() + 21) == 0x0002U);
+        assert(readLe16(transport.lastWrite().data() + 21) == 0x0000U);
         assert(plc.remoteRun(false, 3U) == slmp::Error::InvalidArgument);
     }
 

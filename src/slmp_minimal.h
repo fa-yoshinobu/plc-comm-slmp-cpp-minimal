@@ -841,7 +841,7 @@ class SlmpClient {
     );
 
     /** @brief Remote RUN command. Set PLC to RUN state. */
-    Error remoteRun(bool force = false, uint16_t clear_mode = 2U);
+    Error remoteRun(bool force = false, uint16_t clear_mode = 0U);
     /** @brief Remote STOP command. Set PLC to STOP state. */
     Error remoteStop();
     /** @brief Remote PAUSE command. Set PLC to PAUSE state. */
