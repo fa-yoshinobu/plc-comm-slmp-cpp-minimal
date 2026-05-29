@@ -7,6 +7,7 @@ Public API surface:
 - `src/slmp_minimal.h`
 - `src/slmp_high_level.h`
 - `src/slmp_arduino_transport.h`
+- `src/slmp_error_codes.h`
 - `src/slmp_utility.h`
 
 Stability intent:
@@ -29,6 +30,7 @@ What should remain stable unless there is a strong reason:
 - `slmp::DeviceAddress`
 - `slmp::SlmpClient` core read/write API
 - `slmp::endCodeString()`
+- `slmp::endCodeMessageEnglish()` / `slmp::endCodeMessageJapanese()`
 - `slmp::formatHexBytes()`
 
 Breaking changes policy:

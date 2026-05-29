@@ -13,7 +13,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Build host tests
-        run: g++ -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests
+        run: g++ -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_error_codes.cpp src/slmp_error_messages.cpp src/slmp_error_messages_en.cpp src/slmp_error_messages_ja.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests
       - name: Run host tests
         run: /tmp/slmp_minimal_tests
       - name: Run socket integration test
@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Build host tests with sanitizers
-        run: g++ -std=c++17 -Wall -Wextra -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests_san
+        run: g++ -std=c++17 -Wall -Wextra -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_error_codes.cpp src/slmp_error_messages.cpp src/slmp_error_messages_en.cpp src/slmp_error_messages_ja.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests_san
       - name: Run sanitizer tests
         env:
           ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1
@@ -44,7 +44,7 @@ jobs:
       - name: Install gcovr
         run: pip install gcovr
       - name: Build host tests with coverage
-        run: g++ -std=c++17 -Wall -Wextra --coverage -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests_cov
+        run: g++ -std=c++17 -Wall -Wextra --coverage -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_error_codes.cpp src/slmp_error_messages.cpp src/slmp_error_messages_en.cpp src/slmp_error_messages_ja.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests_cov
       - name: Run coverage tests
         run: /tmp/slmp_minimal_tests_cov
       - name: Generate coverage reports

@@ -32,7 +32,7 @@ jobs:
           sudo apt-get install -y doxygen zip
 
       - name: Build host tests
-        run: g++ -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests
+        run: g++ -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_error_codes.cpp src/slmp_error_messages.cpp src/slmp_error_messages_en.cpp src/slmp_error_messages_ja.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests
 
       - name: Run host tests
         run: /tmp/slmp_minimal_tests

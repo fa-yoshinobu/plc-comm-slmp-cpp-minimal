@@ -297,6 +297,25 @@ Long-family route notes:
 - High-level state writes for `LTS`/`LTC`/`LSTS`/`LSTC`/`LCS`/`LCC` use random bit write (`0x1402`).
 - Low-level direct bit writes and direct word writes to these long-family logical forms are guarded before transport.
 
+### Optional SLMP End-Code Text
+
+The core client stores the raw PLC end code in `SlmpClient::lastEndCode()`.
+Text conversion is split out so small firmware can omit it:
+
+| Need | Function | Add these files to the build |
+| --- | --- | --- |
+| Code-derived labels and category helpers, such as `slmp_end_code_c201` and `isRemotePasswordEndCode()` | `endCodeString()`, `isRemotePasswordEndCode()` | `src/slmp_error_codes.cpp` |
+| English messages only | `endCodeMessageEnglish()` | `src/slmp_error_codes.cpp`, `src/slmp_error_messages_en.cpp` |
+| Japanese messages only | `endCodeMessageJapanese()` | `src/slmp_error_codes.cpp`, `src/slmp_error_messages_ja.cpp` |
+| Runtime English/Japanese switch | `endCodeMessage()` | `src/slmp_error_codes.cpp`, `src/slmp_error_messages.cpp`, `src/slmp_error_messages_en.cpp`, `src/slmp_error_messages_ja.cpp` |
+
+Message text is kept in `src/lang/slmp_end_code_messages_en.def` and
+`src/lang/slmp_end_code_messages_ja.def`. The tables contain error
+detail/cause text. Remote-password retry-delay codes (`C810H` to `C815H`)
+also include the wait time because the detail text alone is identical.
+Use numeric end codes or category helpers such as `isRemotePasswordEndCode()`
+for application branching; `endCodeString()` is only a diagnostic label.
+
 ## Use Cases
 
 - Edge devices that must read PLC signals with tight RAM/CPU budgets.
