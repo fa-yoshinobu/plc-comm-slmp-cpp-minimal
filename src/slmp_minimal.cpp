@@ -3081,9 +3081,10 @@ Error SlmpClient::remoteRun(bool force, uint16_t clear_mode) {
     return last_error_;
 }
 
-Error SlmpClient::beginRemoteStop(uint32_t now_ms) {
+Error SlmpClient::beginRemoteStop(bool force, uint32_t now_ms) {
     size_t payload_length = 0;
-    Error encode_error = encodeRemoteModePayload(0x0001U, tx_buffer_, tx_capacity_, payload_length);
+    const uint16_t mode = force ? 0x0003U : 0x0001U;
+    Error encode_error = encodeRemoteModePayload(mode, tx_buffer_, tx_capacity_, payload_length);
     if (encode_error != Error::Ok) {
         setError(encode_error);
         return last_error_;
@@ -3092,8 +3093,8 @@ Error SlmpClient::beginRemoteStop(uint32_t now_ms) {
     return startAsync(AsyncContext::Type::RemoteStop, payload_length, now_ms);
 }
 
-Error SlmpClient::remoteStop() {
-    Error err = beginRemoteStop(getTimeMs());
+Error SlmpClient::remoteStop(bool force) {
+    Error err = beginRemoteStop(force, getTimeMs());
     if (err != Error::Ok) return err;
     while (isBusy()) {
         update(getTimeMs());

@@ -914,6 +914,11 @@ void testRemoteControl() {
         assert(plc.remoteStop() == slmp::Error::Ok);
         assert(readLe16(transport.lastWrite().data() + 15) == 0x1002U);
         assert(readLe16(transport.lastWrite().data() + 19) == 0x0001U);
+
+        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(1U, 0x1002, 0x0000), 0x0000, {}));
+        assert(plc.remoteStop(true) == slmp::Error::Ok);
+        assert(readLe16(transport.lastWrite().data() + 15) == 0x1002U);
+        assert(readLe16(transport.lastWrite().data() + 19) == 0x0003U);
     }
 
     {

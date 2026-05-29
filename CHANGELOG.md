@@ -3,6 +3,7 @@
 ## Unreleased
 
 - split SLMP end-code text out of the core source and add optional English/Japanese message tables without corrective-action text
+- add forced remote STOP support through `remoteStop(true)` and `beginRemoteStop(true, now_ms)`
 
 ## 0.4.10
 

@@ -843,7 +843,7 @@ class SlmpClient {
     /** @brief Remote RUN command. Set PLC to RUN state. */
     Error remoteRun(bool force = false, uint16_t clear_mode = 0U);
     /** @brief Remote STOP command. Set PLC to STOP state. */
-    Error remoteStop();
+    Error remoteStop(bool force = false);
     /** @brief Remote PAUSE command. Set PLC to PAUSE state. */
     Error remotePause(bool force = false);
     /** @brief Remote LATCH CLEAR command. */
@@ -982,7 +982,7 @@ class SlmpClient {
     /** @brief Start async RemoteRun. */
     Error beginRemoteRun(bool force, uint16_t clear_mode, uint32_t now_ms);
     /** @brief Start async RemoteStop. */
-    Error beginRemoteStop(uint32_t now_ms);
+    Error beginRemoteStop(bool force, uint32_t now_ms);
     /** @brief Start async RemotePause. */
     Error beginRemotePause(bool force, uint32_t now_ms);
     /** @brief Start async RemoteLatchClear. */
