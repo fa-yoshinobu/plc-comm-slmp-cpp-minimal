@@ -1358,8 +1358,15 @@ class SlmpClient {
 
 /** @brief Get descriptive string for @ref Error code. */
 const char* errorString(Error error);
-/** @brief Get descriptive string for SLMP end code (PLC error code). */
+/**
+ * @brief Get a compact code-derived label for an SLMP end code (PLC error code).
+ *
+ * Implemented in optional slmp_error_codes.cpp. Include/link that file only
+ * when end-code labels or category helpers are needed.
+ */
 const char* endCodeString(uint16_t end_code);
+/** @brief Return true when an SLMP end code is related to remote password protection. */
+bool isRemotePasswordEndCode(uint16_t end_code);
 /** @brief Helper to format bytes as a hex string (e.g. "01 02 AB"). Used for logging. */
 size_t formatHexBytes(const uint8_t* data, size_t length, char* out, size_t out_capacity);
 

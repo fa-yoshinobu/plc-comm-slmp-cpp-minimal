@@ -3282,47 +3282,6 @@ const char* errorString(Error error) {
     }
 }
 
-const char* endCodeString(uint16_t end_code) {
-    switch (end_code) {
-        case 0x0000:
-            return "success";
-        case 0x4013:
-            return "state_rejected";
-        case 0x4030:
-            return "device_or_path_rejected";
-        case 0x4031:
-            return "range_or_allocation_mismatch";
-        case 0x4043:
-            return "invalid_extend_unit_argument";
-        case 0x4080:
-            return "target_or_module_mismatch";
-        case 0x40C0:
-            return "label_condition_failure";
-        case 0x413E:
-            return "file_state_or_environment_rejected";
-        case 0x414A:
-            return "target_or_write_path_rejected";
-        case 0xC051:
-            return "word_count_or_unit_rule_violation";
-        case 0xC056:
-            return "request_format_or_combination_rejected";
-        case 0xC059:
-            return "request_family_not_accepted";
-        case 0xC05B:
-            return "direct_g_hg_path_rejected";
-        case 0xC061:
-            return "request_content_or_path_rejected";
-        case 0xC201:
-            return "password_lock_or_authentication_required";
-        case 0xC207:
-            return "file_environment_rejected";
-        case 0xC810:
-            return "invalid_password";
-        default:
-            return "unknown_plc_end_code";
-    }
-}
-
 size_t formatHexBytes(const uint8_t* data, size_t length, char* out, size_t out_capacity) {
     static const char kHexDigits[] = "0123456789ABCDEF";
 

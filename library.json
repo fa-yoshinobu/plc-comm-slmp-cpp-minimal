@@ -35,7 +35,8 @@
   "headers": [
     "slmp_minimal.h",
     "slmp_high_level.h",
-    "slmp_arduino_transport.h"
+    "slmp_arduino_transport.h",
+    "slmp_error_codes.h"
   ],
   "export": {
     "exclude": [

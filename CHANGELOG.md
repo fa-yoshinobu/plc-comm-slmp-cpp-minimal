@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- split SLMP end-code text out of the core source and add optional English/Japanese message tables without corrective-action text
+
 ## 0.4.10
 
 - add ESP32-DevKitC no-UDP size probe environments for low-level and high-level samples

@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "slmp_error_codes.h"
 #include "slmp_minimal.h"
 
 #ifdef _WIN32
@@ -422,7 +423,7 @@ void testInjectedPlcError(const char* host, uint16_t port) {
     uint16_t word = 0;
     require(plc.readOneWord(slmp::dev::D(slmp::dev::dec(100)), word) == slmp::Error::PlcError);
     require(plc.lastEndCode() == 0xC051U);
-    require(std::string(slmp::endCodeString(plc.lastEndCode())) == "word_count_or_unit_rule_violation");
+    require(std::string(slmp::endCodeString(plc.lastEndCode())) == "slmp_end_code_c051");
     plc.close();
 }
 

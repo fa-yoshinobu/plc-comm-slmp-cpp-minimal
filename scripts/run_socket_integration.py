@@ -114,6 +114,7 @@ def main() -> int:
         "-Isrc",
         "tests/slmp_socket_integration.cpp",
         "src/slmp_minimal.cpp",
+        "src/slmp_error_codes.cpp",
         "src/slmp_high_level.cpp",
         "-o",
         str(output_path),
