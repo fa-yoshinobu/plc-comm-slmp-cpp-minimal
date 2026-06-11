@@ -1372,6 +1372,63 @@ Error readTyped(SlmpClient& client, const char* device, const char* dtype, Value
     return readTypedImpl(client, nullptr, device, dtype, out);
 }
 
+static Error readAddressSpecValue(SlmpClient& client, const AddressSpec& spec, Value& out) {
+    if (spec.bit_index >= 0) {
+        uint16_t word = 0U;
+        const Error err = client.readOneWord(spec.device, word);
+        if (err != Error::Ok) return err;
+        out = Value::bitValue(((word >> spec.bit_index) & 1U) != 0U);
+        return Error::Ok;
+    }
+
+    LongReadAccess long_read{};
+    if (getLongReadAccess(spec.device.code, long_read)) {
+        if (long_read.base_code == DeviceCode::LCN && long_read.role == LongReadRole::Current) {
+            uint32_t raw = 0UL;
+            const Error err = readRandomDwordScalar(client, spec.device, raw);
+            if (err != Error::Ok) return err;
+            out = decodeDwordValue(raw, spec.type);
+            return Error::Ok;
+        }
+        if (isLongCounterStateDevice(spec.device.code)) {
+            bool value = false;
+            const Error err = client.readOneBit(spec.device, value);
+            if (err != Error::Ok) return err;
+            out = Value::bitValue(value);
+            return Error::Ok;
+        }
+        LongTimerResult raw{};
+        const Error err = readLongLikePoint(client, long_read, spec.device.number, raw);
+        if (err != Error::Ok) return err;
+        out = decodeLongReadValue(raw, long_read, spec.type);
+        return Error::Ok;
+    }
+
+    if (spec.type == ValueType::Bit) {
+        bool value = false;
+        const Error err = client.readOneBit(spec.device, value);
+        if (err != Error::Ok) return err;
+        out = Value::bitValue(value);
+        return Error::Ok;
+    }
+
+    if (valueTypeUsesDword(spec.type)) {
+        uint32_t raw = 0UL;
+        const Error err = isRandomDwordScalarDevice(spec.device.code)
+            ? readRandomDwordScalar(client, spec.device, raw)
+            : client.readOneDWord(spec.device, raw);
+        if (err != Error::Ok) return err;
+        out = decodeDwordValue(raw, spec.type);
+        return Error::Ok;
+    }
+
+    uint16_t raw = 0U;
+    const Error err = client.readOneWord(spec.device, raw);
+    if (err != Error::Ok) return err;
+    out = decodeWordValue(raw, spec.type);
+    return Error::Ok;
+}
+
 static Error readTypedImpl(SlmpClient& client, const PlcFamily* family, const char* device, const char* dtype, Value& out) {
     if (device == nullptr || dtype == nullptr) return Error::InvalidArgument;
     const std::string address = trimAscii(device);
@@ -1384,52 +1441,7 @@ static Error readTypedImpl(SlmpClient& client, const PlcFamily* family, const ch
     if (err != Error::Ok) return err;
     if (spec.bit_index >= 0) return Error::InvalidArgument;
 
-    LongReadAccess long_read{};
-    if (getLongReadAccess(spec.device.code, long_read)) {
-        if (long_read.base_code == DeviceCode::LCN && long_read.role == LongReadRole::Current) {
-            uint32_t raw = 0UL;
-            err = readRandomDwordScalar(client, spec.device, raw);
-            if (err != Error::Ok) return err;
-            out = decodeDwordValue(raw, spec.type);
-            return Error::Ok;
-        }
-        if (isLongCounterStateDevice(spec.device.code)) {
-            bool value = false;
-            err = client.readOneBit(spec.device, value);
-            if (err != Error::Ok) return err;
-            out = Value::bitValue(value);
-            return Error::Ok;
-        }
-        LongTimerResult raw{};
-        err = readLongLikePoint(client, long_read, spec.device.number, raw);
-        if (err != Error::Ok) return err;
-        out = decodeLongReadValue(raw, long_read, spec.type);
-        return Error::Ok;
-    }
-
-    if (spec.type == ValueType::Bit) {
-        bool value = false;
-        err = client.readOneBit(spec.device, value);
-        if (err != Error::Ok) return err;
-        out = Value::bitValue(value);
-        return Error::Ok;
-    }
-
-    if (valueTypeUsesDword(spec.type)) {
-        uint32_t raw = 0UL;
-        err = isRandomDwordScalarDevice(spec.device.code)
-            ? readRandomDwordScalar(client, spec.device, raw)
-            : client.readOneDWord(spec.device, raw);
-        if (err != Error::Ok) return err;
-        out = decodeDwordValue(raw, spec.type);
-        return Error::Ok;
-    }
-
-    uint16_t raw = 0U;
-    err = client.readOneWord(spec.device, raw);
-    if (err != Error::Ok) return err;
-    out = decodeWordValue(raw, spec.type);
-    return Error::Ok;
+    return readAddressSpecValue(client, spec, out);
 }
 
 Error readTyped(SlmpClient& client, PlcFamily family, const char* device, const char* dtype, Value& out) {
@@ -1445,60 +1457,7 @@ static Error readTypedImpl(SlmpClient& client, const PlcFamily* family, const ch
     Error err = parseAddressSpecImpl(address, family, spec);
     if (err != Error::Ok) return err;
 
-    if (spec.bit_index >= 0) {
-        uint16_t word = 0U;
-        err = client.readOneWord(spec.device, word);
-        if (err != Error::Ok) return err;
-        out = Value::bitValue(((word >> spec.bit_index) & 1U) != 0U);
-        return Error::Ok;
-    }
-
-    LongReadAccess long_read{};
-    if (getLongReadAccess(spec.device.code, long_read)) {
-        if (long_read.base_code == DeviceCode::LCN && long_read.role == LongReadRole::Current) {
-            uint32_t raw = 0UL;
-            err = readRandomDwordScalar(client, spec.device, raw);
-            if (err != Error::Ok) return err;
-            out = decodeDwordValue(raw, spec.type);
-            return Error::Ok;
-        }
-        if (isLongCounterStateDevice(spec.device.code)) {
-            bool value = false;
-            err = client.readOneBit(spec.device, value);
-            if (err != Error::Ok) return err;
-            out = Value::bitValue(value);
-            return Error::Ok;
-        }
-        LongTimerResult raw{};
-        err = readLongLikePoint(client, long_read, spec.device.number, raw);
-        if (err != Error::Ok) return err;
-        out = decodeLongReadValue(raw, long_read, spec.type);
-        return Error::Ok;
-    }
-
-    if (spec.type == ValueType::Bit) {
-        bool value = false;
-        err = client.readOneBit(spec.device, value);
-        if (err != Error::Ok) return err;
-        out = Value::bitValue(value);
-        return Error::Ok;
-    }
-
-    if (valueTypeUsesDword(spec.type)) {
-        uint32_t raw = 0UL;
-        err = isRandomDwordScalarDevice(spec.device.code)
-            ? readRandomDwordScalar(client, spec.device, raw)
-            : client.readOneDWord(spec.device, raw);
-        if (err != Error::Ok) return err;
-        out = decodeDwordValue(raw, spec.type);
-        return Error::Ok;
-    }
-
-    uint16_t raw = 0U;
-    err = client.readOneWord(spec.device, raw);
-    if (err != Error::Ok) return err;
-    out = decodeWordValue(raw, spec.type);
-    return Error::Ok;
+    return readAddressSpecValue(client, spec, out);
 }
 
 Error readTyped(SlmpClient& client, PlcFamily family, const char* address, Value& out) {
