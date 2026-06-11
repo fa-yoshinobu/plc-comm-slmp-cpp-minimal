@@ -13,6 +13,15 @@ Use it together with:
 - [../../user/TROUBLESHOOTING.md](../../user/TROUBLESHOOTING.md) when a board run fails
 - [hardware-validation issue template](../../../.github/ISSUE_TEMPLATE/hardware-validation.md) when you want to file a structured result
 
+## Resolution Update (2026-06-12)
+
+The historical mixed `writeBlock` `0xC05B` records in this file predate the
+Write Block payload layout fix. The root cause was client-side encoding that
+batched all block specs before all data. The current implementation emits the
+manual layout, with each block's data directly after that block's device spec
+and point count. Treat the older `0xC05B` entries as historical evidence for
+the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
+
 ## Validation Flow
 
 1. Pick the board and sketch from [../../../examples/README.md](../../../examples/README.md).

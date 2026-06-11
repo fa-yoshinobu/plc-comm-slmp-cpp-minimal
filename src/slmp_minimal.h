@@ -162,7 +162,6 @@ struct DeviceBlockWrite {
  */
 struct BlockWriteOptions {
     bool split_mixed_blocks;    ///< Split bit and word blocks into separate requests.
-    bool retry_mixed_on_error;  ///< Retry as separate requests if mixed write fails.
 };
 
 /**

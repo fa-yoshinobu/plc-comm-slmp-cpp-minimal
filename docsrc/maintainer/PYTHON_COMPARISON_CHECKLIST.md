@@ -8,6 +8,18 @@ The original Python project referenced by this repository is:
 
 - `slmp-connect-python`: <https://github.com/fa-yoshinobu/plc-comm-slmp-python>
 
+## Resolution Update (2026-06-12)
+
+This checklist is a historical comparison record. The later root-cause
+investigation found that the failing one-request mixed `1406/0002` frame used
+an invalid Write Block payload layout: it grouped all block specs first and all
+data last. The corrected layout writes each block's data immediately after that
+block's device spec and point count. Current C++, Python, Rust, and .NET
+implementations have been aligned to that layout.
+
+Keep the dated `0xC05B` observations below as validation history, not as a
+current protocol limitation for ordinary mixed word+bit Write Block requests.
+
 ## Purpose
 
 Use this note when you want to compare the original Python implementation with the current C++ library on the same PLC and the same block-access scenarios.
@@ -25,7 +37,7 @@ The 2026-03-14 live Python comparison showed:
 - Python sends the same one-request mixed `1406/0002` frame shape for `D300 x2` plus `M200 x1 packed`
 - the first mixed write fails on the same PLC with the same `0xC05B`
 - word-only and bit-only block writes both pass
-- `retry_mixed_on_error=True` recovers by retrying as separate word-only and bit-only block writes
+- the historical Python retry option recovered by retrying as separate word-only and bit-only block writes
 
 This means the observed PLC rejection is not unique to the C++ encoder. The original Python implementation hit the same PLC-side failure for the same first-pass mixed request shape.
 
@@ -82,8 +94,8 @@ Keep the Python-side check as close as possible to the C++ run:
 Important first-pass rule:
 
 - keep `split_mixed_blocks=False`
-- keep `retry_mixed_on_error=False`
-- capture the original one-request mixed frame and the first PLC response before any fallback behavior is enabled
+- capture the original one-request mixed frame and the first PLC response before
+  any caller-chosen split behavior is enabled
 
 Recommended device set:
 
@@ -100,13 +112,15 @@ Recommended device set:
 | `writeBlock bits only` | `M200 x1 packed` | C++ pass | `same_as_cpp_pass` | `0x0000` | write/readback/restore all `OK` |
 | `writeBlock mixed` | `D300 x2` + `M200 x1 packed` | C++ fail with `0xC05B` | `same_as_cpp_fail_same_end_code` | `0xC05B` | first one-request mixed write failed; PLC memory remained unchanged |
 
-## Fallback Verification
+## Historical Fallback Verification
 
 The practical workaround was also checked live after the first-pass capture.
+This used a now-removed Python API option; current clients should use explicit
+split mode instead of automatic retry.
 
 | Scenario | API/options | Python result | End code(s) | Notes |
 |---|---|---|---|---|
-| `writeBlock mixed fallback` | `write_block(..., retry_mixed_on_error=True)` | `different_runtime_behavior` | `0xC05B -> 0x0000 -> 0x0000` | first mixed write failed, then automatic split retry succeeded and restore was `OK` |
+| `writeBlock mixed fallback` | historical Python automatic-retry option | `different_runtime_behavior` | `0xC05B -> 0x0000 -> 0x0000` | first mixed write failed, then automatic split retry succeeded and restore was `OK` |
 
 ## Current C++ Follow-up
 
@@ -114,12 +128,12 @@ The minimal C++ library now exposes the same practical fallback shape for the
 synchronous API:
 
 - `slmp::BlockWriteOptions::split_mixed_blocks`
-- `slmp::BlockWriteOptions::retry_mixed_on_error`
 
 Current scope:
 
 - implemented and host-tested in both `slmp::SlmpClient::writeBlock(...)` and `beginWriteBlock(..., options, now_ms)`
-- retry end-code set matches the Python implementation: `0xC056`, `0xC05B`, `0xC061`
+- automatic mixed-write retry is not part of the API; PLC end codes are
+  returned unchanged
 - typed remote control helpers now cover `remoteRun`, `remoteStop`, `remotePause`, and `remoteLatchClear`
 - typed reset, self-test, and clear-error helpers now cover `remoteReset`, `selfTestLoopback`, and `clearError`
 - callers now select `FrameType` and `CompatibilityMode` explicitly; the C++ library no longer ships auto-profile recommendation helpers

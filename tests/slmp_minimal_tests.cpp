@@ -1037,9 +1037,33 @@ void testWriteBlockOptions() {
         response_request[3] = 0x00;
         transport.queueResponse(makeResponse(response_request, 0xC05B, {}));
         slmp::BlockWriteOptions options = {};
-        options.retry_mixed_on_error = true;
         assert(plc.writeBlock(word_blocks, 1, bit_blocks, 1, options) == slmp::Error::PlcError);
         assert(plc.lastEndCode() == 0xC05BU);
+        assert(transport.writeHistory().size() == 1U);
+        assert(transport.writeHistory()[0][19] == 1U);
+        assert(transport.writeHistory()[0][20] == 1U);
+        const std::vector<uint8_t> expected_payload = {
+            0x01, 0x01,
+            0x90, 0x01, 0x00, 0x00, 0xA8, 0x00, 0x02, 0x00, 0x34, 0x12, 0x78, 0x56,
+            0xF0, 0x00, 0x00, 0x00, 0x90, 0x00, 0x01, 0x00, 0x05, 0x00,
+        };
+        const std::vector<uint8_t> actual_payload(transport.writeHistory()[0].begin() + 19, transport.writeHistory()[0].end());
+        assert(actual_payload == expected_payload);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        std::vector<uint8_t> response_request = makeGenericRequest(0x1406, 0x0002);
+        response_request[2] = 0x00;
+        response_request[3] = 0x00;
+        transport.queueResponse(makeResponse(response_request, 0xC056, {}));
+        slmp::BlockWriteOptions options = {};
+        assert(plc.writeBlock(word_blocks, 1, bit_blocks, 1, options) == slmp::Error::PlcError);
+        assert(plc.lastEndCode() == 0xC056U);
         assert(transport.writeHistory().size() == 1U);
         assert(transport.writeHistory()[0][19] == 1U);
         assert(transport.writeHistory()[0][20] == 1U);
@@ -1094,7 +1118,6 @@ void testAsyncWriteBlockOptions() {
         response_request[3] = 0x00;
         transport.queueResponse(makeResponse(response_request, 0xC05B, {}));
         slmp::BlockWriteOptions options = {};
-        options.retry_mixed_on_error = true;
         assert(plc.beginWriteBlock(word_blocks, 1, bit_blocks, 1, options, now) == slmp::Error::Ok);
         driveAsyncUntilIdle(plc, now);
         assert(plc.lastError() == slmp::Error::PlcError);
@@ -1102,6 +1125,13 @@ void testAsyncWriteBlockOptions() {
         assert(transport.writeHistory().size() == 1U);
         assert(transport.writeHistory()[0][19] == 1U);
         assert(transport.writeHistory()[0][20] == 1U);
+        const std::vector<uint8_t> expected_payload = {
+            0x01, 0x01,
+            0x90, 0x01, 0x00, 0x00, 0xA8, 0x00, 0x02, 0x00, 0x34, 0x12, 0x78, 0x56,
+            0xF0, 0x00, 0x00, 0x00, 0x90, 0x00, 0x01, 0x00, 0x05, 0x00,
+        };
+        const std::vector<uint8_t> actual_payload(transport.writeHistory()[0].begin() + 19, transport.writeHistory()[0].end());
+        assert(actual_payload == expected_payload);
     }
 }
 

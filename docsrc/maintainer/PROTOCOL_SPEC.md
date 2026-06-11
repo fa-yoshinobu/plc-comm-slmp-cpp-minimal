@@ -40,10 +40,42 @@ Currently implemented commands:
 
 Practical mixed block note:
 
+- `1406` Write Block payloads are encoded as block count, then each block's
+  device spec, point count, and data immediately after that block. Grouping all
+  specs first and all data last is invalid for mixed or multi-block writes.
 - synchronous `writeBlock()` also exposes `BlockWriteOptions`
 - `split_mixed_blocks=true` forces separate word-only and bit-only `1406` requests
-- `retry_mixed_on_error=true` retries a failed mixed request as separate writes only on `0xC056` or `0xC061`; `0xC05B` is preserved as an observed PLC end code but is not a retry trigger
-- the async `beginWriteBlock(..., options, now_ms)` overload now mirrors the same split/retry behavior
+- automatic mixed-write retry is not part of the API; PLC end codes are
+  returned unchanged
+- the async `beginWriteBlock(..., options, now_ms)` overload mirrors the same
+  explicit split behavior and also returns PLC end codes unchanged
+
+Resolved `1406` layout investigation:
+
+- The old cross-library bug was the payload shape
+  `[counts][all specs][all word data][all bit data]`.
+- The manual-conformant shape is
+  `[counts][spec + point count + data][spec + point count + data]...`.
+- Single-block word-only and bit-only writes masked the bug because both
+  layouts collapse to the same byte order for one block.
+- Mixed word+bit and multi-block writes made PLCs parse later bytes as the
+  wrong field, producing target-dependent end codes:
+  - R08CPU built-in Ethernet: `0xC05B` mixed, `0xC051` multi-word
+  - LJ71E71-100/L02SCPU and QJ71E71-100/Q06UDVCPU: `0xC056`
+  - FX5UC-32MT/D on the documented 3E path: `0xC061`
+- The fixed layout was re-verified live on R08CPU, L02SCPU via LJ71E71-100,
+  Q06UDVCPU via QJ71E71-100, L16HCPU, and FX5UC-32MT/D. Fixed Python/Rust/.NET
+  clients returned `0x0000` with readback match; C++ minimal and Node-RED pass
+  the shared cross-verify block cases with the same layout.
+- QnUDV built-in Ethernet still returns `0xC059` for block commands. That is a
+  target/path command-support limitation, not a mixed-layout issue.
+
+Manual references used for this rule:
+
+- English: `D:\_github_plc\sh080956engn.pdf`, PDF pages 76-78,
+  `Write Block (command: 1406)`.
+- Japanese: `D:\_github_plc\sh080931r.pdf`, PDF pages 75-77,
+  `Write Block(コマンド: 1406)`.
 
 Remote command note:
 
