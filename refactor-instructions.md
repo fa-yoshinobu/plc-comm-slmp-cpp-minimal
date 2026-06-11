@@ -185,6 +185,60 @@ pio run -e esp32-devkitc-low-level -e esp32-devkitc-high-level
 
 ---
 
+## Refactor Result (2026-06-11)
+
+### 1. Baseline 結果
+
+- `git status --short`: クリーン。
+- ホストテスト build:
+  `g++ -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_error_codes.cpp src/slmp_error_messages.cpp src/slmp_error_messages_en.cpp src/slmp_error_messages_ja.cpp src/slmp_high_level.cpp -o %TEMP%/slmp_minimal_tests.exe`
+  は成功。
+- ホストテスト実行: `slmp_minimal_tests: ok`。`main()` 内の名前付きテスト関数は 33 件。
+- ソケット統合: `python scripts/run_socket_integration.py --compiler g++` は成功。
+  `normal` / `plc_error` / `disconnect` / `delay` / `malformed` の 5 シナリオが `ok`。
+- PlatformIO: `pio` がローカル環境に存在しないため未実施。
+
+### 2. D1 調査結果
+
+- `src/slmp_high_level.cpp` の 2 つの `readTypedImpl` に、解析済み
+  `AddressSpec` から `Value` を読み出す同一分岐が重複していた。
+  公開 API・公開ヘッダ・ワイヤバイト列へ影響しない内部抽出として実施可能と判断。
+- `src/slmp_minimal.cpp` には direct/random/block 系の payload encode 重複があるが、
+  core 層の送信バイト列と無割当保証に近いため、本タスクでは実装せず報告のみ。
+- `src/slmp_high_level.cpp` の write 系にも似た分岐はあるが、今回の最小改善としては
+  read 系 1 抽出で十分と判断。
+
+### 3. 実施した抽出
+
+- `src/slmp_high_level.cpp` 内に内部ヘルパ `readAddressSpecValue` を追加。
+- 2 つの `readTypedImpl` から、解析後の読み出し処理を `readAddressSpecValue` に集約。
+- 差分概要: `src/slmp_high_level.cpp` のみ変更、30 行追加 / 71 行削除。
+- `src/` のファイル追加・削除・rename は無し。公開ヘッダは未変更。
+
+### 4. 検証結果
+
+- 最終ホストテスト build: 成功。
+- 最終ホストテスト実行: `slmp_minimal_tests: ok`。
+- ASan/UBSan build:
+  `g++ ... -fsanitize=address,undefined ...` は `-lasan` / `-lubsan` が見つからず
+  リンク不可のため未実施。
+- 最終ソケット統合: 5 シナリオすべて `ok`。
+- `git diff --check`: 問題なし。
+- 差分監査: 変更ファイルは `src/slmp_high_level.cpp` のみ。
+  `platformio.ini` / `library.json` / `library.properties` / CI / `CHANGELOG.md` /
+  公開ヘッダは未変更。
+
+### 5. 提案事項
+
+- D2 のファイル分割は今回未実施。将来実施する場合は、CI の g++ 明示列挙、
+  PlatformIO パッケージング、README の Design Philosophy を同時に更新する必要がある。
+
+### 6. Stop And Ask
+
+- 発生なし。
+
+---
+
 ## Out-of-scope Items(やらないこと)
 
 - `src/` のファイル分割・追加・rename(提案のみ)
