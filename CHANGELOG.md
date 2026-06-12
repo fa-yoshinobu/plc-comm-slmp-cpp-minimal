@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.12
+
+- fix the local documentation release build so `build_docs.bat` creates the Doxygen output root and correctly rewrites `OUTPUT_DIRECTORY`
+- republish the PlatformIO package after the release-check fix so the registry package points at the current README and release metadata
+
 ## 0.4.11
 
 - split SLMP end-code text out of the core source and add optional English/Japanese message tables without corrective-action text
