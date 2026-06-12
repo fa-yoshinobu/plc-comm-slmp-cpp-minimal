@@ -47,6 +47,7 @@ jobs:
 
       - name: Generate docs
         run: |
+          mkdir -p _site docs
           doxygen Doxyfile
           cp docsrc/index.html docs/index.html
 
