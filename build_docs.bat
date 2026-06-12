@@ -15,11 +15,15 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+if not exist "%DOCS_OUTPUT_DIR%" (
+    mkdir "%DOCS_OUTPUT_DIR%"
+)
+
 if exist "%DOXYGEN_OUTPUT_DIR%" (
     rmdir /s /q "%DOXYGEN_OUTPUT_DIR%"
 )
 
-powershell -NoProfile -Command "$content = Get-Content 'Doxyfile'; $content = $content -replace '^OUTPUT_DIRECTORY\\s*=.*$', 'OUTPUT_DIRECTORY       = \"%DOXYGEN_OUTPUT_DIR%\"'; Set-Content -Path '%TEMP_DOXYFILE%' -Value $content"
+powershell -NoProfile -Command "$content = Get-Content 'Doxyfile'; $content = $content -replace '^OUTPUT_DIRECTORY\s*=.*$', 'OUTPUT_DIRECTORY       = %DOXYGEN_OUTPUT_DIR%'; Set-Content -Path '%TEMP_DOXYFILE%' -Value $content"
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to prepare temporary Doxygen configuration.
     exit /b 1
