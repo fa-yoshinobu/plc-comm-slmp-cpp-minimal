@@ -786,6 +786,41 @@ void testUnsupportedLongFamilyCommandGuards() {
         assert(plc.registerMonitorDevicesExt(word_devices, 1, nullptr, 0) == slmp::Error::UnsupportedDevice);
         assert(transport.lastWrite().empty());
     }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        uint16_t words[1] = {};
+        assert(plc.readWordsModuleBuf(0x0001, true, 0, 1, words, 1) == slmp::Error::InvalidArgument);
+        assert(transport.lastWrite().empty());
+
+        bool bits[1] = {};
+        assert(plc.readBitsModuleBuf(0x0001, true, 0, 1, bits, 1) == slmp::Error::InvalidArgument);
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        const slmp::ExtDeviceSpec word_devices[] = {
+            slmp::ExtDeviceSpec::moduleBuf(0x0001, true, 0),
+        };
+        uint16_t word_values[1] = {};
+        assert(plc.readRandomExt(word_devices, 1, word_values, 1, nullptr, 0, nullptr, 0) == slmp::Error::InvalidArgument);
+        assert(transport.lastWrite().empty());
+
+        const slmp::ExtDeviceSpec valid_hg_devices[] = {
+            slmp::ExtDeviceSpec::moduleBuf(0x03E0, true, 0),
+        };
+        const bool bit_values[] = {true};
+        assert(plc.writeRandomBitsExt(valid_hg_devices, bit_values, 1) != slmp::Error::InvalidArgument);
+    }
 }
 
 void testTargetAndMonitoringTimerHeaders() {

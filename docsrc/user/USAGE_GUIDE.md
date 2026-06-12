@@ -248,6 +248,7 @@ Use the low-level async API when you want:
 ## 5. Extended Device Access
 
 Access module buffer (`U..\G`, `U..\HG`) or link direct (`J..\device`) targets using the **Extended Device** specification.
+`HG` is valid only for the iQ-R multi-CPU CPU-buffer paths `U3E0\HG` through `U3E3\HG`; other module slots are rejected before transport.
 
 ### Module Buffer Access
 ```cpp

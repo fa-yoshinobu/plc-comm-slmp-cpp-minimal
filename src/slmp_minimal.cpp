@@ -253,6 +253,17 @@ inline Error validateDirectDeviceList(const DeviceAddress* devices, size_t count
     return Error::Ok;
 }
 
+inline bool isValidHgModuleSlot(uint16_t slot) {
+    return slot >= 0x03E0U && slot <= 0x03E3U;
+}
+
+inline Error validateExtDeviceSpec(const ExtDeviceSpec& spec) {
+    if (spec.kind == ExtDeviceSpec::Kind::ModuleBuf && spec.mod.use_hg && !isValidHgModuleSlot(spec.mod.slot)) {
+        return Error::InvalidArgument;
+    }
+    return Error::Ok;
+}
+
 inline Error validateExtRandomReadDevices(
     const ExtDeviceSpec* word_devices,
     size_t word_count,
@@ -263,6 +274,10 @@ inline Error validateExtRandomReadDevices(
         return Error::InvalidArgument;
     }
     for (size_t i = 0; i < word_count; ++i) {
+        Error spec_error = validateExtDeviceSpec(word_devices[i]);
+        if (spec_error != Error::Ok) {
+            return spec_error;
+        }
         if (word_devices[i].kind != ExtDeviceSpec::Kind::LinkDirect) {
             continue;
         }
@@ -274,6 +289,10 @@ inline Error validateExtRandomReadDevices(
         }
     }
     for (size_t i = 0; i < dword_count; ++i) {
+        Error spec_error = validateExtDeviceSpec(dword_devices[i]);
+        if (spec_error != Error::Ok) {
+            return spec_error;
+        }
         if (dword_devices[i].kind != ExtDeviceSpec::Kind::LinkDirect) {
             continue;
         }
@@ -293,6 +312,10 @@ inline Error validateExtRandomWriteWordDevices(const ExtDeviceSpec* word_devices
         return Error::InvalidArgument;
     }
     for (size_t i = 0; i < word_count; ++i) {
+        Error spec_error = validateExtDeviceSpec(word_devices[i]);
+        if (spec_error != Error::Ok) {
+            return spec_error;
+        }
         if (word_devices[i].kind == ExtDeviceSpec::Kind::LinkDirect &&
             isLongCurrentOrDwordOnlyDevice(word_devices[i].link.code)) {
             return Error::UnsupportedDevice;
@@ -311,12 +334,20 @@ inline Error validateExtMonitorDevices(
         return Error::InvalidArgument;
     }
     for (size_t i = 0; i < word_count; ++i) {
+        Error spec_error = validateExtDeviceSpec(word_devices[i]);
+        if (spec_error != Error::Ok) {
+            return spec_error;
+        }
         if (word_devices[i].kind == ExtDeviceSpec::Kind::LinkDirect &&
             isLongCounterContactDevice(word_devices[i].link.code)) {
             return Error::UnsupportedDevice;
         }
     }
     for (size_t i = 0; i < dword_count; ++i) {
+        Error spec_error = validateExtDeviceSpec(dword_devices[i]);
+        if (spec_error != Error::Ok) {
+            return spec_error;
+        }
         if (dword_devices[i].kind == ExtDeviceSpec::Kind::LinkDirect &&
             isLongCounterContactDevice(dword_devices[i].link.code)) {
             return Error::UnsupportedDevice;
@@ -1857,6 +1888,10 @@ Error SlmpClient::beginReadWordsModuleBuf(uint16_t slot, bool use_hg, uint32_t d
         setError(Error::InvalidArgument);
         return last_error_;
     }
+    if (use_hg && !isValidHgModuleSlot(slot)) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
     size_t written = encodeModuleBufDeviceSpec(slot, use_hg, dev_no, compatibility_mode_, tx_buffer_, tx_capacity_);
     if (written == 0) {
         setError(Error::BufferTooSmall);
@@ -1877,6 +1912,10 @@ Error SlmpClient::readWordsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no
 
 Error SlmpClient::beginWriteWordsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no, const uint16_t* values, size_t count, uint32_t now_ms) {
     if (values == nullptr || count == 0 || count > 0xFFFFU) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
+    if (use_hg && !isValidHgModuleSlot(slot)) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -1909,6 +1948,10 @@ Error SlmpClient::beginReadBitsModuleBuf(uint16_t slot, bool use_hg, uint32_t de
         setError(Error::InvalidArgument);
         return last_error_;
     }
+    if (use_hg && !isValidHgModuleSlot(slot)) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
     size_t written = encodeModuleBufDeviceSpec(slot, use_hg, dev_no, compatibility_mode_, tx_buffer_, tx_capacity_);
     if (written == 0) {
         setError(Error::BufferTooSmall);
@@ -1929,6 +1972,10 @@ Error SlmpClient::readBitsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no,
 
 Error SlmpClient::beginWriteBitsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no, const bool* values, size_t count, uint32_t now_ms) {
     if (values == nullptr || count == 0 || count > 0xFFFFU) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
+    if (use_hg && !isValidHgModuleSlot(slot)) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -3370,6 +3417,13 @@ Error SlmpClient::beginWriteRandomWordsExt(
         setError(validate_error);
         return last_error_;
     }
+    for (size_t i = 0; i < dword_count; ++i) {
+        validate_error = validateExtDeviceSpec(dword_devices[i]);
+        if (validate_error != Error::Ok) {
+            setError(validate_error);
+            return last_error_;
+        }
+    }
 
     tx_buffer_[0] = static_cast<uint8_t>(word_count);
     tx_buffer_[1] = static_cast<uint8_t>(dword_count);
@@ -3412,6 +3466,11 @@ Error SlmpClient::beginWriteRandomBitsExt(
     size_t offset = 1U;
     size_t val_size = (compatibility_mode_ == CompatibilityMode::Legacy) ? 1U : 2U;
     for (size_t i = 0; i < bit_count; ++i) {
+        Error validate_error = validateExtDeviceSpec(bit_devices[i]);
+        if (validate_error != Error::Ok) {
+            setError(validate_error);
+            return last_error_;
+        }
         size_t written = encodeExtDeviceSpec(bit_devices[i], compatibility_mode_, tx_buffer_ + offset, tx_capacity_ - offset);
         if (written == 0) { setError(Error::BufferTooSmall); return last_error_; }
         if (val_size == 1U) {
