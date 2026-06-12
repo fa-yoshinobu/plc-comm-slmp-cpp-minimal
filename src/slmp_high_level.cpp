@@ -1280,8 +1280,9 @@ static Error parseAddressSpecImpl(const char* address, const PlcFamily* family, 
         if (err != Error::Ok) return err;
         if (meta->bit_unit) return Error::InvalidArgument;
 
+        const std::string bit_text = trimAscii(text.substr(dot + 1U).c_str());
         uint32_t bit_index = 0U;
-        if (!parseUnsignedNumber(text.substr(dot + 1U), 16U, bit_index) || bit_index > 15U)
+        if (bit_text.size() != 1U || !parseUnsignedNumber(bit_text, 16U, bit_index) || bit_index > 15U)
             return Error::InvalidArgument;
 
         out.device = device;
