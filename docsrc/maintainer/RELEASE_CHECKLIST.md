@@ -7,12 +7,13 @@ Audience: library maintainers and release follow-up work.
 3. Check `CHANGELOG.md` and move important items under the release version.
 4. Check `API_POLICY.md` if any public API changed.
 5. Confirm `library.properties` version and URL are correct.
-6. Confirm `library.json` still matches the intended PlatformIO package metadata if you publish there.
-7. Confirm `README.md` examples, install steps, and size table still match the code.
-8. Confirm `scripts/size_baseline.json` still matches the intended baseline.
-9. Run Arduino library lint in strict submission mode if you plan to submit or update Arduino Library Manager.
-10. Validate the PlatformIO package with `pack_platformio.bat` if you plan to publish there.
-11. Confirm all intended source, test, example, and workflow files are tracked in Git before tagging. The release archive is built from `git archive HEAD`, so untracked files will not ship.
-12. Check GitHub repository metadata manually: description, website, topics, and pinned release.
-13. Run `python scripts/release_notes.py --changelog CHANGELOG.md --version <version> --output release-notes.md` if you want to preview the release body locally.
-14. Tag the release. `.github/workflows/release.yml` will publish the GitHub release artifacts from that tag.
+6. Confirm `library.json` version matches `library.properties`.
+7. Confirm the PlatformIO Registry does not already contain the same package version. Skipped version numbers are allowed; duplicate version publishing is not.
+8. Confirm `README.md` examples, install steps, and size table still match the code.
+9. Confirm `scripts/size_baseline.json` still matches the intended baseline.
+10. Run Arduino library lint in strict submission mode if you plan to submit or update Arduino Library Manager.
+11. Validate the PlatformIO package with `pack_platformio.bat` if you plan to publish there.
+12. Confirm all intended source, test, example, and workflow files are tracked in Git before tagging. The release archive is built from `git archive HEAD`, so untracked files will not ship.
+13. Check GitHub repository metadata manually: description, website, topics, and pinned release.
+14. Run `python scripts/release_notes.py --changelog CHANGELOG.md --version <version> --output release-notes.md` if you want to preview the release body locally.
+15. Tag the release. `.github/workflows/release.yml` will publish the GitHub release artifacts from that tag.
