@@ -178,6 +178,9 @@ The optional helper layer accepts the same user-facing address forms that the Py
 
 Notes:
 
+- Use `:` for data types and special views such as `D100:S`, `D200:D`,
+  `D300:F`; use `.` only for bit-in-word access such as `D50.3`.
+- `D50.D` is bit `0xD` / bit 13, not a 32-bit data type request.
 - `.bit` notation is valid only for word devices such as `D50.3`.
 - Direct bit devices should be addressed directly, for example `M1000`, `X20`, or `Y1A`.
 - `B`, `W`, `SB`, `SW`, `DX`, and `DY` keep Mitsubishi hexadecimal numbering rules.

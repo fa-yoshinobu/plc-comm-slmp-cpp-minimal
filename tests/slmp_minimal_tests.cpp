@@ -1661,12 +1661,19 @@ void testHighLevelParserAndTypedHelpers() {
         assert(spec.device.number == 50U);
         assert(spec.type == slmp::highlevel::ValueType::Bit);
         assert(spec.bit_index == 10);
+
+        assert(slmp::highlevel::parseAddressSpec("D50.D", spec) == slmp::Error::Ok);
+        assert(spec.device.code == slmp::DeviceCode::D);
+        assert(spec.device.number == 50U);
+        assert(spec.type == slmp::highlevel::ValueType::Bit);
+        assert(spec.bit_index == 13);
     }
 
     {
         slmp::highlevel::AddressSpec spec{};
         assert(slmp::highlevel::parseAddressSpec("M1000.0", spec) == slmp::Error::InvalidArgument);
         assert(slmp::highlevel::parseAddressSpec("D100:BIT", spec) == slmp::Error::InvalidArgument);
+        assert(slmp::highlevel::parseAddressSpec("D50.10", spec) == slmp::Error::InvalidArgument);
     }
 
     {
