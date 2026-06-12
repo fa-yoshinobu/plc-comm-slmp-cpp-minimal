@@ -22,15 +22,18 @@ current protocol limitation for ordinary mixed word+bit Write Block requests.
 
 ## Purpose
 
-Use this note when you want to compare the original Python implementation with the current C++ library on the same PLC and the same block-access scenarios.
+Use this note when you need the historical Python-vs-C++ comparison context for
+the old mixed Write Block failure.
 
 The relevant C++ baseline in this repository is:
 
 - mixed block support in the codec and request builder ([../../src/slmp_minimal.cpp](../../src/slmp_minimal.cpp))
 - mock-PLC integration coverage that accepts mixed `writeBlock()` ([../../tests/slmp_socket_integration.cpp](../../tests/slmp_socket_integration.cpp))
-- a real-board Atom Matrix result against Mitsubishi iQ-R `R08CPU` showing that a one-request mixed `writeBlock` was rejected on the real PLC ([HARDWARE_VALIDATION.md](../validation/reports/HARDWARE_VALIDATION.md))
+- a historical real-board Atom Matrix result against Mitsubishi iQ-R `R08CPU`
+  showing that the old one-request mixed `writeBlock` layout was rejected on
+  the real PLC ([HARDWARE_VALIDATION.md](../validation/reports/HARDWARE_VALIDATION.md))
 
-## Confirmed Answer
+## Historical Comparison Answer
 
 The 2026-03-14 live Python comparison showed:
 
@@ -39,9 +42,12 @@ The 2026-03-14 live Python comparison showed:
 - word-only and bit-only block writes both pass
 - the historical Python retry option recovered by retrying as separate word-only and bit-only block writes
 
-This means the observed PLC rejection is not unique to the C++ encoder. The original Python implementation hit the same PLC-side failure for the same first-pass mixed request shape.
+This means the observed rejection was not unique to the C++ encoder. Later
+root-cause work found that both clients were using the same invalid mixed Write
+Block payload layout, so this is retained as historical evidence rather than a
+current PLC-side limitation for corrected clients.
 
-## Current C++ Baseline
+## Historical C++ Baseline
 
 Recorded board:
 
@@ -50,7 +56,7 @@ Recorded board:
 - PLC: Mitsubishi iQ-R `R08CPU`
 - date: `2026-03-14`
 
-Current result summary:
+Historical result summary:
 
 | Scenario | C++ result | Notes |
 |---|---|---|
@@ -122,16 +128,18 @@ split mode instead of automatic retry.
 |---|---|---|---|---|
 | `writeBlock mixed fallback` | historical Python automatic-retry option | `different_runtime_behavior` | `0xC05B -> 0x0000 -> 0x0000` | first mixed write failed, then automatic split retry succeeded and restore was `OK` |
 
-## Current C++ Follow-up
+## Current C++ Behavior
 
-The minimal C++ library now exposes the same practical fallback shape for the
-synchronous API:
+The minimal C++ library exposes explicit split behavior for callers that
+intentionally want separate word-only and bit-only requests:
 
 - `slmp::BlockWriteOptions::split_mixed_blocks`
 
 Current scope:
 
-- implemented and host-tested in both `slmp::SlmpClient::writeBlock(...)` and `beginWriteBlock(..., options, now_ms)`
+- corrected mixed Write Block layout is implemented in
+  `slmp::SlmpClient::writeBlock(...)` and `beginWriteBlock(..., options, now_ms)`
+- explicit `split_mixed_blocks` is implemented and host-tested in both paths
 - automatic mixed-write retry is not part of the API; PLC end codes are
   returned unchanged
 - typed remote control helpers now cover `remoteRun`, `remoteStop`, `remotePause`, and `remoteLatchClear`
@@ -141,8 +149,10 @@ Current scope:
 
 ## Developer Implications
 
-- The historical one-request mixed `writeBlock` failure is a PLC-side interoperability issue seen by both implementations, not just by this C++ library.
-- Any library-side mitigation should focus on request-shape control or fallback behavior rather than on re-encoding the same combined frame.
+- The historical one-request mixed `writeBlock` failure was caused by the old
+  invalid payload layout used by both implementations.
+- Current library behavior should keep the corrected one-request layout and
+  avoid automatic split retry.
 - If future development changes C++ mixed-write behavior, update [HARDWARE_VALIDATION.md](../validation/reports/HARDWARE_VALIDATION.md) together with this note so the historical result and the current shipped behavior stay aligned.
 
 ## If You Need To Re-run The Comparison
