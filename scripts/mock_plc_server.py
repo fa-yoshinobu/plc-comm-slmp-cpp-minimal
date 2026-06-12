@@ -489,24 +489,18 @@ class MockPlcHandler(socketserver.BaseRequestHandler):
         word_block_count = req.payload[0]
         bit_block_count = req.payload[1]
         offset = 2
-        word_blocks: list[tuple[tuple[str, int], int]] = []
-        bit_blocks: list[tuple[tuple[str, int], int]] = []
         for _ in range(word_block_count):
             device, offset = decode_device_spec(req.payload, offset)
             points = read_u16(req.payload, offset)
             offset += 2
-            word_blocks.append((device, points))
+            code, number = device
+            for index in range(points):
+                self.server.state.write_word((code, number + index), read_u16(req.payload, offset))
+                offset += 2
         for _ in range(bit_block_count):
             device, offset = decode_device_spec(req.payload, offset)
             points = read_u16(req.payload, offset)
             offset += 2
-            bit_blocks.append((device, points))
-
-        for (code, number), points in word_blocks:
-            for index in range(points):
-                self.server.state.write_word((code, number + index), read_u16(req.payload, offset))
-                offset += 2
-        for device, points in bit_blocks:
             code, number = device
             for index in range(points):
                 self.server.state.write_bit_block_word((code, number + (index * 16)), read_u16(req.payload, offset))

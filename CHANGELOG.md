@@ -4,6 +4,8 @@
 
 - split SLMP end-code text out of the core source and add optional English/Japanese message tables without corrective-action text
 - add forced remote STOP support through `remoteStop(true)` and `beginRemoteStop(true, now_ms)`
+- fix `writeBlock()` payload layout so each `1406` block writes its data immediately after that block's device spec and point count
+- remove `retry_mixed_on_error` from `BlockWriteOptions`; mixed block-write failures now return the PLC end code unchanged, and only explicit `split_mixed_blocks` sends separate block writes
 
 ## 0.4.10
 

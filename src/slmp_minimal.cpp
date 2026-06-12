@@ -457,16 +457,6 @@ inline Error encodeSelfTestPayload(
     return Error::Ok;
 }
 
-inline bool isMixedWriteRetryEndCode(uint16_t end_code) {
-    switch (end_code) {
-        case 0xC056:
-        case 0xC061:
-            return true;
-        default:
-            return false;
-    }
-}
-
 /**
  * @internal
  * @brief Encode a link direct device spec (Jx\device).
@@ -984,7 +974,6 @@ void SlmpClient::completeAsync() {
     uint16_t end_code = readLe16(rx_buffer_ + response_prefix_size);
     if (async_ctx_.type == AsyncContext::Type::WriteBlock) {
         const AsyncContext::WriteBlockStage stage = async_ctx_.data.writeBlock.stage;
-        const bool has_mixed_blocks = async_ctx_.data.writeBlock.has_mixed_blocks;
         const BlockWriteOptions options = async_ctx_.data.writeBlock.options;
         const DeviceBlockWrite* word_blocks = async_ctx_.data.writeBlock.word_blocks;
         const size_t word_block_count = async_ctx_.data.writeBlock.word_block_count;
@@ -992,24 +981,6 @@ void SlmpClient::completeAsync() {
         const size_t bit_block_count = async_ctx_.data.writeBlock.bit_block_count;
 
         if (end_code != 0) {
-            if (stage == AsyncContext::WriteBlockStage::Direct && has_mixed_blocks && options.retry_mixed_on_error &&
-                isMixedWriteRetryEndCode(end_code)) {
-                beginWriteBlockRequest(
-                    word_blocks,
-                    word_block_count,
-                    nullptr,
-                    0,
-                    word_blocks,
-                    word_block_count,
-                    bit_blocks,
-                    bit_block_count,
-                    options,
-                    AsyncContext::WriteBlockStage::SplitWord,
-                    true,
-                    last_activity_ms_
-                );
-                return;
-            }
             setError(Error::PlcError, end_code);
             return;
         }
@@ -2955,6 +2926,9 @@ Error SlmpClient::beginWriteBlockRequest(
     tx_buffer_[0] = static_cast<uint8_t>(request_word_block_count);
     tx_buffer_[1] = static_cast<uint8_t>(request_bit_block_count);
 
+    // SLMP Write Block places each block's data immediately after that
+    // block's device spec and point count. Keeping all specs first and all
+    // data last only works accidentally for single-block requests.
     size_t offset = 2U;
     for (size_t i = 0; i < request_word_block_count; ++i) {
         size_t written =
@@ -2965,6 +2939,10 @@ Error SlmpClient::beginWriteBlockRequest(
         }
         writeLe16(tx_buffer_ + offset + written, request_word_blocks[i].points);
         offset += written + 2U;
+        for (size_t j = 0; j < request_word_blocks[i].points; ++j) {
+            writeLe16(tx_buffer_ + offset, request_word_blocks[i].values[j]);
+            offset += 2U;
+        }
     }
     for (size_t i = 0; i < request_bit_block_count; ++i) {
         size_t written =
@@ -2975,14 +2953,6 @@ Error SlmpClient::beginWriteBlockRequest(
         }
         writeLe16(tx_buffer_ + offset + written, request_bit_blocks[i].points);
         offset += written + 2U;
-    }
-    for (size_t i = 0; i < request_word_block_count; ++i) {
-        for (size_t j = 0; j < request_word_blocks[i].points; ++j) {
-            writeLe16(tx_buffer_ + offset, request_word_blocks[i].values[j]);
-            offset += 2U;
-        }
-    }
-    for (size_t i = 0; i < request_bit_block_count; ++i) {
         for (size_t j = 0; j < request_bit_blocks[i].points; ++j) {
             writeLe16(tx_buffer_ + offset, request_bit_blocks[i].values[j]);
             offset += 2U;
