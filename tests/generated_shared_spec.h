@@ -232,6 +232,14 @@ static constexpr uint8_t kFrameRequest6[] = {
 static constexpr uint8_t kFrameResponseData6[] = {
 };
 
+static constexpr uint8_t kFrameRequest7[] = {
+    0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x08,
+    0x00, 0x10, 0x00, 0x06, 0x10, 0x00, 0x00, 0x01, 0x00,
+};
+
+static constexpr uint8_t kFrameResponseData7[] = {
+};
+
 static constexpr FrameVector kCases[] = {
     {"read_type_name", "read_type_name", kFrameRequest0, sizeof(kFrameRequest0), kFrameResponseData0, sizeof(kFrameResponseData0)},
     {"read_words_d100_2", "read_words", kFrameRequest1, sizeof(kFrameRequest1), kFrameResponseData1, sizeof(kFrameResponseData1)},
@@ -240,6 +248,7 @@ static constexpr FrameVector kCases[] = {
     {"write_random_bits_m100_y20", "write_random_bits", kFrameRequest4, sizeof(kFrameRequest4), kFrameResponseData4, sizeof(kFrameResponseData4)},
     {"read_block_d300_2_m200_1", "read_block", kFrameRequest5, sizeof(kFrameRequest5), kFrameResponseData5, sizeof(kFrameResponseData5)},
     {"remote_password_unlock_secret1", "remote_password_unlock", kFrameRequest6, sizeof(kFrameRequest6), kFrameResponseData6, sizeof(kFrameResponseData6)},
+    {"remote_reset_fixed_data", "remote_reset", kFrameRequest7, sizeof(kFrameRequest7), kFrameResponseData7, sizeof(kFrameResponseData7)},
 };
 
 }  // namespace frame_vectors

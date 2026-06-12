@@ -79,7 +79,7 @@ Manual references used for this rule:
 
 Remote command note:
 
-- `remoteReset(subcommand, expect_response)` defaults to the practical `1006/0000` no-response mode
+- `remoteReset(subcommand, expect_response)` sends `1006/0000` with fixed reset data `01 00` and defaults to no-response mode
 - use `expect_response=true` only when the target and reset mode are expected to return a normal completion frame
 
 Profile selection note:
