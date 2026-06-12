@@ -2,6 +2,8 @@
 
 ## 0.4.12
 
+- align Remote STOP with the manual fixed request data `01 00`; `remoteStop(true)` and `beginRemoteStop(true, now_ms)` remain compatibility APIs but send the same payload as the default STOP
+- align Self Test loopback input validation with the manual: 1..960 bytes, ASCII `0`-`9`/`A`-`F` only
 - fix the local documentation release build so `build_docs.bat` creates the Doxygen output root and correctly rewrites `OUTPUT_DIRECTORY`
 - republish the PlatformIO package after the release-check fix so the registry package points at the current README and release metadata
 

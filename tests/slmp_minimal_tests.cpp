@@ -956,7 +956,7 @@ void testRemoteControl() {
         transport.queueResponse(makeResponse(makeGenericRequestWithSerial(1U, 0x1002, 0x0000), 0x0000, {}));
         assert(plc.remoteStop(true) == slmp::Error::Ok);
         assert(readLe16(transport.lastWrite().data() + 15) == 0x1002U);
-        assert(readLe16(transport.lastWrite().data() + 19) == 0x0003U);
+        assert(readLe16(transport.lastWrite().data() + 19) == 0x0001U);
     }
 
     {
@@ -992,6 +992,8 @@ void testRemoteControl() {
         assert(plc.remoteReset() == slmp::Error::Ok);
         assert(readLe16(transport.lastWrite().data() + 15) == 0x1006U);
         assert(readLe16(transport.lastWrite().data() + 17) == 0x0000U);
+        assert(readLe16(transport.lastWrite().data() + 19) == 0x0001U);
+        assert(plc.remoteReset(0x0001U, true) == slmp::Error::InvalidArgument);
         assert(plc.remoteReset(0x0002U, true) == slmp::Error::InvalidArgument);
     }
 }
@@ -1012,6 +1014,24 @@ void testSelfTestAndClearError() {
         assert(std::memcmp(output, input, sizeof(input)) == 0);
         assert(readLe16(transport.lastWrite().data() + 15) == 0x0619U);
         assert(readLe16(transport.lastWrite().data() + 19) == 0x0005U);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[1024] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        const uint8_t invalid_text[] = {'H', 'E', 'L', 'L', 'O'};
+        uint8_t output[8] = {};
+        size_t output_length = 0;
+        assert(plc.selfTestLoopback(invalid_text, sizeof(invalid_text), output, sizeof(output), output_length) == slmp::Error::InvalidArgument);
+
+        const uint8_t invalid_binary[] = {0x00U, 0xFFU};
+        assert(plc.selfTestLoopback(invalid_binary, sizeof(invalid_binary), output, sizeof(output), output_length) == slmp::Error::InvalidArgument);
+
+        std::vector<uint8_t> too_long(961U, static_cast<uint8_t>('A'));
+        assert(plc.selfTestLoopback(too_long.data(), too_long.size(), output, sizeof(output), output_length) == slmp::Error::InvalidArgument);
     }
 
     {
@@ -1194,6 +1214,7 @@ void testAsyncRemoteControl() {
     assert(reset_plc.lastError() == slmp::Error::Ok);
     assert(readLe16(reset_transport.lastWrite().data() + 15) == 0x1006U);
     assert(readLe16(reset_transport.lastWrite().data() + 17) == 0x0000U);
+    assert(readLe16(reset_transport.lastWrite().data() + 19) == 0x0001U);
 }
 
 void testAsyncSelfTestAndClearError() {
@@ -1280,6 +1301,60 @@ void testValidationAndBoundaryFailures() {
             {{slmp::DeviceCode::D, 400}, nullptr, 2},
         };
         assert(plc.writeBlock(invalid_word_blocks, 1, nullptr, 0) == slmp::Error::InvalidArgument);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        std::vector<uint16_t> words(961U, 0U);
+        bool bits[7169] = {};
+        std::vector<uint32_t> dwords(481U, 0U);
+        std::vector<slmp::DeviceAddress> random_word_devices(97U, slmp::dev::D(slmp::dev::dec(0)));
+        std::vector<slmp::DeviceAddress> random_dword_devices(69U, slmp::dev::D(slmp::dev::dec(2000)));
+        std::vector<slmp::DeviceAddress> random_bit_devices(95U, slmp::dev::M(slmp::dev::dec(0)));
+        bool random_bits[95] = {};
+        std::vector<slmp::ExtDeviceSpec> ext_word_devices(97U, slmp::ExtDeviceSpec::moduleBuf(0x03E0, false, 0));
+        std::vector<uint8_t> bytes(1921U, 0U);
+
+        assert(plc.readWords(slmp::dev::D(slmp::dev::dec(0)), 961, words.data(), words.size()) == slmp::Error::InvalidArgument);
+        assert(plc.writeWords(slmp::dev::D(slmp::dev::dec(0)), words.data(), words.size()) == slmp::Error::InvalidArgument);
+        assert(plc.readBits(slmp::dev::M(slmp::dev::dec(0)), 7169, bits, 7169U) == slmp::Error::InvalidArgument);
+        assert(plc.writeBits(slmp::dev::M(slmp::dev::dec(0)), bits, 7169U) == slmp::Error::InvalidArgument);
+        assert(plc.readDWords(slmp::dev::D(slmp::dev::dec(0)), 481, dwords.data(), dwords.size()) == slmp::Error::InvalidArgument);
+        assert(plc.writeDWords(slmp::dev::D(slmp::dev::dec(0)), dwords.data(), dwords.size()) == slmp::Error::InvalidArgument);
+
+        assert(plc.readRandom(random_word_devices.data(), random_word_devices.size(), words.data(), words.size(),
+                              nullptr, 0, nullptr, 0) == slmp::Error::InvalidArgument);
+        assert(plc.writeRandomWords(random_word_devices.data(), words.data(), 81U,
+                                    nullptr, nullptr, 0) == slmp::Error::InvalidArgument);
+        assert(plc.writeRandomWords(nullptr, nullptr, 0,
+                                    random_dword_devices.data(), dwords.data(), random_dword_devices.size()) == slmp::Error::InvalidArgument);
+        assert(plc.writeRandomBits(random_bit_devices.data(), random_bits, 95U) == slmp::Error::InvalidArgument);
+
+        const slmp::DeviceBlockRead read_blocks[] = {
+            slmp::dev::blockRead(slmp::dev::D(slmp::dev::dec(0)), 961U),
+        };
+        const slmp::DeviceBlockWrite write_blocks[] = {
+            slmp::dev::blockWrite(slmp::dev::D(slmp::dev::dec(8000)), words.data(), 952U),
+        };
+        assert(plc.readBlock(read_blocks, 1, nullptr, 0, words.data(), words.size(), nullptr, 0) == slmp::Error::InvalidArgument);
+        assert(plc.writeBlock(write_blocks, 1, nullptr, 0) == slmp::Error::InvalidArgument);
+
+        assert(plc.readWordsModuleBuf(0x03E0, false, 0, 961, words.data(), words.size()) == slmp::Error::InvalidArgument);
+        assert(plc.writeWordsModuleBuf(0x03E0, false, 0, words.data(), words.size()) == slmp::Error::InvalidArgument);
+        assert(plc.readRandomExt(ext_word_devices.data(), ext_word_devices.size(), words.data(), words.size(),
+                                 nullptr, 0, nullptr, 0) == slmp::Error::InvalidArgument);
+
+        assert(plc.readMemoryWords(0, 481, words.data(), words.size()) == slmp::Error::InvalidArgument);
+        assert(plc.writeMemoryWords(0, words.data(), 481U) == slmp::Error::InvalidArgument);
+        assert(plc.readExtendUnitBytes(0, 1921, 0x03E0, bytes.data(), bytes.size()) == slmp::Error::InvalidArgument);
+        assert(plc.writeExtendUnitBytes(0, 0x03E0, bytes.data(), bytes.size()) == slmp::Error::InvalidArgument);
+        assert(plc.readExtendUnitWords(0, 961, 0x03E0, words.data(), words.size()) == slmp::Error::InvalidArgument);
+        assert(plc.writeExtendUnitWords(0, 0x03E0, words.data(), words.size()) == slmp::Error::InvalidArgument);
+        assert(transport.writeHistory().empty());
     }
 }
 
@@ -1434,6 +1509,8 @@ void testSharedGoldenFrames() {
             assert(plc.readBlock(word_blocks, 1, bit_blocks, 1, block_words, 2, block_bits, 1) == slmp::Error::Ok);
         } else if (std::strcmp(frame.operation, "remote_password_unlock") == 0) {
             assert(plc.remotePasswordUnlock("secret1") == slmp::Error::Ok);
+        } else if (std::strcmp(frame.operation, "remote_reset") == 0) {
+            assert(plc.remoteReset(0x0000U, true) == slmp::Error::Ok);
         } else {
             assert(false);
         }

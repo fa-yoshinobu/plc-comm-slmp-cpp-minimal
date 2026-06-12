@@ -16,6 +16,10 @@ namespace {
 
 static const uint32_t kMaxRuntimeRangeProbeCount = 1048576U;
 
+static size_t randomReadBatchLimit(CompatibilityMode mode) {
+    return (mode == CompatibilityMode::iQR) ? 96U : 192U;
+}
+
 struct DeviceMeta {
     const char* name;
     DeviceCode code;
@@ -489,9 +493,15 @@ static Error readRandomMaps(
 ) {
     size_t word_index = 0U;
     size_t dword_index = 0U;
+    const size_t batch_limit = randomReadBatchLimit(client.compatibilityMode());
     while (word_index < word_devices.size() || dword_index < dword_devices.size()) {
-        const size_t word_chunk = (word_devices.size() - word_index > 0xFFU) ? 0xFFU : (word_devices.size() - word_index);
-        const size_t dword_chunk = (dword_devices.size() - dword_index > 0xFFU) ? 0xFFU : (dword_devices.size() - dword_index);
+        size_t remaining_slots = batch_limit;
+        const size_t word_chunk = std::min(word_devices.size() - word_index, remaining_slots);
+        remaining_slots -= word_chunk;
+        const size_t dword_chunk = std::min(dword_devices.size() - dword_index, remaining_slots);
+        if (word_chunk == 0U && dword_chunk == 0U) {
+            return Error::InvalidArgument;
+        }
 
         std::vector<uint16_t> words(word_chunk);
         std::vector<uint32_t> dwords(dword_chunk);
