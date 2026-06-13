@@ -65,15 +65,15 @@ You can also reproduce this locally with:
 ## X/Y/B/W device numbers look wrong
 
 `B/W/SB/SW/DX/DY` use hexadecimal numbering in normal Mitsubishi notation.
-High-level string `X/Y` also need one explicit `PlcProfile`:
+High-level string `X/Y` also need one explicit `PlcFamily`:
 
-- `slmp::highlevel::PlcProfile::IqF` uses octal string `X/Y`
+- `PlcFamily::IqF` uses octal string `X/Y`
 - all other supported families use hexadecimal string `X/Y`
 
 Examples:
 
-- `X20` with `slmp::highlevel::PlcProfile::IqR` should be passed as `0x20`
-- `Y217` with `slmp::highlevel::PlcProfile::IqF` should be passed as octal `0217`
+- `X20` with `PlcFamily::IqR` should be passed as `0x20`
+- `Y217` with `PlcFamily::IqF` should be passed as octal `0217`
 - `D100` stays `100`
 
 Typed helpers make this harder to mix up:
@@ -97,46 +97,11 @@ Common mistakes:
 - `M1000.0`
 - `X20.0`
 - `Y1A.0`
-- string `X/Y` without an explicit `PlcProfile`
+- string `X/Y` without an explicit `PlcFamily`
 
 Direct bit devices must be addressed directly. `.bit` notation is valid only for word devices such as `D50.3`.
 
 If you want maximum control and no string parsing, use the low-level `DeviceAddress` API instead of the high-level helpers.
-
-## `readTyped()` returns `InvalidArgument` for long families
-
-`LTN`, `LSTN`, `LCN`, and `LZ` are 32-bit families in the high-level API.
-
-Use:
-
-- `LTN0:D` or `LTN0:L`
-- `LSTN0:D` or `LSTN0:L`
-- `LCN0:D` or `LCN0:L`
-- `LZ0:D` or `LZ0:L`
-
-Do not read these as plain 16-bit values.
-
-## `DX` or `DY` fails on iQ-F
-
-The profile-aware parser rejects `DX` and `DY` for `slmp::highlevel::PlcProfile::IqF`.
-
-Use `X` and `Y` for iQ-F projects, and keep using the profile-aware overloads:
-
-```cpp
-slmp::highlevel::Value value;
-slmp::highlevel::readTyped(plc, slmp::highlevel::PlcProfile::IqF, "X20", value);
-```
-
-## `G` or `HG` fails as a normal address
-
-The low-level direct device path rejects `G` and `HG`.
-
-Use module-buffer helpers instead:
-
-```cpp
-uint16_t words[4] = {};
-plc.readWordsModuleBuf(3, false, 100, 4, words, 4);
-```
 
 ## Connecting to GX Simulator 3 (GX Works3)
 

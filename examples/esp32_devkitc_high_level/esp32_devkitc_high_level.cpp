@@ -14,6 +14,7 @@ constexpr char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
 constexpr char kPlcHost[] = "192.168.250.100";
 constexpr uint16_t kPlcPort = 1025;
 constexpr uint32_t kReadIntervalMs = 1000;
+// Keep the profile explicit. It sets frame type and compatibility mode locally.
 constexpr slmp::highlevel::PlcProfile kPlcProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient g_tcp;
@@ -47,6 +48,7 @@ bool ensurePlc() {
         return true;
     }
 
+    // Gotcha reference: high-level string addresses need the correct PLC profile.
     slmp::highlevel::configureClientForPlcProfile(g_plc, kPlcProfile);
 
     if (!g_plc.connect(kPlcHost, kPlcPort)) {
@@ -64,6 +66,7 @@ bool ensurePlc() {
             "D200:F",
             "D50.3",
         };
+        // Poller parses and batches this address list once, then reuses the plan.
         const auto compileErr = g_poller.compile(addresses, kPlcProfile);
         if (compileErr != slmp::Error::Ok) {
             Serial.printf("Poller compile failed: %u\n", static_cast<unsigned>(compileErr));
@@ -83,6 +86,7 @@ bool ensurePlc() {
 
 void readHighLevelValues() {
     slmp::highlevel::Value d100;
+    // D100 has no suffix, so the high-level facade decodes it as U16.
     const auto typedErr = slmp::highlevel::readTyped(g_plc, kPlcProfile, "D100", d100);
     if (typedErr != slmp::Error::Ok) {
         Serial.printf("readTyped failed: %u\n", static_cast<unsigned>(typedErr));
@@ -90,6 +94,7 @@ void readHighLevelValues() {
     }
 
     slmp::highlevel::Snapshot snapshot;
+    // The compiled plan returns values in the same order as the address list above.
     const auto pollErr = g_poller.readOnce(g_plc, snapshot);
     if (pollErr != slmp::Error::Ok || snapshot.size() < 4U) {
         Serial.printf("Poller read failed: %u\n", static_cast<unsigned>(pollErr));
