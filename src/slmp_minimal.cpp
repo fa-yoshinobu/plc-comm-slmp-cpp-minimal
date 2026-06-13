@@ -495,6 +495,7 @@ inline Error summarizeBlockWriteList(const DeviceBlockWrite* blocks, size_t coun
 
 inline Error encodeRemotePasswordPayload(
     const char* password,
+    CompatibilityMode mode,
     uint8_t* out,
     size_t capacity,
     size_t& payload_length
@@ -519,8 +520,14 @@ inline Error encodeRemotePasswordPayload(
         }
     }
 
-    if (password_length < 6U || capacity < (2U + password_length)) {
-        return password_length < 6U ? Error::InvalidArgument : Error::BufferTooSmall;
+    if (mode == CompatibilityMode::Legacy && password_length != 4U) {
+        return Error::InvalidArgument;
+    }
+    if (mode == CompatibilityMode::iQR && password_length < 6U) {
+        return Error::InvalidArgument;
+    }
+    if (capacity < (2U + password_length)) {
+        return Error::BufferTooSmall;
     }
 
     writeLe16(out, static_cast<uint16_t>(password_length));
@@ -3218,8 +3225,7 @@ Error SlmpClient::remoteRun(bool force, uint16_t clear_mode) {
     return last_error_;
 }
 
-Error SlmpClient::beginRemoteStop(bool force, uint32_t now_ms) {
-    (void)force;
+Error SlmpClient::beginRemoteStop(uint32_t now_ms) {
     size_t payload_length = 0;
     Error encode_error = encodeRemoteModePayload(0x0001U, tx_buffer_, tx_capacity_, payload_length);
     if (encode_error != Error::Ok) {
@@ -3230,8 +3236,8 @@ Error SlmpClient::beginRemoteStop(bool force, uint32_t now_ms) {
     return startAsync(AsyncContext::Type::RemoteStop, payload_length, now_ms);
 }
 
-Error SlmpClient::remoteStop(bool force) {
-    Error err = beginRemoteStop(force, getTimeMs());
+Error SlmpClient::remoteStop() {
+    Error err = beginRemoteStop(getTimeMs());
     if (err != Error::Ok) return err;
     while (isBusy()) {
         update(getTimeMs());
@@ -3360,7 +3366,13 @@ Error SlmpClient::clearError() {
 
 Error SlmpClient::beginRemotePasswordUnlock(const char* password, uint32_t now_ms) {
     size_t payload_length = 0;
-    Error encode_error = encodeRemotePasswordPayload(password, tx_buffer_, tx_capacity_, payload_length);
+    Error encode_error = encodeRemotePasswordPayload(
+        password,
+        compatibility_mode_,
+        tx_buffer_,
+        tx_capacity_,
+        payload_length
+    );
     if (encode_error != Error::Ok) {
         setError(encode_error);
         return last_error_;
@@ -3380,7 +3392,13 @@ Error SlmpClient::remotePasswordUnlock(const char* password) {
 
 Error SlmpClient::beginRemotePasswordLock(const char* password, uint32_t now_ms) {
     size_t payload_length = 0;
-    Error encode_error = encodeRemotePasswordPayload(password, tx_buffer_, tx_capacity_, payload_length);
+    Error encode_error = encodeRemotePasswordPayload(
+        password,
+        compatibility_mode_,
+        tx_buffer_,
+        tx_capacity_,
+        payload_length
+    );
     if (encode_error != Error::Ok) {
         setError(encode_error);
         return last_error_;

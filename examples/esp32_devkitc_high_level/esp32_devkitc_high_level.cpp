@@ -14,7 +14,7 @@ constexpr char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
 constexpr char kPlcHost[] = "192.168.250.100";
 constexpr uint16_t kPlcPort = 1025;
 constexpr uint32_t kReadIntervalMs = 1000;
-constexpr slmp::highlevel::PlcFamily kPlcFamily = slmp::highlevel::PlcFamily::IqR;
+constexpr slmp::highlevel::PlcProfile kPlcProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient g_tcp;
 slmp::ArduinoClientTransport g_transport(g_tcp);
@@ -47,7 +47,7 @@ bool ensurePlc() {
         return true;
     }
 
-    slmp::highlevel::configureClientForPlcFamily(g_plc, kPlcFamily);
+    slmp::highlevel::configureClientForPlcProfile(g_plc, kPlcProfile);
 
     if (!g_plc.connect(kPlcHost, kPlcPort)) {
         Serial.printf("connect failed: %u\n", static_cast<unsigned>(g_plc.lastError()));
@@ -64,7 +64,7 @@ bool ensurePlc() {
             "D200:F",
             "D50.3",
         };
-        const auto compileErr = g_poller.compile(addresses, kPlcFamily);
+        const auto compileErr = g_poller.compile(addresses, kPlcProfile);
         if (compileErr != slmp::Error::Ok) {
             Serial.printf("Poller compile failed: %u\n", static_cast<unsigned>(compileErr));
             return false;
@@ -74,7 +74,7 @@ bool ensurePlc() {
 
     Serial.printf(
         "connected family=%s frame=%u compat=%u model=%s\n",
-        slmp::highlevel::plcFamilyLabel(kPlcFamily),
+        slmp::highlevel::plcProfileLabel(kPlcProfile),
         static_cast<unsigned>(g_plc.frameType()),
         static_cast<unsigned>(g_plc.compatibilityMode()),
         type_name_ok ? info.model : "unknown");
@@ -83,7 +83,7 @@ bool ensurePlc() {
 
 void readHighLevelValues() {
     slmp::highlevel::Value d100;
-    const auto typedErr = slmp::highlevel::readTyped(g_plc, kPlcFamily, "D100", d100);
+    const auto typedErr = slmp::highlevel::readTyped(g_plc, kPlcProfile, "D100", d100);
     if (typedErr != slmp::Error::Ok) {
         Serial.printf("readTyped failed: %u\n", static_cast<unsigned>(typedErr));
         return;

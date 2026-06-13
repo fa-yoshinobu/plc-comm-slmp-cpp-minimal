@@ -197,13 +197,13 @@ struct NamedValue {
 using Snapshot = std::vector<NamedValue>;
 
 /**
- * @enum PlcFamily
- * @brief Canonical PLC family for high-level defaults and string-address parsing.
+ * @enum PlcProfile
+ * @brief Canonical PLC profile for high-level defaults and string-address parsing.
  *
- * The high-level facade uses one explicit PLC family to derive frame type,
+ * The high-level facade uses one explicit PLC profile to derive frame type,
  * compatibility mode, string `X/Y` interpretation, and device-range family.
  */
-enum class PlcFamily : uint8_t {
+enum class PlcProfile : uint8_t {
     IqF,
     IqR,
     IqL,
@@ -218,38 +218,38 @@ enum class PlcFamily : uint8_t {
 enum class DeviceRangeFamily : uint8_t;
 
 /**
- * @struct PlcFamilyDefaults
- * @brief Resolved fixed defaults for one @ref PlcFamily.
+ * @struct PlcProfileDefaults
+ * @brief Resolved fixed defaults for one @ref PlcProfile.
  */
-struct PlcFamilyDefaults {
+struct PlcProfileDefaults {
     FrameType frame_type;                     ///< Derived SLMP frame type.
     CompatibilityMode compatibility_mode;     ///< Derived low-level compatibility mode.
-    PlcFamily address_family;                 ///< String-address family used by the helper parser.
+    PlcProfile address_profile;               ///< String-address profile used by the helper parser.
     DeviceRangeFamily range_family;           ///< Device-range family used for SD-range helpers.
 };
 
 /**
- * @brief Return the canonical lowercase-hyphen label for one PLC family.
- * @param family Selected PLC family.
- * @return Family name such as `iq-f`.
+ * @brief Return the canonical lowercase profile label.
+ * @param family Selected PLC profile.
+ * @return Profile name such as `melsec:iq-f`.
  */
-const char* plcFamilyLabel(PlcFamily family);
+const char* plcProfileLabel(PlcProfile family);
 
 /**
- * @brief Resolve the fixed defaults for one PLC family.
- * @param family Selected PLC family.
- * @return Derived frame, compatibility mode, address family, and range family.
+ * @brief Resolve the fixed defaults for one PLC profile.
+ * @param family Selected PLC profile.
+ * @return Derived frame, compatibility mode, address profile, and range family.
  */
-PlcFamilyDefaults plcFamilyDefaults(PlcFamily family);
+PlcProfileDefaults plcProfileDefaults(PlcProfile family);
 
 /**
- * @brief Configure the low-level client to the fixed defaults for one PLC family.
+ * @brief Configure the low-level client to the fixed defaults for one PLC profile.
  * @param client Low-level client to update.
- * @param family Selected PLC family.
+ * @param family Selected PLC profile.
  *
  * This helper only applies deterministic local defaults. It does not probe the PLC.
  */
-void configureClientForPlcFamily(SlmpClient& client, PlcFamily family);
+void configureClientForPlcProfile(SlmpClient& client, PlcProfile family);
 
 /**
  * @enum DeviceRangeFamily
@@ -350,13 +350,13 @@ const char* deviceRangeFamilyLabel(DeviceRangeFamily family);
 Error readDeviceRangeCatalogForFamily(SlmpClient& client, DeviceRangeFamily family, DeviceRangeCatalog& out);
 
 /**
- * @brief Read the configured device-range catalog for one high-level PLC family.
+ * @brief Read the configured device-range catalog for one high-level PLC profile.
  * @param client Connected low-level client instance.
- * @param family Explicit high-level PLC family.
+ * @param family Explicit high-level PLC profile.
  * @param out Receives the resolved device-range catalog.
  * @return @ref Error::Ok on success.
  */
-Error readDeviceRangeCatalogForPlcFamily(SlmpClient& client, PlcFamily family, DeviceRangeCatalog& out);
+Error readDeviceRangeCatalogForPlcProfile(SlmpClient& client, PlcProfile family, DeviceRangeCatalog& out);
 
 /**
  * @brief Parse a high-level address string.
@@ -390,13 +390,13 @@ Error readDeviceRangeCatalogForPlcFamily(SlmpClient& client, PlcFamily family, D
 Error parseAddressSpec(const char* address, AddressSpec& out);
 
 /**
- * @brief Parse a high-level address string with one explicit PLC family.
+ * @brief Parse a high-level address string with one explicit PLC profile.
  * @param address Address string to parse.
- * @param family Explicit PLC family used for string-device interpretation.
+ * @param family Explicit PLC profile used for string-device interpretation.
  * @param out Parsed result.
  * @return @ref Error::Ok on success.
  */
-Error parseAddressSpec(const char* address, PlcFamily family, AddressSpec& out);
+Error parseAddressSpec(const char* address, PlcProfile family, AddressSpec& out);
 
 /**
  * @brief Format one parsed high-level address into canonical uppercase text.
@@ -421,14 +421,14 @@ Error parseAddressSpec(const char* address, PlcFamily family, AddressSpec& out);
 Error formatAddressSpec(const AddressSpec& spec, char* out, size_t out_size);
 
 /**
- * @brief Format one parsed high-level address with one explicit PLC family.
+ * @brief Format one parsed high-level address with one explicit PLC profile.
  * @param spec Parsed address specification to format.
- * @param family Explicit PLC family used for string-device formatting.
+ * @param family Explicit PLC profile used for string-device formatting.
  * @param out Caller-provided destination buffer.
  * @param out_size Destination buffer size in bytes.
  * @return @ref Error::Ok on success.
  */
-Error formatAddressSpec(const AddressSpec& spec, PlcFamily family, char* out, size_t out_size);
+Error formatAddressSpec(const AddressSpec& spec, PlcProfile family, char* out, size_t out_size);
 
 /**
  * @brief Parse and immediately format one user-facing address into canonical text.
@@ -452,14 +452,14 @@ Error formatAddressSpec(const AddressSpec& spec, PlcFamily family, char* out, si
 Error normalizeAddress(const char* address, char* out, size_t out_size);
 
 /**
- * @brief Parse and immediately format one address with one explicit PLC family.
+ * @brief Parse and immediately format one address with one explicit PLC profile.
  * @param address User-facing address string.
- * @param family Explicit PLC family used for string-device interpretation.
+ * @param family Explicit PLC profile used for string-device interpretation.
  * @param out Caller-provided destination buffer.
  * @param out_size Destination buffer size in bytes.
  * @return @ref Error::Ok on success.
  */
-Error normalizeAddress(const char* address, PlcFamily family, char* out, size_t out_size);
+Error normalizeAddress(const char* address, PlcProfile family, char* out, size_t out_size);
 
 /**
  * @brief Read one logical value by device string and explicit dtype.
@@ -483,7 +483,7 @@ Error normalizeAddress(const char* address, PlcFamily family, char* out, size_t 
  * @return @ref Error::Ok on success.
  */
 Error readTyped(SlmpClient& client, const char* device, const char* dtype, Value& out);
-Error readTyped(SlmpClient& client, PlcFamily family, const char* device, const char* dtype, Value& out);
+Error readTyped(SlmpClient& client, PlcProfile family, const char* device, const char* dtype, Value& out);
 
 /**
  * @brief Read one logical value using one address string such as `D100` or `D200:F`.
@@ -503,7 +503,7 @@ Error readTyped(SlmpClient& client, PlcFamily family, const char* device, const 
  * @return @ref Error::Ok on success.
  */
 Error readTyped(SlmpClient& client, const char* address, Value& out);
-Error readTyped(SlmpClient& client, PlcFamily family, const char* address, Value& out);
+Error readTyped(SlmpClient& client, PlcProfile family, const char* address, Value& out);
 
 /**
  * @brief Write one logical value by device string and explicit dtype.
@@ -521,7 +521,7 @@ Error readTyped(SlmpClient& client, PlcFamily family, const char* address, Value
  * @return @ref Error::Ok on success.
  */
 Error writeTyped(SlmpClient& client, const char* device, const char* dtype, const Value& value);
-Error writeTyped(SlmpClient& client, PlcFamily family, const char* device, const char* dtype, const Value& value);
+Error writeTyped(SlmpClient& client, PlcProfile family, const char* device, const char* dtype, const Value& value);
 
 /**
  * @brief Write one logical value using one address string such as `D100`, `D200:F`, or `D50.3`.
@@ -536,7 +536,7 @@ Error writeTyped(SlmpClient& client, PlcFamily family, const char* device, const
  * @return @ref Error::Ok on success.
  */
 Error writeTyped(SlmpClient& client, const char* address, const Value& value);
-Error writeTyped(SlmpClient& client, PlcFamily family, const char* address, const Value& value);
+Error writeTyped(SlmpClient& client, PlcProfile family, const char* address, const Value& value);
 
 /**
  * @brief Read a large contiguous word range and optionally split it into multiple requests.
@@ -607,7 +607,7 @@ Error readDWordsChunked(
  * @return @ref Error::Ok on success.
  */
 Error writeBitInWord(SlmpClient& client, const char* device, int bit_index, bool value);
-Error writeBitInWord(SlmpClient& client, PlcFamily family, const char* device, int bit_index, bool value);
+Error writeBitInWord(SlmpClient& client, PlcProfile family, const char* device, int bit_index, bool value);
 
 /**
  * @brief Compile a reusable mixed read plan.
@@ -624,7 +624,7 @@ Error writeBitInWord(SlmpClient& client, PlcFamily family, const char* device, i
  * @return @ref Error::Ok on success.
  */
 Error compileReadPlan(const std::vector<std::string>& addresses, ReadPlan& out);
-Error compileReadPlan(const std::vector<std::string>& addresses, PlcFamily family, ReadPlan& out);
+Error compileReadPlan(const std::vector<std::string>& addresses, PlcProfile family, ReadPlan& out);
 
 /**
  * @brief Read a mixed logical snapshot by address strings.
@@ -645,7 +645,7 @@ Error compileReadPlan(const std::vector<std::string>& addresses, PlcFamily famil
  * @return @ref Error::Ok on success.
  */
 Error readNamed(SlmpClient& client, const std::vector<std::string>& addresses, Snapshot& out);
-Error readNamed(SlmpClient& client, PlcFamily family, const std::vector<std::string>& addresses, Snapshot& out);
+Error readNamed(SlmpClient& client, PlcProfile family, const std::vector<std::string>& addresses, Snapshot& out);
 
 /**
  * @brief Read a mixed logical snapshot using a previously compiled plan.
@@ -673,7 +673,7 @@ Error readNamed(SlmpClient& client, const ReadPlan& plan, Snapshot& out);
  * @return @ref Error::Ok on success.
  */
 Error writeNamed(SlmpClient& client, const Snapshot& updates);
-Error writeNamed(SlmpClient& client, PlcFamily family, const Snapshot& updates);
+Error writeNamed(SlmpClient& client, PlcProfile family, const Snapshot& updates);
 
 /**
  * @class Poller
@@ -695,7 +695,7 @@ class Poller {
      */
     Error compile(const std::vector<std::string>& addresses);
     /** @brief Compile and store one reusable read plan with an explicit PLC family. */
-    Error compile(const std::vector<std::string>& addresses, PlcFamily family);
+    Error compile(const std::vector<std::string>& addresses, PlcProfile family);
     /**
      * @brief Execute one snapshot read with the stored compiled plan.
      * @param client Connected low-level client instance.
