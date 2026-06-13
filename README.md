@@ -12,17 +12,17 @@ A minimal C++ SLMP client for Mitsubishi PLCs, compatible with Arduino and Platf
 
 Select one explicit profile before you read or write devices. The helper `slmp::highlevel::configureClientForPlcProfile` applies the frame type and compatibility mode shown here.
 
-| Profile identifier | Hardware | Frame type | Notes |
-| --- | --- | --- | --- |
-| `slmp::highlevel::PlcProfile::IqF` | MELSEC iQ-F | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`; string `X` and `Y` addresses use octal notation; `DX` and `DY` are not valid. |
-| `slmp::highlevel::PlcProfile::IqR` | MELSEC iQ-R | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`; this is the default profile used in the examples. |
-| `slmp::highlevel::PlcProfile::IqL` | MELSEC iQ-L | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`; string-address parsing follows the iQ-R profile rules. |
-| `slmp::highlevel::PlcProfile::MxF` | MELSEC MX-F profile | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`. |
-| `slmp::highlevel::PlcProfile::MxR` | MELSEC MX-R profile | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`. |
-| `slmp::highlevel::PlcProfile::QCpu` | MELSEC Q CPU | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |
-| `slmp::highlevel::PlcProfile::LCpu` | MELSEC L CPU | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |
-| `slmp::highlevel::PlcProfile::QnU` | MELSEC QnU | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |
-| `slmp::highlevel::PlcProfile::QnUDV` | MELSEC QnU(DV) | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |
+| Profile identifier | Canonical profile | Hardware | Frame type | Notes |
+| --- | --- | --- | --- | --- |
+| `slmp::highlevel::PlcProfile::IqF` | `melsec:iq-f` | MELSEC iQ-F | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`; string `X` and `Y` addresses use octal notation; `DX` and `DY` are not valid. |
+| `slmp::highlevel::PlcProfile::IqR` | `melsec:iq-r` | MELSEC iQ-R | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`; this is the default profile used in the examples. |
+| `slmp::highlevel::PlcProfile::IqL` | `melsec:iq-l` | MELSEC iQ-L | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`; string-address parsing follows the iQ-R profile rules. |
+| `slmp::highlevel::PlcProfile::MxF` | `melsec:mx-f` | MELSEC MX-F profile | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`. |
+| `slmp::highlevel::PlcProfile::MxR` | `melsec:mx-r` | MELSEC MX-R profile | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`. |
+| `slmp::highlevel::PlcProfile::QCpu` | `melsec:qcpu` | MELSEC Q CPU | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |
+| `slmp::highlevel::PlcProfile::LCpu` | `melsec:lcpu` | MELSEC L CPU | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |
+| `slmp::highlevel::PlcProfile::QnU` | `melsec:qnu` | MELSEC QnU | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |
+| `slmp::highlevel::PlcProfile::QnUDV` | `melsec:qnudv` | MELSEC QnU(DV) | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |
 
 ## Supported device types
 
