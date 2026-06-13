@@ -204,15 +204,16 @@ using Snapshot = std::vector<NamedValue>;
  * compatibility mode, string `X/Y` interpretation, and device-range family.
  */
 enum class PlcProfile : uint8_t {
-    IqF,
-    IqR,
-    IqL,
-    MxF,
-    MxR,
-    QCpu,
-    LCpu,
-    QnU,
-    QnUDV,
+    Unspecified = 0,
+    IqF = 1,
+    IqR = 2,
+    IqL = 3,
+    MxF = 4,
+    MxR = 5,
+    QCpu = 6,
+    LCpu = 7,
+    QnU = 8,
+    QnUDV = 9,
 };
 
 enum class DeviceRangeFamily : uint8_t;

@@ -2396,6 +2396,13 @@ void testHighLevelplcProfileDefaults() {
         assert(defaults.address_profile == slmp::highlevel::PlcProfile::IqR);
         assert(defaults.range_family == slmp::highlevel::DeviceRangeFamily::IqL);
         assert(std::string(slmp::highlevel::plcProfileLabel(slmp::highlevel::PlcProfile::IqL)) == "melsec:iq-l");
+        assert(std::string(slmp::highlevel::plcProfileLabel(slmp::highlevel::PlcProfile::Unspecified)).empty());
+    }
+
+    {
+        slmp::highlevel::AddressSpec spec{};
+        assert(slmp::highlevel::parseAddressSpec("D0", slmp::highlevel::PlcProfile::Unspecified, spec) ==
+               slmp::Error::InvalidArgument);
     }
 
     {
