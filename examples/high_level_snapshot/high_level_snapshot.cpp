@@ -11,15 +11,18 @@ using slmp::highlevel::PlcProfile;
 using slmp::highlevel::Snapshot;
 using slmp::highlevel::Value;
 
+// Explicit profile selection avoids ambiguous X/Y numbering and frame defaults.
 constexpr PlcProfile kPlcProfile = PlcProfile::IqR;
 
 [[maybe_unused]] slmp::Error readBasicValues(slmp::SlmpClient& plc) {
     Value d100;
+    // Plain D100 defaults to a U16 logical value.
     if (slmp::highlevel::readTyped(plc, kPlcProfile, "D100", d100) != slmp::Error::Ok) {
         return plc.lastError();
     }
 
     Value temperature;
+    // :F reads two words and decodes them as IEEE-754 float32.
     if (slmp::highlevel::readTyped(plc, kPlcProfile, "D200:F", temperature) != slmp::Error::Ok) {
         return plc.lastError();
     }
@@ -28,6 +31,7 @@ constexpr PlcProfile kPlcProfile = PlcProfile::IqR;
 }
 
 [[maybe_unused]] slmp::Error readMixedSnapshot(slmp::SlmpClient& plc, Snapshot& out) {
+    // readNamed preserves caller order and batches compatible word/dword reads.
     const std::vector<std::string> addresses = {
         "SM400",
         "D100",
@@ -40,6 +44,7 @@ constexpr PlcProfile kPlcProfile = PlcProfile::IqR;
 
 [[maybe_unused]] slmp::Error writeMixedValues(slmp::SlmpClient& plc) {
     Snapshot updates;
+    // Each update is independent; use safe test addresses in real projects.
     updates.push_back({"D100", Value::u16Value(1234U)});
     updates.push_back({"D200:L", Value::s32Value(-123456)});
     updates.push_back({"D300:F", Value::float32Value(1.5f)});
@@ -59,6 +64,7 @@ constexpr PlcProfile kPlcProfile = PlcProfile::IqR;
     if (err != slmp::Error::Ok) {
         return err;
     }
+    // Poller keeps the compiled plan; callers control timing outside this helper.
     return poller.readOnce(plc, out);
 }
 

@@ -1,115 +1,36 @@
+# Examples
 
-[![Documentation](https://img.shields.io/badge/docs-GitHub_Pages-blue.svg)](https://fa-yoshinobu.github.io/plc-comm-slmp-cpp-minimal/)
+## What is in this directory
 
-Use this file as the quick "which sketch should I start from?" guide.
+This directory contains the maintained minimal examples for `slmp-connect-cpp-minimal`. Use the ESP32 examples for board uploads and `high_level_snapshot` as a host-side compile smoke sample for the high-level API.
 
-For install steps and the overall library overview, go back to `README.md` in the repository root.
+## How to run
 
-The interactive console sketches were moved to the companion repository:
+| Folder | Command | Notes |
+| --- | --- | --- |
+| `esp32_devkitc_low_level` | `pio run -e esp32-devkitc-low-level -t upload` | Uploads the smallest direct `slmp::SlmpClient` TCP example to ESP32-DevKitC. |
+| `esp32_devkitc_high_level` | `pio run -e esp32-devkitc-high-level -t upload` | Uploads the high-level `slmp::highlevel` TCP example to ESP32-DevKitC. |
+| `high_level_snapshot` | `g++ -std=c++17 -Isrc examples/high_level_snapshot/high_level_snapshot.cpp src/slmp_minimal.cpp src/slmp_high_level.cpp -o high_level_snapshot` | Host compile-only sample; it does not have a PlatformIO upload target. |
 
-- <https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal-console-app>
-
-## Quick Picks
-
-- Want the smallest compile-checked high-level facade sample: start with `high_level_snapshot`.
-- Want the smallest direct firmware sample: start with `esp32_devkitc_low_level`.
-- Want the smallest high-level firmware sample: start with `esp32_devkitc_high_level`.
-
-| Use case | Folder | Board/transport | What it shows |
-|---|---|---|---|
-| ESP32 low-level size baseline | `esp32_devkitc_low_level` | ESP32-DevKitC + `WiFiClient` | smallest direct core example using `SlmpClient`, fixed buffers, and `DeviceAddress` helpers |
-| ESP32 high-level size sample | `esp32_devkitc_high_level` | ESP32-DevKitC + `WiFiClient` | same board and transport, but using explicit `PlcProfile`, `configureClientForPlcProfile(...)`, `connect`, plus profile-aware `readTyped` and `Poller` so the binary size delta is easy to compare |
-| High-level snapshot sample | `high_level_snapshot` | host-side compile smoke | `readTyped`, `readNamed`, `writeNamed`, and `Poller` usage in one compile-checked sample |
-
-Suggested order:
-
-1. Start with `esp32_devkitc_low_level` and `esp32_devkitc_high_level` if you want a clean size comparison on the same board.
-2. Start with `high_level_snapshot` if you want the host-side high-level API surface first.
-3. Use the companion console-app repository only if you need interactive bring-up tools.
-
-## ESP32 Size Comparison
-
-Build commands:
+Optional TCP-only size comparison builds:
 
 ```bash
-pio run -e esp32-devkitc-low-level
-pio run -e esp32-devkitc-high-level
 pio run -e esp32-devkitc-low-level-no-udp
 pio run -e esp32-devkitc-high-level-no-udp
 ```
 
-Then compare the generated binaries:
+## Example index
 
-- `.pio/build/esp32-devkitc-low-level/firmware.bin`
-- `.pio/build/esp32-devkitc-high-level/firmware.bin`
-- `.pio/build/esp32-devkitc-low-level-no-udp/firmware.bin`
-- `.pio/build/esp32-devkitc-high-level-no-udp/firmware.bin`
+| Folder | What it demonstrates |
+| --- | --- |
+| `esp32_devkitc_low_level` | Arduino `WiFiClient` transport setup, fixed buffers, explicit `slmp::FrameType::Frame4E`, `slmp::CompatibilityMode::iQR`, `slmp::SlmpClient::readOneWord`, and `slmp::SlmpClient::readOneBit`. |
+| `esp32_devkitc_high_level` | Arduino `WiFiClient` transport setup, explicit `slmp::highlevel::PlcProfile::IqR`, `slmp::highlevel::configureClientForPlcProfile`, `slmp::highlevel::readTyped`, and `slmp::highlevel::Poller`. |
+| `high_level_snapshot` | Host-side examples of `slmp::highlevel::readTyped`, `slmp::highlevel::readNamed`, `slmp::highlevel::writeNamed`, and `slmp::highlevel::Poller` without requiring a board. |
 
-The low-level sample intentionally avoids `slmp_high_level.cpp`.
-The high-level sample intentionally includes it and uses explicit `PlcProfile`
-selection, `configureClientForPlcProfile(...)`, `connect`, `readTyped`, and
-`Poller`, so the size difference is easy to observe.
-Large contiguous reads stay behind explicit chunked helpers instead of appearing as hidden fallback behavior.
+## Related pages
 
-Current reference build numbers:
-
-- low-level sample: Flash `749909` bytes, RAM `45064` bytes
-- high-level sample: Flash `777525` bytes, RAM `45184` bytes
-- high-level delta: Flash `+27616` bytes, RAM `+120` bytes
-- disabling `SLMP_ENABLE_UDP_TRANSPORT` in these TCP-only samples: Flash `+0` bytes, RAM `+0` bytes
-
-Full measurement notes are stored in `docsrc/validation/reports/ESP32_DEVKITC_SIZE_COMPARISON.md`.
-
-## What To Learn From Each Sample
-
-### `high_level_snapshot`
-
-Use this first if you want the user-facing helper surface.
-
-It demonstrates:
-
-- `readTyped`
-- `writeTyped`
-- `readNamed`
-- `writeNamed`
-- `Poller`
-- `parseAddressSpec`
-- `normalizeAddress`
-- `formatAddressSpec`
-
-It is intentionally small and compile-checked so you can copy it into a host or firmware project with minimal cleanup.
-
-### `esp32_devkitc_low_level`
-
-Use this when you want the smallest direct Arduino example on ESP32.
-
-It demonstrates:
-
-- `WiFiClient` transport setup
-- fixed TX/RX buffers
-- `SlmpClient`
-- `setFrameType`
-- `setCompatibilityMode`
-- `readOneWord`
-- `readOneBit`
-
-### `esp32_devkitc_high_level`
-
-Use this when you want the ESP32 equivalent of the user-facing Python and .NET helper style.
-
-It demonstrates:
-
-- explicit `PlcProfile`
-- `configureClientForPlcProfile(...)`
-- explicit `connect`
-- `readTyped`
-- `Poller`
-- string addresses such as `D100`, `D200:F`, and `D50.3`
-- the binary size cost of enabling the optional high-level layer
-
-## Related Docs
-
-- `README.md`: install, quick start, board-by-board overview, memory notes
-- `docsrc/user/TROUBLESHOOTING.md`: network, buffer, and frame-dump troubleshooting
-
-
+| Page | What to read |
+| --- | --- |
+| [Getting started](../docsrc/user/GETTING_STARTED.md) | First connection, first read, and first write. |
+| [Usage guide](../docsrc/user/USAGE_GUIDE.md) | High-level and low-level API patterns. |
+| [Gotchas](../docsrc/user/GOTCHAS.md) | Common address, profile, and value-type mistakes. |

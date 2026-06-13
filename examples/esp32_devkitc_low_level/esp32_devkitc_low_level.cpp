@@ -41,6 +41,7 @@ bool ensurePlc() {
         return true;
     }
 
+    // Low-level users choose frame and compatibility mode directly.
     g_plc.setFrameType(slmp::FrameType::Frame4E);
     g_plc.setCompatibilityMode(slmp::CompatibilityMode::iQR);
     return g_plc.connect(kPlcHost, kPlcPort);
@@ -50,6 +51,7 @@ void readDirectDevices() {
     uint16_t d100 = 0;
     bool m1000 = false;
 
+    // D uses decimal numbering; M is a direct bit device in this example.
     const auto wordErr = g_plc.readOneWord(slmp::dev::D(slmp::dev::dec(100)), d100);
     const auto bitErr = g_plc.readOneBit(slmp::dev::M(slmp::dev::dec(1000)), m1000);
 

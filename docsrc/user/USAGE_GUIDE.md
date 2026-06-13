@@ -1,310 +1,413 @@
-# Usage Guide: SLMP C++ Minimal
+# Usage guide
 
-This guide starts with the optional high-level helper API, then covers the lower-level core API for advanced embedded scenarios.
+## Two layers
 
-## Design Philosophy
+| Layer | Header | Use it when |
+| --- | --- | --- |
+| Low-level core | `slmp_minimal.h` | You want fixed caller-owned buffers, explicit `slmp::DeviceAddress` values, and direct sync or async SLMP calls. |
+| High-level facade | `slmp_high_level.h` | You want string addresses, typed values, named snapshots, chunked reads, and reusable polling plans. |
 
-The library intentionally keeps two user-facing layers:
+The high-level layer is optional. Include `slmp_high_level.h` explicitly when you use helpers such as `slmp::highlevel::readTyped`.
 
-- High-level helpers for user code that wants string addresses, typed values, mixed snapshots, and reusable polling plans.
-- Low-level core APIs for firmware that wants explicit buffers, deterministic memory usage, and direct control over sync or async communication flow.
+## Setup
 
-Recommended rule:
+This complete TCP setup creates the transport, buffers, `slmp::SlmpClient`, and profile configuration.
+For UDP transport, keep the same host `192.168.250.100` and use UDP port `1035`.
 
-- Start with the high-level helper layer unless you have a clear embedded reason not to.
-- Drop to the low-level core when buffer ownership, manual scheduling, or transport-level control matters more than convenience.
-
-## 1. Transport Setup
-
-The library decouples protocol logic from the network transport. For Arduino environments, you can use TCP or UDP.
-
-### TCP Transport (Recommended)
 ```cpp
+#include <Arduino.h>
+#include <WiFi.h>
+
 #include <slmp_arduino_transport.h>
+#include <slmp_high_level.h>
+#include <slmp_minimal.h>
+
+constexpr char kWifiSsid[] = "YOUR_WIFI_SSID";
+constexpr char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
+constexpr char kPlcHost[] = "192.168.250.100";
+constexpr uint16_t kTcpPort = 1025;
+constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient tcp;
 slmp::ArduinoClientTransport transport(tcp);
-```
 
-### UDP Transport
-```cpp
-#include <slmp_arduino_transport.h>
-
-WiFiUDP udp;
-slmp::ArduinoUdpTransport transport(udp);
-```
-
-## 2. High-Level Helpers
-
-The optional high-level layer is the recommended entry point for application code.
-
-```cpp
-#include <slmp_high_level.h>
-
-constexpr auto family = slmp::highlevel::PlcFamily::IqR;
-slmp::highlevel::configureClientForPlcFamily(plc, family);
-
-slmp::TypeNameInfo info = {};
-if (plc.connect("192.168.250.100", 1025)) {
-    plc.readTypeName(info);
-
-    slmp::highlevel::Value word;
-    slmp::highlevel::readTyped(plc, family, "D100", word);
-
-    slmp::highlevel::Value temperature;
-    slmp::highlevel::readTyped(plc, family, "D200:F", temperature);
-
-    slmp::highlevel::Snapshot snapshot;
-    slmp::highlevel::readNamed(plc, family, {"SM400", "D100", "D200:F", "D50.3"}, snapshot);
-}
-```
-
-Use cases:
-
-- `readTyped` / `writeTyped`: single logical value by string address
-- `readNamed` / `writeNamed`: mixed snapshot by string address list
-- `Poller`: compile one snapshot plan once and reuse it for repeated monitoring
-- `readWordsChunked` / `readDWordsChunked`: large contiguous reads with optional split
-
-Important notes:
-
-- `.bit` notation is valid only for word devices such as `D50.3`
-- direct bit devices should be addressed directly, for example `M1000`
-- the optional high-level layer uses `std::string` and `std::vector`
-- the core client in `slmp_minimal.h` stays fixed-buffer and allocation-free
-- `parseAddressSpec()` is public when application code needs to validate or classify a user-facing address string before read/write
-- `normalizeAddress()` and `formatAddressSpec()` are public when application code wants one canonical uppercase spelling for storage, cache keys, or logs
-- choose one explicit `PlcFamily` first, then keep using the corresponding family-aware overloads
-- chunked helpers are explicit opt-in; typed and named helpers preserve one logical value or one logical address item by default instead of silently retrying with different semantics
-
-### Address Syntax Cheat Sheet
-
-| Form | Meaning | Example result type |
-| --- | --- | --- |
-| `D100` | default 16-bit unsigned word | `U16` |
-| `D100:S` | signed 16-bit word | `S16` |
-| `D200:D` | unsigned 32-bit dword | `U32` |
-| `D200:L` | signed 32-bit dword | `S32` |
-| `D300:F` | float32 | `Float32` |
-| `D50.3` | one bit inside a word device | `Bit` |
-| `M1000` | direct bit device | `Bit` |
-
-Invalid form:
-
-- `M1000.0`
-
-Direct bit devices should be addressed directly. `.bit` is reserved for word devices such as `D50.3`.
-
-### High-Level Write Example
-
-```cpp
-slmp::highlevel::writeTyped(plc, "D100", slmp::highlevel::Value::u16Value(321));
-slmp::highlevel::writeTyped(plc, "D200:F", slmp::highlevel::Value::float32Value(12.5f));
-slmp::highlevel::writeTyped(plc, "D50.3", slmp::highlevel::Value::bitValue(true));
-```
-
-### Address Normalize / Format Example
-
-```cpp
-char normalized[32] = {};
-if (slmp::highlevel::normalizeAddress(" x1a ", slmp::highlevel::PlcFamily::IqR, normalized, sizeof(normalized)) == slmp::Error::Ok) {
-    // normalized -> "X1A"
-}
-
-slmp::highlevel::AddressSpec spec{};
-if (slmp::highlevel::parseAddressSpec("D200:F", spec) == slmp::Error::Ok) {
-    char formatted[32] = {};
-    slmp::highlevel::formatAddressSpec(spec, formatted, sizeof(formatted));
-    // formatted -> "D200:F"
-}
-```
-
-### High-Level Mixed Snapshot Example
-
-```cpp
-slmp::highlevel::Snapshot snapshot;
-if (slmp::highlevel::readNamed(
-        plc,
-        {"SM400", "D100", "D101:S", "D200:F", "D50.3"},
-        snapshot) == slmp::Error::Ok) {
-    // snapshot keeps caller order
-}
-```
-
-### High-Level Mixed Write Example
-
-```cpp
-slmp::highlevel::Snapshot updates = {
-    {"D100", slmp::highlevel::Value::u16Value(321)},
-    {"D200:F", slmp::highlevel::Value::float32Value(12.5f)},
-    {"D50.3", slmp::highlevel::Value::bitValue(true)},
-};
-slmp::highlevel::writeNamed(plc, updates);
-```
-
-### Poller Example
-
-```cpp
-slmp::highlevel::Poller poller;
-poller.compile({"D100", "D101:S", "D200:F", "M1000"});
-
-slmp::highlevel::Snapshot snapshot;
-if (poller.readOnce(plc, snapshot) == slmp::Error::Ok) {
-    // Reuse the compiled plan on every cycle
-}
-```
-
-### Chunked Contiguous Read Example
-
-```cpp
-std::vector<uint16_t> words;
-slmp::highlevel::readWordsChunked(plc, "D1000", 1200, words, 960, true);
-
-std::vector<uint32_t> dwords;
-slmp::highlevel::readDWordsChunked(plc, "D2000", 600, dwords, 480, true);
-```
-
-Use the chunked helpers only when the caller accepts explicit segmentation at the configured boundaries. They are not fallback behavior for `readTyped`, `writeTyped`, `readNamed`, or `writeNamed`.
-
-## 3. Basic Synchronous Usage
-
-Synchronous methods block execution until a response is received or a timeout occurs. Best for simple scripts or setup routines.
-
-```cpp
-// Initialize Client with fixed TX/RX buffers (No dynamic allocation)
-uint8_t tx_buf[128];
-uint8_t rx_buf[128];
-slmp::SlmpClient plc(transport, tx_buf, sizeof(tx_buf), rx_buf, sizeof(rx_buf));
+uint8_t txBuffer[160] = {};
+uint8_t rxBuffer[160] = {};
+slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
 
 void setup() {
-    // Open connection to PLC
-    plc.connect("192.168.1.10", 1025);
+    Serial.begin(115200);
+    WiFi.begin(kWifiSsid, kWifiPassword);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(250);
+    }
+
+    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
+    if (plc.connect(kPlcHost, kTcpPort)) {
+        Serial.println("PLC connected");
+    }
 }
 
 void loop() {
-    // Read 2 words from D100 using the fluent API
-    uint16_t words[2] = {0};
-    auto dev = slmp::dev::D(slmp::dev::dec(100));
-    
-    if (plc.readWords(dev, 2, words, 2) == slmp::Error::Ok) {
-        // words[0] contains D100, words[1] contains D101
+    delay(1000);
+}
+```
+
+## Read a single value
+
+`slmp::highlevel::readTyped` reads one logical value from one address.
+
+| Address form | Value type | Field to read |
+| --- | --- | --- |
+| `D100` or `D100:U` | `slmp::highlevel::ValueType::U16` | `value.u16` |
+| `D100:S` | `slmp::highlevel::ValueType::S16` | `value.s16` |
+| `D200:D` | `slmp::highlevel::ValueType::U32` | `value.u32` |
+| `D200:L` | `slmp::highlevel::ValueType::S32` | `value.s32` |
+| `D300:F` | `slmp::highlevel::ValueType::Float32` | `value.f32` |
+| `M1000` or `D50.3` | `slmp::highlevel::ValueType::Bit` | `value.bit` |
+
+```cpp
+#include <Arduino.h>
+#include <WiFi.h>
+
+#include <slmp_arduino_transport.h>
+#include <slmp_high_level.h>
+#include <slmp_minimal.h>
+
+constexpr char kWifiSsid[] = "YOUR_WIFI_SSID";
+constexpr char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
+constexpr char kPlcHost[] = "192.168.250.100";
+constexpr uint16_t kTcpPort = 1025;
+constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
+
+WiFiClient tcp;
+slmp::ArduinoClientTransport transport(tcp);
+uint8_t txBuffer[160] = {};
+uint8_t rxBuffer[160] = {};
+slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.begin(kWifiSsid, kWifiPassword);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(250);
+    }
+    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
+    plc.connect(kPlcHost, kTcpPort);
+}
+
+void loop() {
+    slmp::highlevel::Value value;
+    const slmp::Error err = slmp::highlevel::readTyped(plc, kProfile, "D100", value);
+    if (err == slmp::Error::Ok) {
+        Serial.printf("D100=%u\n", static_cast<unsigned>(value.u16));
+    } else {
+        Serial.printf("readTyped failed: %s\n", slmp::errorString(err));
     }
     delay(1000);
 }
 ```
 
-Use the low-level synchronous API when you want:
+## Write a single value
 
-- full control over caller-owned buffers
-- explicit `DeviceAddress` handling instead of string parsing
-- no STL usage in the hot path
-- the smallest predictable runtime surface
+`slmp::highlevel::writeTyped` writes one logical value. Use only test addresses while you are bringing up your PLC connection.
 
-## 4. Asynchronous (Non-blocking) Usage
-
-Essential for real-time control loops. Asynchronous communication allows the microcontroller to handle UI, sensors, or other tasks while waiting for the PLC.
-
-### Workflow
-1.  Start an operation with a `beginXXX()` method.
-2.  Call `plc.update(millis())` in your main `loop()`.
-3.  Check `plc.isBusy()` to monitor progress.
-4.  Handle results once `isBusy()` returns false.
-
-### Example
 ```cpp
-uint16_t data[10];
-bool active = false;
+#include <Arduino.h>
+#include <WiFi.h>
+
+#include <slmp_arduino_transport.h>
+#include <slmp_high_level.h>
+#include <slmp_minimal.h>
+
+constexpr char kWifiSsid[] = "YOUR_WIFI_SSID";
+constexpr char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
+constexpr char kPlcHost[] = "192.168.250.100";
+constexpr uint16_t kTcpPort = 1025;
+constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
+
+WiFiClient tcp;
+slmp::ArduinoClientTransport transport(tcp);
+uint8_t txBuffer[160] = {};
+uint8_t rxBuffer[160] = {};
+slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+bool wroteOnce = false;
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.begin(kWifiSsid, kWifiPassword);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(250);
+    }
+    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
+    plc.connect(kPlcHost, kTcpPort);
+}
 
 void loop() {
-    uint32_t now = millis();
-    
-    if (!active) {
-        // Request 10 words from D100
-        auto dev = slmp::dev::D(slmp::dev::dec(100));
-        if (plc.beginReadWords(dev, 10, data, 10, now) == slmp::Error::Ok) {
-            active = true;
-        }
+    if (!wroteOnce) {
+        const slmp::Error err = slmp::highlevel::writeTyped(
+            plc,
+            kProfile,
+            "D9000",
+            slmp::highlevel::Value::u16Value(321U));
+        Serial.printf("write D9000: %s\n", slmp::errorString(err));
+        wroteOnce = (err == slmp::Error::Ok);
     }
-
-    // Must call update() every loop to process transport and timeouts
-    plc.update(now);
-
-    if (active && !plc.isBusy()) {
-        if (plc.lastError() == slmp::Error::Ok) {
-            // Data successfully received in data[]
-        }
-        active = false; // Ready for next request
-    }
+    delay(1000);
 }
 ```
 
-Use the low-level async API when you want:
+## Named snapshot
 
-- cooperative scheduling from `loop()`
-- no blocking waits in firmware
-- one transport session integrated into a custom state machine
-- deterministic ownership of request and response buffers
+`slmp::highlevel::readNamed` reads mixed addresses in caller order. `slmp::highlevel::writeNamed` writes an ordered list of address/value pairs.
 
-## 5. Extended Device Access
-
-Access module buffer (`U..\G`, `U..\HG`) or link direct (`J..\device`) targets using the **Extended Device** specification.
-`HG` is valid only for the iQ-R multi-CPU CPU-buffer paths `U3E0\HG` through `U3E3\HG`; other module slots are rejected before transport.
-
-### Module Buffer Access
 ```cpp
-uint16_t buf[4] = {};
-// Read 4 words from Slot 3, Buffer Memory G100
-plc.readWordsModuleBuf(3, false, 100, 4, buf, 4);
+#include <Arduino.h>
+#include <WiFi.h>
+
+#include <string>
+#include <vector>
+
+#include <slmp_arduino_transport.h>
+#include <slmp_high_level.h>
+#include <slmp_minimal.h>
+
+constexpr char kWifiSsid[] = "YOUR_WIFI_SSID";
+constexpr char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
+constexpr char kPlcHost[] = "192.168.250.100";
+constexpr uint16_t kTcpPort = 1025;
+constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
+
+WiFiClient tcp;
+slmp::ArduinoClientTransport transport(tcp);
+uint8_t txBuffer[192] = {};
+uint8_t rxBuffer[192] = {};
+slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+bool wroteOnce = false;
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.begin(kWifiSsid, kWifiPassword);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(250);
+    }
+    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
+    plc.connect(kPlcHost, kTcpPort);
+}
+
+void loop() {
+    if (!wroteOnce) {
+        slmp::highlevel::Snapshot updates = {
+            {"D9000", slmp::highlevel::Value::u16Value(100U)},
+            {"D9002:S", slmp::highlevel::Value::s16Value(-10)},
+            {"D9004:L", slmp::highlevel::Value::s32Value(-123456)},
+            {"D9008:F", slmp::highlevel::Value::float32Value(12.5f)}
+        };
+        const slmp::Error writeErr = slmp::highlevel::writeNamed(plc, kProfile, updates);
+        Serial.printf("writeNamed: %s\n", slmp::errorString(writeErr));
+        wroteOnce = (writeErr == slmp::Error::Ok);
+    }
+
+    const std::vector<std::string> addresses = {
+        "SM400",
+        "D100",
+        "D101:S",
+        "D200:F",
+        "D50.3"
+    };
+
+    slmp::highlevel::Snapshot snapshot;
+    const slmp::Error readErr = slmp::highlevel::readNamed(plc, kProfile, addresses, snapshot);
+    if (readErr == slmp::Error::Ok && snapshot.size() == addresses.size()) {
+        Serial.printf(
+            "SM400=%u D100=%u D101=%d D200:F=%.3f D50.3=%u\n",
+            snapshot[0].value.bit ? 1U : 0U,
+            static_cast<unsigned>(snapshot[1].value.u16),
+            static_cast<int>(snapshot[2].value.s16),
+            static_cast<double>(snapshot[3].value.f32),
+            snapshot[4].value.bit ? 1U : 0U);
+    }
+
+    delay(1000);
+}
 ```
 
-### Link Direct Device (CC-Link IE Field)
-```cpp
-uint16_t words[1] = {};
-// Read J2\SW10 (Network 2, Link Special Register 0x10)
-plc.readWordsLinkDirect(2, slmp::DeviceCode::SW, 0x10, 1, words, 1);
+## Block reads
 
-bool bits[16] = {};
-// Read J1\X10 (Network 1, Input 0x10)
-plc.readBitsLinkDirect(1, slmp::DeviceCode::X, 0x10, 16, bits, 16);
+Use `slmp::highlevel::readWordsChunked` when you intentionally allow a large contiguous word read to split into multiple low-level requests.
+
+```cpp
+#include <Arduino.h>
+#include <WiFi.h>
+
+#include <vector>
+
+#include <slmp_arduino_transport.h>
+#include <slmp_high_level.h>
+#include <slmp_minimal.h>
+
+constexpr char kWifiSsid[] = "YOUR_WIFI_SSID";
+constexpr char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
+constexpr char kPlcHost[] = "192.168.250.100";
+constexpr uint16_t kTcpPort = 1025;
+constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
+
+WiFiClient tcp;
+slmp::ArduinoClientTransport transport(tcp);
+uint8_t txBuffer[192] = {};
+uint8_t rxBuffer[2048] = {};
+slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.begin(kWifiSsid, kWifiPassword);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(250);
+    }
+    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
+    plc.connect(kPlcHost, kTcpPort);
+}
+
+void loop() {
+    std::vector<uint16_t> words;
+    const slmp::Error err = slmp::highlevel::readWordsChunked(
+        plc,
+        "D1000",
+        1200,
+        words,
+        960,
+        true);
+    Serial.printf("readWordsChunked: %s count=%u\n", slmp::errorString(err), static_cast<unsigned>(words.size()));
+    delay(5000);
+}
 ```
 
-### Random Read/Write with Extended Devices
+## Polling
+
+`slmp::highlevel::Poller` stores one compiled `slmp::highlevel::ReadPlan` so repeated reads do not re-parse the address strings.
+
 ```cpp
-slmp::ExtDeviceSpec specs[] = {
-    slmp::ExtDeviceSpec::moduleBuf(3, false, 100),   // U3\G100
-    slmp::ExtDeviceSpec::linkDirect(2, slmp::DeviceCode::SW, 0x10), // J2\SW10
-};
-uint16_t values[2] = {};
-plc.readRandomExt(specs, 2, values, 2, nullptr, 0, nullptr, 0);
+#include <Arduino.h>
+#include <WiFi.h>
+
+#include <string>
+#include <vector>
+
+#include <slmp_arduino_transport.h>
+#include <slmp_high_level.h>
+#include <slmp_minimal.h>
+
+constexpr char kWifiSsid[] = "YOUR_WIFI_SSID";
+constexpr char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
+constexpr char kPlcHost[] = "192.168.250.100";
+constexpr uint16_t kTcpPort = 1025;
+constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
+
+WiFiClient tcp;
+slmp::ArduinoClientTransport transport(tcp);
+uint8_t txBuffer[192] = {};
+uint8_t rxBuffer[192] = {};
+slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+slmp::highlevel::Poller poller;
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.begin(kWifiSsid, kWifiPassword);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(250);
+    }
+    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
+    plc.connect(kPlcHost, kTcpPort);
+    poller.compile({"D100", "D101:S", "D200:F", "M1000"}, kProfile);
+}
+
+void loop() {
+    slmp::highlevel::Snapshot snapshot;
+    const slmp::Error err = poller.readOnce(plc, snapshot);
+    Serial.printf("poller: %s values=%u\n", slmp::errorString(err), static_cast<unsigned>(snapshot.size()));
+    delay(1000);
+}
 ```
 
-## 6. Advanced Features
+## Device range catalog
 
-### 3E/4E and Compatibility Modes
-Default is **Frame 4E + iQR mode**. To support older hardware (e.g., Q-series):
+`slmp::highlevel::readDeviceRangeCatalogForPlcProfile` reads live device range bounds for one explicit profile. It requires your selected PLC profile and does not auto-discover the PLC family.
+
 ```cpp
-plc.setFrameType(slmp::FrameType::Frame3E);
-plc.setCompatibilityMode(slmp::CompatibilityMode::Legacy);
+#include <Arduino.h>
+#include <WiFi.h>
+
+#include <slmp_arduino_transport.h>
+#include <slmp_high_level.h>
+#include <slmp_minimal.h>
+
+constexpr char kWifiSsid[] = "YOUR_WIFI_SSID";
+constexpr char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
+constexpr char kPlcHost[] = "192.168.250.100";
+constexpr uint16_t kTcpPort = 1025;
+constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
+
+WiFiClient tcp;
+slmp::ArduinoClientTransport transport(tcp);
+uint8_t txBuffer[192] = {};
+uint8_t rxBuffer[192] = {};
+slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+bool printedCatalog = false;
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.begin(kWifiSsid, kWifiPassword);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(250);
+    }
+    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
+    plc.connect(kPlcHost, kTcpPort);
+}
+
+void loop() {
+    if (!printedCatalog) {
+        slmp::highlevel::DeviceRangeCatalog catalog;
+        const slmp::Error err = slmp::highlevel::readDeviceRangeCatalogForPlcProfile(plc, kProfile, catalog);
+        if (err == slmp::Error::Ok && !catalog.entries.empty()) {
+            const slmp::highlevel::DeviceRangeEntry& entry = catalog.entries.front();
+            Serial.printf(
+                "%s supported=%u range=%s\n",
+                entry.device.c_str(),
+                entry.supported ? 1U : 0U,
+                entry.address_range.c_str());
+        } else {
+            Serial.printf("catalog failed: %s\n", slmp::errorString(err));
+        }
+        printedCatalog = true;
+    }
+    delay(1000);
+}
 ```
 
-Choose one explicit `PlcFamily` before `connect()`. The high-level facade derives fixed frame and compatibility defaults from that family and does not probe profiles automatically.
+## Long device families
 
-### Monitor Cycle (0x0801 / 0x0802)
-Register a list once to reduce overhead, then poll repeatedly:
+`LTN`, `LSTN`, `LCN`, and `LZ` are 32-bit families in the high-level API. Use `slmp::highlevel::ValueType::U32` or `slmp::highlevel::ValueType::S32`.
+
 ```cpp
-slmp::DeviceAddress devs[] = {{slmp::DeviceCode::D, 100}, {slmp::DeviceCode::D, 200}};
-plc.registerMonitorDevices(devs, 2, nullptr, 0);
+slmp::highlevel::Value timer;
+slmp::highlevel::readTyped(plc, kProfile, "LTN0:D", timer);
+Serial.printf("LTN0=%lu\n", static_cast<unsigned long>(timer.u32));
 
-// In loop:
-uint16_t results[2] = {};
-plc.runMonitorCycle(results, 2, nullptr, 0);
+slmp::highlevel::Value counter;
+slmp::highlevel::readTyped(plc, kProfile, "LCN0:L", counter);
+Serial.printf("LCN0=%ld\n", static_cast<long>(counter.s32));
 ```
 
-## 7. Memory Considerations
+> **Caution:** Plain 16-bit access to LTN/LSTN/LCN/LZ yields wrong data.
 
-The core client is designed for zero dynamic allocation (`malloc`/`new`).
-- **Buffer Sizes**: Your `tx_buffer` and `rx_buffer` must be large enough for the largest request/response.
-- **Small Requests**: 64-128 bytes are usually sufficient.
-- **Large Writes / Random Access**: Recommend 256-512 bytes depending on point counts.
-- **Optional High-Level Layer**: `slmp_high_level.h` uses STL containers for convenience and should be treated as an additive facade on top of the fixed-buffer core.
-- **Compile-Time Opt-Out**: Define `SLMP_MINIMAL_ENABLE_HIGH_LEVEL=0` if you do not need the high-level helpers and want to keep them out of the build.
+## Address reference table
+
+| Form | Meaning | Example |
+| --- | --- | --- |
+| Plain word | Default value type for the device family. | `D100` |
+| `:U` | Unsigned 16-bit word. | `D100:U` |
+| `:S` | Signed 16-bit word. | `D100:S` |
+| `:D` | Unsigned 32-bit value from two words. | `D200:D` |
+| `:L` | Signed 32-bit value from two words. | `D200:L` |
+| `:F` | IEEE-754 float32 from two words. | `D300:F` |
+| `.n` | One bit inside a word device, where `n` is hexadecimal `0` through `F`. | `D50.3` |
