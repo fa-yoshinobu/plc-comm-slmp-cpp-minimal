@@ -103,8 +103,8 @@ uint8_t rx_buffer[128];
 slmp::SlmpClient plc(transport, tx_buffer, 128, rx_buffer, 128);
 
 void setup() {
-    constexpr auto family = slmp::highlevel::PlcFamily::IqR;
-    slmp::highlevel::configureClientForPlcFamily(plc, family);
+    constexpr auto family = slmp::highlevel::PlcProfile::IqR;
+    slmp::highlevel::configureClientForPlcProfile(plc, family);
     slmp::TypeNameInfo info = {};
     if (!plc.connect("192.168.250.100", 1025)) {
         return;
@@ -114,7 +114,7 @@ void setup() {
 
 void loop() {
     slmp::highlevel::Snapshot snapshot;
-    constexpr auto family = slmp::highlevel::PlcFamily::IqR;
+    constexpr auto family = slmp::highlevel::PlcProfile::IqR;
     if (slmp::highlevel::readNamed(plc, family, {"SM400", "D100", "D200:F", "D50.3"}, snapshot) ==
         slmp::Error::Ok) {
         // snapshot[0] -> SM400
@@ -155,12 +155,12 @@ void loop() {
 For application code, the recommended order is:
 
 1. Create the fixed-buffer `slmp::SlmpClient`.
-2. Set one explicit `PlcFamily` through `configureClientForPlcFamily(...)`.
+2. Set one explicit `PlcProfile` through `configureClientForPlcProfile(...)`.
 3. Connect with `plc.connect(...)`.
 4. Use `readTyped`, `writeTyped`, `readNamed`, `writeNamed`, and `Poller`.
 5. Drop to `slmp_minimal.h` only when you need direct frame-level control, manual async state machines, or specialized embedded integration.
 
-Automatic profile probing is intentionally not part of the current API surface. The high-level helper layer derives fixed `frame` and `compatibility mode` defaults from one explicit `PlcFamily`. Use the `PlcFamily` overloads of `readTyped`, `writeTyped`, `readNamed`, `writeNamed`, `Poller::compile`, `parseAddressSpec()`, `normalizeAddress()`, or `formatAddressSpec()` whenever you need deterministic string-address handling.
+Automatic profile probing is intentionally not part of the current API surface. The high-level helper layer derives fixed `frame` and `compatibility mode` defaults from one explicit `PlcProfile`. Use the `PlcProfile` overloads of `readTyped`, `writeTyped`, `readNamed`, `writeNamed`, `Poller::compile`, `parseAddressSpec()`, `normalizeAddress()`, or `formatAddressSpec()` whenever you need deterministic string-address handling.
 
 ### High-Level Address Forms
 
@@ -184,9 +184,9 @@ Notes:
 - `.bit` notation is valid only for word devices such as `D50.3`.
 - Direct bit devices should be addressed directly, for example `M1000`, `X20`, or `Y1A`.
 - `B`, `W`, `SB`, `SW`, `DX`, and `DY` keep Mitsubishi hexadecimal numbering rules.
-- The high-level family-aware parser rejects `DX` and `DY` for `PlcFamily::IqF` before transport.
-- High-level string `X/Y` addresses require an explicit `PlcFamily`.
-- `PlcFamily::IqF` interprets string `X/Y` in octal. Other supported families use hexadecimal string `X/Y`.
+- The high-level profile-aware parser rejects `DX` and `DY` for `PlcProfile::IqF` before transport.
+- High-level string `X/Y` addresses require an explicit `PlcProfile`.
+- `PlcProfile::IqF` interprets string `X/Y` in octal. Other supported families use hexadecimal string `X/Y`.
 
 ### Optional High-Level Layer Notes
 The high-level layer lives in `slmp_high_level.h`.
@@ -202,9 +202,9 @@ The high-level layer also exposes explicit PLC-family device-range helpers. This
 
 ```cpp
 slmp::highlevel::DeviceRangeCatalog catalog;
-const slmp::Error err = slmp::highlevel::readDeviceRangeCatalogForPlcFamily(
+const slmp::Error err = slmp::highlevel::readDeviceRangeCatalogForPlcProfile(
     plc,
-    slmp::highlevel::PlcFamily::QnU,
+    slmp::highlevel::PlcProfile::QnU,
     catalog);
 
 if (err == slmp::Error::Ok) {
@@ -212,7 +212,7 @@ if (err == slmp::Error::Ok) {
 }
 ```
 
-Supported `PlcFamily` values are `IqF`, `IqR`, `IqL`, `MxF`, `MxR`, `QCpu`, `LCpu`, `QnU`, and `QnUDV`.
+Supported `PlcProfile` values are `IqF`, `IqR`, `IqL`, `MxF`, `MxR`, `QCpu`, `LCpu`, `QnU`, and `QnUDV`.
 
 ### More High-Level Examples
 
@@ -239,7 +239,7 @@ if (slmp::highlevel::normalizeAddress(" d200:f ", normalized, sizeof(normalized)
     // normalized -> "D200:F"
 }
 
-if (slmp::highlevel::normalizeAddress(" y217 ", slmp::highlevel::PlcFamily::IqF, normalized, sizeof(normalized)) == slmp::Error::Ok) {
+if (slmp::highlevel::normalizeAddress(" y217 ", slmp::highlevel::PlcProfile::IqF, normalized, sizeof(normalized)) == slmp::Error::Ok) {
     // normalized -> "Y217"
 }
 ```
@@ -250,7 +250,7 @@ This minimal client focuses on direct device access. Actual availability depends
 
 | Group | Codes | Status | Notes |
 | --- | --- | --- | --- |
-| Bit devices (direct / high-level) | SM, X, Y, M, L, F, V, B, TS, TC, LTS, LTC, STS, STC, LSTS, LSTC, CS, CC, LCS, LCC, SB, DX, DY | Supported | `X/Y/B/SB/DX/DY` use hexadecimal numbering. `DX/DY` are rejected by the high-level family-aware parser for `PlcFamily::IqF`. Long timer / counter bit families are iQ-R device codes. |
+| Bit devices (direct / high-level) | SM, X, Y, M, L, F, V, B, TS, TC, LTS, LTC, STS, STC, LSTS, LSTC, CS, CC, LCS, LCC, SB, DX, DY | Supported | `X/Y/B/SB/DX/DY` use hexadecimal numbering. `DX/DY` are rejected by the high-level profile-aware parser for `PlcProfile::IqF`. Long timer / counter bit families are iQ-R device codes. |
 | Word devices (direct / high-level) | SD, D, W, SW, TN, LTN, STN, LSTN, CN, LCN, Z, LZ, R, ZR, RD | Supported | `W/SW` use hexadecimal numbering. `LTN/LSTN` also have dedicated decoded helper APIs. |
 | Direct device codes that stay excluded from generic direct access | G, HG | Not supported | Use the dedicated module-buffer / extended-device APIs instead of normal direct-device helpers. |
 | Extended device access | `U\\G`, `U\\HG`, `J\\device` | Supported via dedicated APIs | Use `readWordsModuleBuf` / `writeWordsModuleBuf`, `readBitsModuleBuf` / `writeBitsModuleBuf`, `readWordsLinkDirect` / `writeWordsLinkDirect`, or the `ExtDeviceSpec` random-read helpers. |

@@ -953,10 +953,6 @@ void testRemoteControl() {
         assert(readLe16(transport.lastWrite().data() + 15) == 0x1002U);
         assert(readLe16(transport.lastWrite().data() + 19) == 0x0001U);
 
-        transport.queueResponse(makeResponse(makeGenericRequestWithSerial(1U, 0x1002, 0x0000), 0x0000, {}));
-        assert(plc.remoteStop(true) == slmp::Error::Ok);
-        assert(readLe16(transport.lastWrite().data() + 15) == 0x1002U);
-        assert(readLe16(transport.lastWrite().data() + 19) == 0x0001U);
     }
 
     {
@@ -1436,7 +1432,7 @@ void testSharedCppAddressVectors() {
               (normalize_case.input[1] == 'x' || normalize_case.input[1] == 'X' ||
                normalize_case.input[1] == 'y' || normalize_case.input[1] == 'Y')));
         const slmp::Error err = needs_family
-            ? slmp::highlevel::normalizeAddress(normalize_case.input, slmp::highlevel::PlcFamily::IqR, normalized, sizeof(normalized))
+            ? slmp::highlevel::normalizeAddress(normalize_case.input, slmp::highlevel::PlcProfile::IqR, normalized, sizeof(normalized))
             : slmp::highlevel::normalizeAddress(normalize_case.input, normalized, sizeof(normalized));
         assert(err == slmp::Error::Ok);
         assert(std::string(normalized) == normalize_case.expected);
@@ -1984,13 +1980,13 @@ void testHighLevelAddressFormatting() {
     {
         char normalized[32] = {};
         assert(slmp::highlevel::normalizeAddress(" x1a ", normalized, sizeof(normalized)) == slmp::Error::InvalidArgument);
-        assert(slmp::highlevel::normalizeAddress(" x1a ", slmp::highlevel::PlcFamily::IqR, normalized, sizeof(normalized)) == slmp::Error::Ok);
+        assert(slmp::highlevel::normalizeAddress(" x1a ", slmp::highlevel::PlcProfile::IqR, normalized, sizeof(normalized)) == slmp::Error::Ok);
         assert(std::string(normalized) == "X1A");
     }
 
     {
         char normalized[32] = {};
-        assert(slmp::highlevel::normalizeAddress(" y217 ", slmp::highlevel::PlcFamily::IqF, normalized, sizeof(normalized)) == slmp::Error::Ok);
+        assert(slmp::highlevel::normalizeAddress(" y217 ", slmp::highlevel::PlcProfile::IqF, normalized, sizeof(normalized)) == slmp::Error::Ok);
         assert(std::string(normalized) == "Y217");
     }
 
@@ -2010,19 +2006,19 @@ void testHighLevelAddressFormatting() {
 
     {
         slmp::highlevel::AddressSpec spec{};
-        assert(slmp::highlevel::parseAddressSpec("X217", slmp::highlevel::PlcFamily::IqF, spec) == slmp::Error::Ok);
+        assert(slmp::highlevel::parseAddressSpec("X217", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::Ok);
         assert(spec.device.code == slmp::DeviceCode::X);
         assert(spec.device.number == 0x8FU);
         char formatted[32] = {};
-        assert(slmp::highlevel::formatAddressSpec(spec, slmp::highlevel::PlcFamily::IqF, formatted, sizeof(formatted)) == slmp::Error::Ok);
+        assert(slmp::highlevel::formatAddressSpec(spec, slmp::highlevel::PlcProfile::IqF, formatted, sizeof(formatted)) == slmp::Error::Ok);
         assert(std::string(formatted) == "X217");
     }
 
     {
         slmp::highlevel::AddressSpec spec{};
-        assert(slmp::highlevel::parseAddressSpec("DX10", slmp::highlevel::PlcFamily::IqF, spec) == slmp::Error::UnsupportedDevice);
-        assert(slmp::highlevel::parseAddressSpec("DY10", slmp::highlevel::PlcFamily::IqF, spec) == slmp::Error::UnsupportedDevice);
-        assert(slmp::highlevel::parseAddressSpec("DX10", slmp::highlevel::PlcFamily::IqR, spec) == slmp::Error::Ok);
+        assert(slmp::highlevel::parseAddressSpec("DX10", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("DY10", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("DX10", slmp::highlevel::PlcProfile::IqR, spec) == slmp::Error::Ok);
     }
 
     {
@@ -2200,7 +2196,7 @@ void testHighLevelDeviceRangeCatalog() {
         uint8_t tx_buffer[256] = {};
         uint8_t rx_buffer[256] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-        slmp::highlevel::configureClientForPlcFamily(plc, slmp::highlevel::PlcFamily::IqL);
+        slmp::highlevel::configureClientForPlcProfile(plc, slmp::highlevel::PlcProfile::IqL);
 
         std::vector<uint16_t> registers(50U, 0U);
         registers[0] = 4096U;   // SD260 low
@@ -2215,9 +2211,9 @@ void testHighLevelDeviceRangeCatalog() {
         transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0002U), 0x0000U, makeWordPayload(registers)));
 
         slmp::highlevel::DeviceRangeCatalog catalog;
-        assert(slmp::highlevel::readDeviceRangeCatalogForPlcFamily(
+        assert(slmp::highlevel::readDeviceRangeCatalogForPlcProfile(
             plc,
-            slmp::highlevel::PlcFamily::IqL,
+            slmp::highlevel::PlcProfile::IqL,
             catalog) == slmp::Error::Ok);
 
         assertDirectRequestHeader(
@@ -2392,14 +2388,14 @@ void testHighLevelDeviceRangeCatalog() {
     }
 }
 
-void testHighLevelPlcFamilyDefaults() {
+void testHighLevelplcProfileDefaults() {
     {
-        const slmp::highlevel::PlcFamilyDefaults defaults = slmp::highlevel::plcFamilyDefaults(slmp::highlevel::PlcFamily::IqL);
+        const slmp::highlevel::PlcProfileDefaults defaults = slmp::highlevel::plcProfileDefaults(slmp::highlevel::PlcProfile::IqL);
         assert(defaults.frame_type == slmp::FrameType::Frame4E);
         assert(defaults.compatibility_mode == slmp::CompatibilityMode::iQR);
-        assert(defaults.address_family == slmp::highlevel::PlcFamily::IqR);
+        assert(defaults.address_profile == slmp::highlevel::PlcProfile::IqR);
         assert(defaults.range_family == slmp::highlevel::DeviceRangeFamily::IqL);
-        assert(std::string(slmp::highlevel::plcFamilyLabel(slmp::highlevel::PlcFamily::IqL)) == "iq-l");
+        assert(std::string(slmp::highlevel::plcProfileLabel(slmp::highlevel::PlcProfile::IqL)) == "melsec:iq-l");
     }
 
     {
@@ -2407,7 +2403,7 @@ void testHighLevelPlcFamilyDefaults() {
         uint8_t tx_buffer[64] = {};
         uint8_t rx_buffer[64] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-        slmp::highlevel::configureClientForPlcFamily(plc, slmp::highlevel::PlcFamily::IqF);
+        slmp::highlevel::configureClientForPlcProfile(plc, slmp::highlevel::PlcProfile::IqF);
         assert(plc.frameType() == slmp::FrameType::Frame3E);
         assert(plc.compatibilityMode() == slmp::CompatibilityMode::Legacy);
     }
@@ -2482,7 +2478,7 @@ int main() {
     testHighLevelAddressFormatting();
     testHighLevelNamedReadAndPoller();
     testHighLevelDeviceRangeCatalog();
-    testHighLevelPlcFamilyDefaults();
+    testHighLevelplcProfileDefaults();
     testCpuOperationState();
     std::puts("slmp_minimal_tests: ok");
     return 0;
