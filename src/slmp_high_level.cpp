@@ -31,26 +31,26 @@ struct DeviceMeta {
 static PlcProfileDefaults plcProfileDefaultsImpl(PlcProfile family) {
     switch (family) {
         case PlcProfile::Unspecified:
-            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::Unspecified, DeviceRangeFamily::QCpu};
+            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::Unspecified, PlcProfile::Unspecified};
         case PlcProfile::IqF:
-            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::IqF, DeviceRangeFamily::IqF};
+            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::IqF, PlcProfile::IqF};
         case PlcProfile::IqR:
-            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::IqR, DeviceRangeFamily::IqR};
+            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::IqR, PlcProfile::IqR};
         case PlcProfile::IqL:
-            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::IqR, DeviceRangeFamily::IqL};
+            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::IqL, PlcProfile::IqL};
         case PlcProfile::MxF:
-            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::MxF, DeviceRangeFamily::MxF};
+            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::MxF, PlcProfile::MxF};
         case PlcProfile::MxR:
-            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::MxR, DeviceRangeFamily::MxR};
+            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::MxR, PlcProfile::MxR};
         case PlcProfile::QCpu:
-            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::QCpu, DeviceRangeFamily::QCpu};
+            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::QCpu, PlcProfile::QCpu};
         case PlcProfile::LCpu:
-            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::LCpu, DeviceRangeFamily::LCpu};
+            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::LCpu, PlcProfile::LCpu};
         case PlcProfile::QnU:
-            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::QnU, DeviceRangeFamily::QnU};
+            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::QnU, PlcProfile::QnU};
         case PlcProfile::QnUDV:
         default:
-            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::QnUDV, DeviceRangeFamily::QnUDV};
+            return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::QnUDV, PlcProfile::QnUDV};
     }
 }
 
@@ -575,7 +575,7 @@ struct DeviceRangeRuleSpec {
 };
 
 struct DeviceRangeProfileSpec {
-    DeviceRangeFamily family;
+    PlcProfile plc_profile;
     uint16_t register_start;
     uint16_t register_count;
     const DeviceRangeRuleSpec* rules;
@@ -665,6 +665,34 @@ const DeviceRangeRowSpec kDeviceRangeRows[] = {
 };
 
 const DeviceRangeRuleSpec kIqRRangeRules[] = {
+    {"X", rangeDWord(260U, "SD260-SD261 (32-bit)")},
+    {"Y", rangeDWord(262U, "SD262-SD263 (32-bit)")},
+    {"M", rangeDWord(264U, "SD264-SD265 (32-bit)")},
+    {"B", rangeDWord(266U, "SD266-SD267 (32-bit)")},
+    {"SB", rangeDWord(268U, "SD268-SD269 (32-bit)")},
+    {"F", rangeDWord(270U, "SD270-SD271 (32-bit)")},
+    {"V", rangeDWord(272U, "SD272-SD273 (32-bit)")},
+    {"L", rangeDWord(274U, "SD274-SD275 (32-bit)")},
+    {"S", rangeDWord(276U, "SD276-SD277 (32-bit)")},
+    {"D", rangeDWord(280U, "SD280-SD281 (32-bit)")},
+    {"W", rangeDWord(282U, "SD282-SD283 (32-bit)")},
+    {"SW", rangeDWord(284U, "SD284-SD285 (32-bit)")},
+    {"R", rangeDWordClipped(306U, 32768U, "SD306-SD307 (32-bit)", "Upper bound is clipped to 32768.")},
+    {"T", rangeDWord(288U, "SD288-SD289 (32-bit)")},
+    {"ST", rangeDWord(290U, "SD290-SD291 (32-bit)")},
+    {"C", rangeDWord(292U, "SD292-SD293 (32-bit)")},
+    {"LT", rangeDWord(294U, "SD294-SD295 (32-bit)")},
+    {"LST", rangeDWord(296U, "SD296-SD297 (32-bit)")},
+    {"LC", rangeDWord(298U, "SD298-SD299 (32-bit)")},
+    {"Z", rangeWord(300U, "SD300")},
+    {"LZ", rangeWord(302U, "SD302")},
+    {"ZR", rangeDWord(306U, "SD306-SD307 (32-bit)")},
+    {"RD", rangeDWord(308U, "SD308-SD309 (32-bit)")},
+    {"SM", rangeFixed(4096U, "Fixed family limit")},
+    {"SD", rangeFixed(4096U, "Fixed family limit")},
+};
+
+const DeviceRangeRuleSpec kIqLRangeRules[] = {
     {"X", rangeDWord(260U, "SD260-SD261 (32-bit)")},
     {"Y", rangeDWord(262U, "SD262-SD263 (32-bit)")},
     {"M", rangeDWord(264U, "SD264-SD265 (32-bit)")},
@@ -889,35 +917,35 @@ const DeviceRangeRuleSpec kQnUDVRangeRules[] = {
 };
 
 const DeviceRangeProfileSpec kDeviceRangeProfiles[] = {
-    {DeviceRangeFamily::IqR, 260U, 50U, kIqRRangeRules, countOf(kIqRRangeRules)},
-    {DeviceRangeFamily::IqL, 260U, 50U, kIqRRangeRules, countOf(kIqRRangeRules)},
-    {DeviceRangeFamily::MxF, 260U, 50U, kMxFRangeRules, countOf(kMxFRangeRules)},
-    {DeviceRangeFamily::MxR, 260U, 50U, kMxRRangeRules, countOf(kMxRRangeRules)},
-    {DeviceRangeFamily::IqF, 260U, 46U, kIqFRangeRules, countOf(kIqFRangeRules)},
-    {DeviceRangeFamily::QCpu, 290U, 15U, kQCpuRangeRules, countOf(kQCpuRangeRules)},
-    {DeviceRangeFamily::LCpu, 286U, 26U, kLCpuRangeRules, countOf(kLCpuRangeRules)},
-    {DeviceRangeFamily::QnU, 286U, 26U, kQnURangeRules, countOf(kQnURangeRules)},
-    {DeviceRangeFamily::QnUDV, 286U, 26U, kQnUDVRangeRules, countOf(kQnUDVRangeRules)},
+    {PlcProfile::IqR, 260U, 50U, kIqRRangeRules, countOf(kIqRRangeRules)},
+    {PlcProfile::IqL, 260U, 50U, kIqLRangeRules, countOf(kIqLRangeRules)},
+    {PlcProfile::MxF, 260U, 50U, kMxFRangeRules, countOf(kMxFRangeRules)},
+    {PlcProfile::MxR, 260U, 50U, kMxRRangeRules, countOf(kMxRRangeRules)},
+    {PlcProfile::IqF, 260U, 46U, kIqFRangeRules, countOf(kIqFRangeRules)},
+    {PlcProfile::QCpu, 290U, 15U, kQCpuRangeRules, countOf(kQCpuRangeRules)},
+    {PlcProfile::LCpu, 286U, 26U, kLCpuRangeRules, countOf(kLCpuRangeRules)},
+    {PlcProfile::QnU, 286U, 26U, kQnURangeRules, countOf(kQnURangeRules)},
+    {PlcProfile::QnUDV, 286U, 26U, kQnUDVRangeRules, countOf(kQnUDVRangeRules)},
 };
 
-static const char* deviceRangeFamilyLabelImpl(DeviceRangeFamily family) {
-    switch (family) {
-        case DeviceRangeFamily::IqR: return "IQ-R";
-        case DeviceRangeFamily::IqL: return "iQ-L";
-        case DeviceRangeFamily::MxF: return "MX-F";
-        case DeviceRangeFamily::MxR: return "MX-R";
-        case DeviceRangeFamily::IqF: return "IQ-F";
-        case DeviceRangeFamily::QCpu: return "QCPU";
-        case DeviceRangeFamily::LCpu: return "LCPU";
-        case DeviceRangeFamily::QnU: return "QnU";
-        case DeviceRangeFamily::QnUDV: return "QnUDV";
+static const char* deviceRangeProfileLabelImpl(PlcProfile profile) {
+    switch (profile) {
+        case PlcProfile::IqR: return "IQ-R";
+        case PlcProfile::IqL: return "iQ-L";
+        case PlcProfile::MxF: return "MX-F";
+        case PlcProfile::MxR: return "MX-R";
+        case PlcProfile::IqF: return "IQ-F";
+        case PlcProfile::QCpu: return "QCPU";
+        case PlcProfile::LCpu: return "LCPU";
+        case PlcProfile::QnU: return "QnU";
+        case PlcProfile::QnUDV: return "QnUDV";
         default: return "";
     }
 }
 
-static const DeviceRangeProfileSpec* findDeviceRangeProfile(DeviceRangeFamily family) {
+static const DeviceRangeProfileSpec* findDeviceRangeProfile(PlcProfile profile) {
     for (size_t i = 0; i < countOf(kDeviceRangeProfiles); ++i) {
-        if (kDeviceRangeProfiles[i].family == family) return &kDeviceRangeProfiles[i];
+        if (kDeviceRangeProfiles[i].plc_profile == profile) return &kDeviceRangeProfiles[i];
     }
     return nullptr;
 }
@@ -929,8 +957,8 @@ static const DeviceRangeRuleSpec* findDeviceRangeRule(const DeviceRangeProfileSp
     return nullptr;
 }
 
-static DeviceRangeNotation resolveDeviceRangeNotation(DeviceRangeFamily family, const char* device, DeviceRangeNotation fallback) {
-    if (family == DeviceRangeFamily::IqF &&
+static DeviceRangeNotation resolveDeviceRangeNotation(PlcProfile profile, const char* device, DeviceRangeNotation fallback) {
+    if (profile == PlcProfile::IqF &&
         (strcmp(device, "X") == 0 || strcmp(device, "Y") == 0))
         return DeviceRangeNotation::Base8;
     return fallback;
@@ -1023,11 +1051,11 @@ static std::string formatDeviceRangeAddress(const char* device, DeviceRangeNotat
     return text;
 }
 
-static bool usesRuntimeRangeProbe(DeviceRangeFamily family) {
-    return family == DeviceRangeFamily::QCpu ||
-           family == DeviceRangeFamily::LCpu ||
-           family == DeviceRangeFamily::QnU ||
-           family == DeviceRangeFamily::QnUDV;
+static bool usesRuntimeRangeProbe(PlcProfile profile) {
+    return profile == PlcProfile::QCpu ||
+           profile == PlcProfile::LCpu ||
+           profile == PlcProfile::QnU ||
+           profile == PlcProfile::QnUDV;
 }
 
 static DeviceRangeEntry* findMutableDeviceRangeEntry(DeviceRangeCatalog& catalog, const char* device) {
@@ -1105,10 +1133,10 @@ static uint32_t resolveReadablePointCount(SlmpClient& client, DeviceCode code) {
     return low + 1U;
 }
 
-static void resolveRuntimeRangeLimits(SlmpClient& client, DeviceRangeFamily family, DeviceRangeCatalog& catalog) {
-    if (!usesRuntimeRangeProbe(family)) return;
+static void resolveRuntimeRangeLimits(SlmpClient& client, PlcProfile profile, DeviceRangeCatalog& catalog) {
+    if (!usesRuntimeRangeProbe(profile)) return;
 
-    if (family == DeviceRangeFamily::QCpu) {
+    if (profile == PlcProfile::QCpu) {
         replaceDeviceRangePointCount(
             catalog,
             "Z",
@@ -1158,33 +1186,42 @@ void configureClientForPlcProfile(SlmpClient& client, PlcProfile family) {
     client.setCompatibilityMode(defaults.compatibility_mode);
 }
 
-const char* deviceRangeFamilyLabel(DeviceRangeFamily family) {
-    return deviceRangeFamilyLabelImpl(family);
+const char* deviceRangeProfileLabel(PlcProfile profile) {
+    return deviceRangeProfileLabelImpl(profile);
 }
 
-Error readDeviceRangeCatalogForFamily(SlmpClient& client, DeviceRangeFamily family, DeviceRangeCatalog& out) {
-    const DeviceRangeProfileSpec* profile = findDeviceRangeProfile(family);
-    if (profile == nullptr) return Error::InvalidArgument;
+Error readDeviceRangeCatalogForPlcProfile(SlmpClient& client, PlcProfile profile, DeviceRangeCatalog& out) {
+    const DeviceRangeProfileSpec* range_profile = findDeviceRangeProfile(profile);
+    if (range_profile == nullptr) return Error::InvalidArgument;
 
-    std::vector<uint16_t> registers(profile->register_count);
-    const Error read_error = client.readWords(dev::SD(dev::dec(profile->register_start)), profile->register_count, registers.data(), registers.size());
+    std::vector<uint16_t> registers(range_profile->register_count);
+    const Error read_error = client.readWords(
+        dev::SD(dev::dec(range_profile->register_start)),
+        range_profile->register_count,
+        registers.data(),
+        registers.size());
     if (read_error != Error::Ok) return read_error;
 
-    out.model = deviceRangeFamilyLabelImpl(family);
+    out.model = deviceRangeProfileLabelImpl(profile);
     out.model_code = 0U;
     out.has_model_code = false;
-    out.family = family;
+    out.plc_profile = profile;
     out.entries.clear();
     out.entries.reserve(40U);
 
     for (size_t row_index = 0; row_index < countOf(kDeviceRangeRows); ++row_index) {
         const DeviceRangeRowSpec& row = kDeviceRangeRows[row_index];
-        const DeviceRangeRuleSpec* rule = findDeviceRangeRule(*profile, row.item);
+        const DeviceRangeRuleSpec* rule = findDeviceRangeRule(*range_profile, row.item);
         if (rule == nullptr) return Error::InvalidArgument;
 
         bool has_point_count = false;
         uint32_t point_count = 0U;
-        const Error eval_error = evaluateDeviceRangePointCount(rule->value, registers, profile->register_start, has_point_count, point_count);
+        const Error eval_error = evaluateDeviceRangePointCount(
+            rule->value,
+            registers,
+            range_profile->register_start,
+            has_point_count,
+            point_count);
         if (eval_error != Error::Ok) return eval_error;
 
         const bool supported = rule->value.kind != DeviceRangeValueKind::Unsupported;
@@ -1203,7 +1240,7 @@ Error readDeviceRangeCatalogForFamily(SlmpClient& client, DeviceRangeFamily fami
             entry.has_upper_bound = has_upper_bound;
             entry.point_count = point_count;
             entry.has_point_count = has_point_count;
-            entry.notation = resolveDeviceRangeNotation(family, device.name, row.notation);
+            entry.notation = resolveDeviceRangeNotation(profile, device.name, row.notation);
             entry.address_range = formatDeviceRangeAddress(device.name, entry.notation, has_upper_bound, upper_bound);
             entry.source = rule->value.source != nullptr ? rule->value.source : "";
             entry.notes = rule->value.notes != nullptr ? rule->value.notes : "";
@@ -1211,13 +1248,8 @@ Error readDeviceRangeCatalogForFamily(SlmpClient& client, DeviceRangeFamily fami
         }
     }
 
-    resolveRuntimeRangeLimits(client, family, out);
+    resolveRuntimeRangeLimits(client, profile, out);
     return Error::Ok;
-}
-
-Error readDeviceRangeCatalogForPlcProfile(SlmpClient& client, PlcProfile family, DeviceRangeCatalog& out) {
-    if (!isSpecifiedPlcProfile(family)) return Error::InvalidArgument;
-    return readDeviceRangeCatalogForFamily(client, plcProfileDefaultsImpl(family).range_family, out);
 }
 
 Value Value::bitValue(bool value) {

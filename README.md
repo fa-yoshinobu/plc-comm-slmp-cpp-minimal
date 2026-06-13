@@ -16,7 +16,7 @@ Select one explicit profile before you read or write devices. The helper `slmp::
 | --- | --- | --- | --- | --- |
 | `slmp::highlevel::PlcProfile::IqF` | `melsec:iq-f` | MELSEC iQ-F | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`; string `X` and `Y` addresses use octal notation; `DX` and `DY` are not valid. |
 | `slmp::highlevel::PlcProfile::IqR` | `melsec:iq-r` | MELSEC iQ-R | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`; this is the default profile used in the examples. |
-| `slmp::highlevel::PlcProfile::IqL` | `melsec:iq-l` | MELSEC iQ-L | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`; string-address parsing follows the iQ-R profile rules. |
+| `slmp::highlevel::PlcProfile::IqL` | `melsec:iq-l` | MELSEC iQ-L | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`; keeps its own address/range profile with iQ-R-equivalent rules. |
 | `slmp::highlevel::PlcProfile::MxF` | `melsec:mx-f` | MELSEC MX-F profile | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`. |
 | `slmp::highlevel::PlcProfile::MxR` | `melsec:mx-r` | MELSEC MX-R profile | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`. |
 | `slmp::highlevel::PlcProfile::QCpu` | `melsec:qcpu` | MELSEC Q CPU | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |

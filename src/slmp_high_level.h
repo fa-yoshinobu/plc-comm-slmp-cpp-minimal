@@ -201,7 +201,7 @@ using Snapshot = std::vector<NamedValue>;
  * @brief Canonical PLC profile for high-level defaults and string-address parsing.
  *
  * The high-level facade uses one explicit PLC profile to derive frame type,
- * compatibility mode, string `X/Y` interpretation, and device-range family.
+ * compatibility mode, string `X/Y` interpretation, and device-range rules.
  */
 enum class PlcProfile : uint8_t {
     Unspecified = 0,
@@ -216,8 +216,6 @@ enum class PlcProfile : uint8_t {
     QnUDV = 9,
 };
 
-enum class DeviceRangeFamily : uint8_t;
-
 /**
  * @struct PlcProfileDefaults
  * @brief Resolved fixed defaults for one @ref PlcProfile.
@@ -226,7 +224,7 @@ struct PlcProfileDefaults {
     FrameType frame_type;                     ///< Derived SLMP frame type.
     CompatibilityMode compatibility_mode;     ///< Derived low-level compatibility mode.
     PlcProfile address_profile;               ///< String-address profile used by the helper parser.
-    DeviceRangeFamily range_family;           ///< Device-range family used for SD-range helpers.
+    PlcProfile range_profile;                 ///< PLC profile used for SD-range helpers.
 };
 
 /**
@@ -239,7 +237,7 @@ const char* plcProfileLabel(PlcProfile family);
 /**
  * @brief Resolve the fixed defaults for one PLC profile.
  * @param family Selected PLC profile.
- * @return Derived frame, compatibility mode, address profile, and range family.
+ * @return Derived frame, compatibility mode, address profile, and range profile.
  */
 PlcProfileDefaults plcProfileDefaults(PlcProfile family);
 
@@ -251,24 +249,6 @@ PlcProfileDefaults plcProfileDefaults(PlcProfile family);
  * This helper only applies deterministic local defaults. It does not probe the PLC.
  */
 void configureClientForPlcProfile(SlmpClient& client, PlcProfile family);
-
-/**
- * @enum DeviceRangeFamily
- * @brief Explicit PLC family used for device-range SD block reads.
- *
- * The caller selects the family. This helper does not call `ReadTypeName`.
- */
-enum class DeviceRangeFamily : uint8_t {
-    IqR,
-    IqL,
-    MxF,
-    MxR,
-    IqF,
-    QCpu,
-    LCpu,
-    QnU,
-    QnUDV,
-};
 
 /**
  * @enum DeviceRangeCategory
@@ -284,7 +264,7 @@ enum class DeviceRangeCategory : uint8_t {
 
 /**
  * @enum DeviceRangeNotation
- * @brief Rendered public address numbering style for one device family.
+ * @brief Rendered public address numbering style for one PLC profile.
  */
 enum class DeviceRangeNotation : uint8_t {
     Base10,
@@ -300,8 +280,8 @@ struct DeviceRangeEntry {
     std::string device;                 ///< Public device code such as `D` or `X`.
     DeviceRangeCategory category = DeviceRangeCategory::Word; ///< Logical category for grouping.
     bool is_bit_device = false;         ///< True when this device is normally bit-addressed.
-    bool supported = false;             ///< False when the family does not support this device.
-    uint32_t lower_bound = 0U;          ///< Always zero in the current family rules.
+    bool supported = false;             ///< False when the PLC profile does not support this device.
+    uint32_t lower_bound = 0U;          ///< Always zero in the current profile rules.
     uint32_t upper_bound = 0U;          ///< Inclusive last address when @ref has_upper_bound is true.
     bool has_upper_bound = false;       ///< True when a finite last address is known.
     uint32_t point_count = 0U;          ///< Configured point count when @ref has_point_count is true.
@@ -309,55 +289,46 @@ struct DeviceRangeEntry {
     std::string address_range;          ///< Preformatted range such as `X0000-X1777` or empty when unavailable.
     DeviceRangeNotation notation = DeviceRangeNotation::Base10; ///< Rendered numbering style.
     std::string source;                 ///< Rule source such as `SD300` or `Fixed family limit`.
-    std::string notes;                  ///< Optional family-specific note.
+    std::string notes;                  ///< Optional profile-specific note.
 };
 
 /**
  * @struct DeviceRangeCatalog
- * @brief Resolved device-range catalog for one explicit family selection.
+ * @brief Resolved device-range catalog for one explicit PLC profile selection.
  */
 struct DeviceRangeCatalog {
-    std::string model;                  ///< Synthetic family label such as `IQ-F`.
-    uint16_t model_code = 0U;           ///< Always zero for explicit-family reads.
+    std::string model;                  ///< Synthetic profile label such as `IQ-F`.
+    uint16_t model_code = 0U;           ///< Always zero for explicit profile reads.
     bool has_model_code = false;        ///< False because no type-name query is used here.
-    DeviceRangeFamily family = DeviceRangeFamily::IqR; ///< Caller-selected PLC family.
+    PlcProfile plc_profile = PlcProfile::IqR; ///< Caller-selected PLC profile.
     std::vector<DeviceRangeEntry> entries; ///< Device rows in stable output order.
 };
 
 /**
- * @brief Return the stable label for one explicit device-range family.
- * @param family Selected device-range family.
- * @return Family label text such as `IQ-F`.
+ * @brief Return the stable display label for one explicit device-range PLC profile.
+ * @param profile Selected PLC profile.
+ * @return Profile label text such as `IQ-F`.
  */
-const char* deviceRangeFamilyLabel(DeviceRangeFamily family);
+const char* deviceRangeProfileLabel(PlcProfile profile);
 
 /**
- * @brief Read the configured device-range catalog for one explicit PLC family.
+ * @brief Read the configured device-range catalog for one explicit PLC profile.
  *
- * This helper reads the family-specific `SD` block and formats entries such as
+ * This helper reads the profile-specific `SD` block and formats entries such as
  * `points=1024` and `range=X0000-X1777`.
  *
  * `QCPU`, `LCPU`, `QnU`, and `QnUDV` also run direct read probes for runtime
  * `Z`/`ZR` behavior after the `SD` block is loaded.
  *
- * The caller chooses the PLC family explicitly. This helper does not call
+ * The caller chooses the PLC profile explicitly. This helper does not call
  * `ReadTypeName`.
  *
  * @param client Connected low-level client instance.
- * @param family Explicit PLC family to use for the `SD` block mapping.
+ * @param profile Explicit PLC profile to use for the `SD` block mapping.
  * @param out Receives the resolved device-range catalog.
  * @return @ref Error::Ok on success.
  */
-Error readDeviceRangeCatalogForFamily(SlmpClient& client, DeviceRangeFamily family, DeviceRangeCatalog& out);
-
-/**
- * @brief Read the configured device-range catalog for one high-level PLC profile.
- * @param client Connected low-level client instance.
- * @param family Explicit high-level PLC profile.
- * @param out Receives the resolved device-range catalog.
- * @return @ref Error::Ok on success.
- */
-Error readDeviceRangeCatalogForPlcProfile(SlmpClient& client, PlcProfile family, DeviceRangeCatalog& out);
+Error readDeviceRangeCatalogForPlcProfile(SlmpClient& client, PlcProfile profile, DeviceRangeCatalog& out);
 
 /**
  * @brief Parse a high-level address string.
@@ -695,7 +666,7 @@ class Poller {
      * @return @ref Error::Ok on success.
      */
     Error compile(const std::vector<std::string>& addresses);
-    /** @brief Compile and store one reusable read plan with an explicit PLC family. */
+    /** @brief Compile and store one reusable read plan with an explicit PLC profile. */
     Error compile(const std::vector<std::string>& addresses, PlcProfile family);
     /**
      * @brief Execute one snapshot read with the stored compiled plan.

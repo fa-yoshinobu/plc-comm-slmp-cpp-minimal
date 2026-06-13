@@ -331,7 +331,7 @@ void loop() {
 
 ## Device range catalog
 
-`slmp::highlevel::readDeviceRangeCatalogForPlcProfile` reads live device range bounds for one explicit profile. It requires your selected PLC profile and does not auto-discover the PLC family.
+`slmp::highlevel::readDeviceRangeCatalogForPlcProfile` reads live device range bounds for one explicit profile. It requires your selected PLC profile and does not auto-discover the PLC profile.
 
 ```cpp
 #include <Arduino.h>
@@ -404,7 +404,7 @@ Serial.printf("LCN0=%ld\n", static_cast<long>(counter.s32));
 
 | Form | Meaning | Example |
 | --- | --- | --- |
-| Plain word | Default value type for the device family. | `D100` |
+| Plain word | Default value type for the device group. | `D100` |
 | `:U` | Unsigned 16-bit word. | `D100:U` |
 | `:S` | Signed 16-bit word. | `D100:S` |
 | `:D` | Unsigned 32-bit value from two words. | `D200:D` |

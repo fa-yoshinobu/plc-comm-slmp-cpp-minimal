@@ -97,7 +97,7 @@ Profile selection note:
 
 ### 3.1 iQ-R SD Device Range Maximums
 
-For iQ-R-series device range catalogs, the family-specific `SD` register value
+For iQ-R-series device range catalogs, the profile-specific `SD` register value
 is the PLC-configured current point count. Treat the manual maximum below as a
 protocol-side cap and derive the displayed upper bound from the capped point
 count:

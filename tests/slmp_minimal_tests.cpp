@@ -2144,9 +2144,9 @@ void testHighLevelDeviceRangeCatalog() {
         transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0000U), 0x0000U, makeWordPayload(registers)));
 
         slmp::highlevel::DeviceRangeCatalog catalog;
-        assert(slmp::highlevel::readDeviceRangeCatalogForFamily(
+        assert(slmp::highlevel::readDeviceRangeCatalogForPlcProfile(
             plc,
-            slmp::highlevel::DeviceRangeFamily::IqF,
+            slmp::highlevel::PlcProfile::IqF,
             catalog) == slmp::Error::Ok);
 
         assertDirectRequestHeader(
@@ -2155,7 +2155,7 @@ void testHighLevelDeviceRangeCatalog() {
             0x0000U,
             slmp::dev::SD(slmp::dev::dec(260)),
             46U);
-        assert(catalog.family == slmp::highlevel::DeviceRangeFamily::IqF);
+        assert(catalog.plc_profile == slmp::highlevel::PlcProfile::IqF);
         assert(catalog.model == "IQ-F");
 
         const slmp::highlevel::DeviceRangeEntry* x = findDeviceRangeEntry(catalog, "X");
@@ -2222,7 +2222,7 @@ void testHighLevelDeviceRangeCatalog() {
             0x0002U,
             slmp::dev::SD(slmp::dev::dec(260)),
             50U);
-        assert(catalog.family == slmp::highlevel::DeviceRangeFamily::IqL);
+        assert(catalog.plc_profile == slmp::highlevel::PlcProfile::IqL);
         assert(catalog.model == "iQ-L");
 
         const slmp::highlevel::DeviceRangeEntry* x = findDeviceRangeEntry(catalog, "X");
@@ -2274,9 +2274,9 @@ void testHighLevelDeviceRangeCatalog() {
         transport.queueResponse(makeResponse(makeGenericRequestWithSerial(10U, 0x0401U, 0x0000U), 0x4031U, {}));        // ZR16
 
         slmp::highlevel::DeviceRangeCatalog catalog;
-        assert(slmp::highlevel::readDeviceRangeCatalogForFamily(
+        assert(slmp::highlevel::readDeviceRangeCatalogForPlcProfile(
             plc,
-            slmp::highlevel::DeviceRangeFamily::QnU,
+            slmp::highlevel::PlcProfile::QnU,
             catalog) == slmp::Error::Ok);
 
         assertDirectRequestHeader(
@@ -2285,7 +2285,7 @@ void testHighLevelDeviceRangeCatalog() {
             0x0000U,
             slmp::dev::SD(slmp::dev::dec(286)),
             26U);
-        assert(catalog.family == slmp::highlevel::DeviceRangeFamily::QnU);
+        assert(catalog.plc_profile == slmp::highlevel::PlcProfile::QnU);
         assert(catalog.model == "QnU");
 
         const slmp::highlevel::DeviceRangeEntry* sts = findDeviceRangeEntry(catalog, "STS");
@@ -2356,9 +2356,9 @@ void testHighLevelDeviceRangeCatalog() {
         transport.queueResponse(makeResponse(makeGenericRequestWithSerial(2U, 0x0401U, 0x0000U), 0x4031U, {})); // ZR0
 
         slmp::highlevel::DeviceRangeCatalog catalog;
-        assert(slmp::highlevel::readDeviceRangeCatalogForFamily(
+        assert(slmp::highlevel::readDeviceRangeCatalogForPlcProfile(
             plc,
-            slmp::highlevel::DeviceRangeFamily::QCpu,
+            slmp::highlevel::PlcProfile::QCpu,
             catalog) == slmp::Error::Ok);
 
         const slmp::highlevel::DeviceRangeEntry* z = findDeviceRangeEntry(catalog, "Z");
@@ -2393,8 +2393,8 @@ void testHighLevelplcProfileDefaults() {
         const slmp::highlevel::PlcProfileDefaults defaults = slmp::highlevel::plcProfileDefaults(slmp::highlevel::PlcProfile::IqL);
         assert(defaults.frame_type == slmp::FrameType::Frame4E);
         assert(defaults.compatibility_mode == slmp::CompatibilityMode::iQR);
-        assert(defaults.address_profile == slmp::highlevel::PlcProfile::IqR);
-        assert(defaults.range_family == slmp::highlevel::DeviceRangeFamily::IqL);
+        assert(defaults.address_profile == slmp::highlevel::PlcProfile::IqL);
+        assert(defaults.range_profile == slmp::highlevel::PlcProfile::IqL);
         assert(std::string(slmp::highlevel::plcProfileLabel(slmp::highlevel::PlcProfile::IqL)) == "melsec:iq-l");
         assert(std::string(slmp::highlevel::plcProfileLabel(slmp::highlevel::PlcProfile::Unspecified)).empty());
     }

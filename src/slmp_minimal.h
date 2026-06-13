@@ -629,7 +629,10 @@ class SlmpClient {
     // --- Synchronous (Blocking) API ---
 
     /**
-     * @brief Read PLC model information for profile selection and diagnostics.
+     * @brief Read PLC model information for diagnostics.
+     *
+     * Profile selection is intentionally explicit in the high-level API. Do not
+     * infer the active profile from this response.
      * @param out Receives the PLC model name and optional model code.
      * @return Operation result.
      */

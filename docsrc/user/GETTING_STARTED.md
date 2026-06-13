@@ -34,7 +34,7 @@ The high-level layer is optional and is not included by `slmp_minimal.h` automat
 
 ## Choose your PLC profile
 
-Call `slmp::highlevel::configureClientForPlcProfile` before the first read or write. It applies the frame type and compatibility mode for the selected PLC family; it does not auto-detect your PLC.
+Call `slmp::highlevel::configureClientForPlcProfile` before the first read or write. It applies the frame type and compatibility mode for the selected PLC profile; it does not auto-detect your PLC.
 
 ```cpp
 constexpr auto profile = slmp::highlevel::PlcProfile::IqR;
