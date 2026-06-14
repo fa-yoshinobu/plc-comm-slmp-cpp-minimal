@@ -1,5 +1,37 @@
 # Gotchas
 
+## `connect()` or transport I/O fails
+
+| Item | Detail |
+| --- | --- |
+| Symptom | `connect()` fails, a transport call times out, or `TransportError` is returned before a valid SLMP response is parsed. |
+| Root cause | The PLC IP address, port, transport path, or local network route does not match the target. |
+| Fix | Check the PLC endpoint first. The usual SLMP TCP port is `1025`; use UDP only when the PLC is configured for UDP. Increase the timeout only after the endpoint and wiring are known-good. |
+
+## `BufferTooSmall` is returned
+
+| Item | Detail |
+| --- | --- |
+| Symptom | A request fails locally with `BufferTooSmall`. |
+| Root cause | The caller-owned TX/RX buffers are too small for the selected command and point count. |
+| Fix | Increase the TX buffer first for block write, random write, or long password commands. Small direct reads and writes usually fit in `96` bytes; random and block access often need `192..256` bytes. |
+
+## `ProtocolError` is returned
+
+| Item | Detail |
+| --- | --- |
+| Symptom | Bytes are received, but the response is rejected as an invalid SLMP frame. |
+| Root cause | The target endpoint is not speaking the expected SLMP binary frame, or the response length does not match the request. |
+| Fix | Verify the PLC frame setting and inspect `lastRequestFrame()` / `lastResponseFrame()` with `formatHexBytes()`. |
+
+## GX Simulator 3 uses port 5511 for the default local target
+
+| Item | Detail |
+| --- | --- |
+| Symptom | A local GX Works3 simulator connection fails on the hardware default port. |
+| Root cause | GX Simulator 3 uses a simulator port, not the hardware SLMP port. For System `1`, PLC `1`, the port is `5511`. |
+| Fix | Connect to `127.0.0.1:5511` for the default GX Works3 simulator target. GX Simulator 2 uses a proprietary protocol and is not supported by this SLMP library. |
+
 ## LTN/LSTN/LCN/LZ reads return unexpected values
 
 | Item | Detail |
