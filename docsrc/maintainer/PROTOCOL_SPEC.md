@@ -72,9 +72,9 @@ Resolved `1406` layout investigation:
 
 Manual references used for this rule:
 
-- English: `D:\_github_plc\sh080956engn.pdf`, PDF pages 76-78,
+- English manual, PDF pages 76-78,
   `Write Block (command: 1406)`.
-- Japanese: `D:\_github_plc\sh080931r.pdf`, PDF pages 75-77,
+- Japanese manual, PDF pages 75-77,
   `Write Block(コマンド: 1406)`.
 
 Remote command note:
