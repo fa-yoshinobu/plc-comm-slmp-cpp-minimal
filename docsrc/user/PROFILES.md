@@ -10,17 +10,17 @@ operator workflow.
 
 ## Profiles table
 
-| Enum value | Hardware | Frame type | Compatibility mode | Notes |
-| --- | --- | --- | --- | --- |
-| `slmp::highlevel::PlcProfile::IqF` | MELSEC iQ-F | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | iQ-F string `X` and `Y` addresses use octal notation; `DX` and `DY` are rejected. |
-| `slmp::highlevel::PlcProfile::IqR` | MELSEC iQ-R | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for modern iQ-R targets. |
-| `slmp::highlevel::PlcProfile::IqL` | MELSEC iQ-L | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Uses iQ-R string-address rules with the iQ-L range profile. |
-| `slmp::highlevel::PlcProfile::MxF` | MELSEC MX-F profile | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Uses the MX-F address and range profiles. |
-| `slmp::highlevel::PlcProfile::MxR` | MELSEC MX-R profile | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Uses the MX-R address and range profiles. |
-| `slmp::highlevel::PlcProfile::QCpu` | MELSEC Q CPU | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Legacy Q CPU profile. |
-| `slmp::highlevel::PlcProfile::LCpu` | MELSEC L CPU | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Legacy L CPU profile. |
-| `slmp::highlevel::PlcProfile::QnU` | MELSEC QnU | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnU profile. |
-| `slmp::highlevel::PlcProfile::QnUDV` | MELSEC QnU(DV) | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnUDV profile. |
+| Canonical profile | Human label | C++ selector | Frame type | Compatibility mode | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `melsec:iq-f` | MELSEC iQ-F | `slmp::highlevel::PlcProfile::IqF` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | iQ-F string `X` and `Y` addresses use octal notation; `DX` and `DY` are rejected. |
+| `melsec:iq-r` | MELSEC iQ-R | `slmp::highlevel::PlcProfile::IqR` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for modern iQ-R targets. |
+| `melsec:iq-l` | MELSEC iQ-L | `slmp::highlevel::PlcProfile::IqL` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Uses iQ-R string-address rules with the iQ-L range profile. |
+| `melsec:mx-f` | MELSEC MX-F | `slmp::highlevel::PlcProfile::MxF` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Uses the MX-F address and range profiles. |
+| `melsec:mx-r` | MELSEC MX-R | `slmp::highlevel::PlcProfile::MxR` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Uses the MX-R address and range profiles. |
+| `melsec:qcpu` | MELSEC QCPU | `slmp::highlevel::PlcProfile::QCpu` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Legacy Q CPU profile. |
+| `melsec:lcpu` | MELSEC LCPU | `slmp::highlevel::PlcProfile::LCpu` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Legacy L CPU profile. |
+| `melsec:qnu` | MELSEC QnU | `slmp::highlevel::PlcProfile::QnU` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnU profile. |
+| `melsec:qnudv` | MELSEC QnUDV | `slmp::highlevel::PlcProfile::QnUDV` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnUDV profile. |
 
 ## How to select
 
@@ -60,9 +60,14 @@ int main() {
 
 ## Profile-specific cautions
 
-| Profile | Caution |
-| --- | --- |
-| iQ-F | Frame 3E only; do not use Frame 4E. |
-| iQ-R and iQ-L | Frame 4E with iQR compatibility mode. |
-| Q/L legacy | Frame 3E with Legacy compatibility mode. |
-| MX-F and MX-R | Frame 4E with iQR compatibility mode. |
+| Canonical profile | Human label | Caution |
+| --- | --- | --- |
+| `melsec:iq-f` | MELSEC iQ-F | Frame 3E only; do not use Frame 4E. |
+| `melsec:iq-r` | MELSEC iQ-R | Frame 4E with iQR compatibility mode. |
+| `melsec:iq-l` | MELSEC iQ-L | Frame 4E with iQR compatibility mode. |
+| `melsec:mx-f` | MELSEC MX-F | Frame 4E with iQR compatibility mode. |
+| `melsec:mx-r` | MELSEC MX-R | Frame 4E with iQR compatibility mode. |
+| `melsec:qcpu` | MELSEC QCPU | Frame 3E with Legacy compatibility mode. |
+| `melsec:lcpu` | MELSEC LCPU | Frame 3E with Legacy compatibility mode. |
+| `melsec:qnu` | MELSEC QnU | Frame 3E with Legacy compatibility mode. |
+| `melsec:qnudv` | MELSEC QnUDV | Frame 3E with Legacy compatibility mode. |
