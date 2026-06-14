@@ -1472,7 +1472,11 @@ void testSharedGoldenFrames() {
             assert(plc.readTypeName(type_name) == slmp::Error::Ok);
         } else if (std::strcmp(frame.operation, "read_words") == 0) {
             uint16_t words[2] = {};
-            assert(plc.readWords(slmp::dev::D(slmp::dev::dec(100)), 2, words, 2) == slmp::Error::Ok);
+            if (std::strcmp(frame.id, "read_words_rd524286_2_iqr") == 0) {
+                assert(plc.readWords(slmp::dev::RD(slmp::dev::dec(524286)), 2, words, 2) == slmp::Error::Ok);
+            } else {
+                assert(plc.readWords(slmp::dev::D(slmp::dev::dec(100)), 2, words, 2) == slmp::Error::Ok);
+            }
         } else if (std::strcmp(frame.operation, "write_bits") == 0) {
             assert(plc.writeOneBit(slmp::dev::M(slmp::dev::dec(101)), true) == slmp::Error::Ok);
         } else if (std::strcmp(frame.operation, "read_random") == 0) {

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- add 4 missing RD device encoding entries (`rd0_iqr`, `rd0_legacy`, `rd524287_iqr`, `rd524287_legacy`) to `tests/generated_shared_spec.h`
+- add `read_words_rd524286_2_iqr` frame golden vector to `tests/generated_shared_spec.h`
+- fix `testSharedGoldenFrames` dispatch in `tests/slmp_minimal_tests.cpp` to use `RD(524286)` for the new frame case instead of hardcoded `D(100)`
+
 ## 0.8.0
 
 - bump release metadata to 0.8.0 for the unified PLC communication library release

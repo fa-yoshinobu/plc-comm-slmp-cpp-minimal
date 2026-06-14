@@ -89,6 +89,22 @@ static constexpr uint8_t kDeviceVectorBytes17[] = {
     0x00, 0x00, 0x00, 0xA9,
 };
 
+static constexpr uint8_t kDeviceVectorBytes18[] = {
+    0x00, 0x00, 0x00, 0x00, 0x2C, 0x00,
+};
+
+static constexpr uint8_t kDeviceVectorBytes19[] = {
+    0x00, 0x00, 0x00, 0x2C,
+};
+
+static constexpr uint8_t kDeviceVectorBytes20[] = {
+    0xFF, 0xFF, 0x07, 0x00, 0x2C, 0x00,
+};
+
+static constexpr uint8_t kDeviceVectorBytes21[] = {
+    0xFF, 0xFF, 0x07, 0x2C,
+};
+
 static constexpr DeviceVector kCases[] = {
     {"d0_iqr", slmp::DeviceCode::D, 0U, slmp::CompatibilityMode::iQR, false, kDeviceVectorBytes0, sizeof(kDeviceVectorBytes0)},
     {"d0_legacy", slmp::DeviceCode::D, 0U, slmp::CompatibilityMode::Legacy, false, kDeviceVectorBytes1, sizeof(kDeviceVectorBytes1)},
@@ -108,6 +124,10 @@ static constexpr DeviceVector kCases[] = {
     {"tn5_legacy", slmp::DeviceCode::TN, 5U, slmp::CompatibilityMode::Legacy, false, kDeviceVectorBytes15, sizeof(kDeviceVectorBytes15)},
     {"sd0_iqr", slmp::DeviceCode::SD, 0U, slmp::CompatibilityMode::iQR, false, kDeviceVectorBytes16, sizeof(kDeviceVectorBytes16)},
     {"sd0_legacy", slmp::DeviceCode::SD, 0U, slmp::CompatibilityMode::Legacy, false, kDeviceVectorBytes17, sizeof(kDeviceVectorBytes17)},
+    {"rd0_iqr", slmp::DeviceCode::RD, 0U, slmp::CompatibilityMode::iQR, false, kDeviceVectorBytes18, sizeof(kDeviceVectorBytes18)},
+    {"rd0_legacy", slmp::DeviceCode::RD, 0U, slmp::CompatibilityMode::Legacy, false, kDeviceVectorBytes19, sizeof(kDeviceVectorBytes19)},
+    {"rd524287_iqr", slmp::DeviceCode::RD, 524287U, slmp::CompatibilityMode::iQR, false, kDeviceVectorBytes20, sizeof(kDeviceVectorBytes20)},
+    {"rd524287_legacy", slmp::DeviceCode::RD, 524287U, slmp::CompatibilityMode::Legacy, false, kDeviceVectorBytes21, sizeof(kDeviceVectorBytes21)},
 };
 
 }  // namespace device_vectors
@@ -184,71 +204,82 @@ static constexpr uint8_t kFrameResponseData1[] = {
 };
 
 static constexpr uint8_t kFrameRequest2[] = {
+    0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x0E,
+    0x00, 0x10, 0x00, 0x01, 0x04, 0x02, 0x00, 0xFE, 0xFF, 0x07, 0x00, 0x2C,
+    0x00, 0x02, 0x00,
+};
+
+static constexpr uint8_t kFrameResponseData2[] = {
+    0x34, 0x12, 0x78, 0x56,
+};
+
+static constexpr uint8_t kFrameRequest3[] = {
     0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x0F,
     0x00, 0x10, 0x00, 0x01, 0x14, 0x03, 0x00, 0x65, 0x00, 0x00, 0x00, 0x90,
     0x00, 0x01, 0x00, 0x10,
 };
 
-static constexpr uint8_t kFrameResponseData2[] = {
+static constexpr uint8_t kFrameResponseData3[] = {
 };
 
-static constexpr uint8_t kFrameRequest3[] = {
+static constexpr uint8_t kFrameRequest4[] = {
     0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x1A,
     0x00, 0x10, 0x00, 0x03, 0x04, 0x02, 0x00, 0x02, 0x01, 0x64, 0x00, 0x00,
     0x00, 0xA8, 0x00, 0x65, 0x00, 0x00, 0x00, 0xA8, 0x00, 0xC8, 0x00, 0x00,
     0x00, 0xA8, 0x00,
 };
 
-static constexpr uint8_t kFrameResponseData3[] = {
+static constexpr uint8_t kFrameResponseData4[] = {
     0x11, 0x11, 0x22, 0x22, 0x78, 0x56, 0x34, 0x12,
 };
 
-static constexpr uint8_t kFrameRequest4[] = {
+static constexpr uint8_t kFrameRequest5[] = {
     0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x17,
     0x00, 0x10, 0x00, 0x02, 0x14, 0x03, 0x00, 0x02, 0x64, 0x00, 0x00, 0x00,
     0x90, 0x00, 0x01, 0x00, 0x20, 0x00, 0x00, 0x00, 0x9D, 0x00, 0x00, 0x00,
 };
 
-static constexpr uint8_t kFrameResponseData4[] = {
+static constexpr uint8_t kFrameResponseData5[] = {
 };
 
-static constexpr uint8_t kFrameRequest5[] = {
+static constexpr uint8_t kFrameRequest6[] = {
     0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x18,
     0x00, 0x10, 0x00, 0x06, 0x04, 0x02, 0x00, 0x01, 0x01, 0x2C, 0x01, 0x00,
     0x00, 0xA8, 0x00, 0x02, 0x00, 0xC8, 0x00, 0x00, 0x00, 0x90, 0x00, 0x01,
     0x00,
 };
 
-static constexpr uint8_t kFrameResponseData5[] = {
+static constexpr uint8_t kFrameResponseData6[] = {
     0x34, 0x12, 0x78, 0x56, 0x05, 0x00,
 };
 
-static constexpr uint8_t kFrameRequest6[] = {
+static constexpr uint8_t kFrameRequest7[] = {
     0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x0F,
     0x00, 0x10, 0x00, 0x30, 0x16, 0x00, 0x00, 0x07, 0x00, 0x73, 0x65, 0x63,
     0x72, 0x65, 0x74, 0x31,
 };
 
-static constexpr uint8_t kFrameResponseData6[] = {
+static constexpr uint8_t kFrameResponseData7[] = {
 };
 
-static constexpr uint8_t kFrameRequest7[] = {
+static constexpr uint8_t kFrameRequest8[] = {
     0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x08,
     0x00, 0x10, 0x00, 0x06, 0x10, 0x00, 0x00, 0x01, 0x00,
 };
 
-static constexpr uint8_t kFrameResponseData7[] = {
+static constexpr uint8_t kFrameResponseData8[] = {
 };
 
 static constexpr FrameVector kCases[] = {
     {"read_type_name", "read_type_name", kFrameRequest0, sizeof(kFrameRequest0), kFrameResponseData0, sizeof(kFrameResponseData0)},
     {"read_words_d100_2", "read_words", kFrameRequest1, sizeof(kFrameRequest1), kFrameResponseData1, sizeof(kFrameResponseData1)},
-    {"write_bits_m101_true", "write_bits", kFrameRequest2, sizeof(kFrameRequest2), kFrameResponseData2, sizeof(kFrameResponseData2)},
-    {"read_random_d100_d101_d200", "read_random", kFrameRequest3, sizeof(kFrameRequest3), kFrameResponseData3, sizeof(kFrameResponseData3)},
-    {"write_random_bits_m100_y20", "write_random_bits", kFrameRequest4, sizeof(kFrameRequest4), kFrameResponseData4, sizeof(kFrameResponseData4)},
-    {"read_block_d300_2_m200_1", "read_block", kFrameRequest5, sizeof(kFrameRequest5), kFrameResponseData5, sizeof(kFrameResponseData5)},
-    {"remote_password_unlock_secret1", "remote_password_unlock", kFrameRequest6, sizeof(kFrameRequest6), kFrameResponseData6, sizeof(kFrameResponseData6)},
-    {"remote_reset_fixed_data", "remote_reset", kFrameRequest7, sizeof(kFrameRequest7), kFrameResponseData7, sizeof(kFrameResponseData7)},
+    {"read_words_rd524286_2_iqr", "read_words", kFrameRequest2, sizeof(kFrameRequest2), kFrameResponseData2, sizeof(kFrameResponseData2)},
+    {"write_bits_m101_true", "write_bits", kFrameRequest3, sizeof(kFrameRequest3), kFrameResponseData3, sizeof(kFrameResponseData3)},
+    {"read_random_d100_d101_d200", "read_random", kFrameRequest4, sizeof(kFrameRequest4), kFrameResponseData4, sizeof(kFrameResponseData4)},
+    {"write_random_bits_m100_y20", "write_random_bits", kFrameRequest5, sizeof(kFrameRequest5), kFrameResponseData5, sizeof(kFrameResponseData5)},
+    {"read_block_d300_2_m200_1", "read_block", kFrameRequest6, sizeof(kFrameRequest6), kFrameResponseData6, sizeof(kFrameResponseData6)},
+    {"remote_password_unlock_secret1", "remote_password_unlock", kFrameRequest7, sizeof(kFrameRequest7), kFrameResponseData7, sizeof(kFrameResponseData7)},
+    {"remote_reset_fixed_data", "remote_reset", kFrameRequest8, sizeof(kFrameRequest8), kFrameResponseData8, sizeof(kFrameResponseData8)},
 };
 
 }  // namespace frame_vectors
