@@ -1,31 +1,127 @@
 @echo off
 setlocal
 
-set "PLATFORMIO_CORE_DIR=%CD%\.platformio-home"
+set "STATUS=0"
+set "RUN_PLATFORMIO=0"
+set "SCRIPT_DIR=%~dp0"
+for %%I in ("%SCRIPT_DIR%.") do set "REPO_ROOT=%%~fI"
+set "TEST_EXE=%TEMP%\slmp_minimal_tests.exe"
+
+:parse
+if "%~1"=="" goto main
+if /i "%~1"=="--help" goto usage
+if /i "%~1"=="--with-platformio" (
+    set "RUN_PLATFORMIO=1"
+    shift
+    goto parse
+)
+>&2 echo Unknown argument: %~1
+goto usage
+
+:main
+pushd "%REPO_ROOT%" >nul
+
+call :prepend_common_tool_paths
+call :find_tool g++.exe CXX_EXE
+if errorlevel 1 goto fail
+call :find_python
+if errorlevel 1 goto fail
+
+echo ===================================================
+echo [CI] SLMP minimal C++ local gate
+echo ===================================================
+
+echo [1/3] Building host tests...
+call "%CXX_EXE%" -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_error_codes.cpp src/slmp_error_messages.cpp src/slmp_error_messages_en.cpp src/slmp_error_messages_ja.cpp src/slmp_high_level.cpp -o "%TEST_EXE%"
+if errorlevel 1 goto fail
+
+echo [2/3] Running host tests...
+call "%TEST_EXE%"
+if errorlevel 1 goto fail
+
+echo [3/3] Running socket integration test...
+call "%PYTHON_EXE%" %PYTHON_ARGS% scripts\run_socket_integration.py --compiler "%CXX_EXE%"
+if errorlevel 1 goto fail
+
+if "%RUN_PLATFORMIO%"=="1" (
+    call :run_platformio
+    if errorlevel 1 goto fail
+)
+
+echo ===================================================
+echo [SUCCESS] CI passed.
+echo ===================================================
+goto finish
+
+:prepend_common_tool_paths
+if exist "C:\msys64\ucrt64\bin" set "PATH=C:\msys64\ucrt64\bin;%PATH%"
+if exist "C:\msys64\mingw64\bin" set "PATH=C:\msys64\mingw64\bin;%PATH%"
+exit /b 0
+
+:find_tool
+set "%~2="
+for %%I in (%~1) do if not "%%~$PATH:I"=="" (
+    set "%~2=%%~$PATH:I"
+    exit /b 0
+)
+>&2 echo %~1 not found.
+exit /b 1
+
+:find_python
+set "PYTHON_EXE="
+set "PYTHON_ARGS="
+py -3 -c "import sys; print(sys.version)" >nul 2>nul
+if not errorlevel 1 (
+    set "PYTHON_EXE=py"
+    set "PYTHON_ARGS=-3"
+    exit /b 0
+)
+
+python -c "import sys; print(sys.version)" >nul 2>nul
+if not errorlevel 1 (
+    set "PYTHON_EXE=python"
+    exit /b 0
+)
+
+>&2 echo Python not found.
+exit /b 1
+
+:run_platformio
+set "PLATFORMIO_CORE_DIR=%REPO_ROOT%\.platformio-home"
 if not exist "%PLATFORMIO_CORE_DIR%" mkdir "%PLATFORMIO_CORE_DIR%"
 
-echo ===================================================
-echo [CI] Starting PlatformIO Build...
-echo ===================================================
-
-REM Try to add default PlatformIO path to PATH if pio is not found
-where pio >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [INFO] pio not found in PATH. Searching in default location...
+where pio >nul 2>nul
+if errorlevel 1 (
     if exist "%USERPROFILE%\.platformio\penv\Scripts" (
         set "PATH=%USERPROFILE%\.platformio\penv\Scripts;%PATH%"
-        echo [INFO] Added PlatformIO to PATH.
     )
 )
 
-echo [1/1] Building Project (pio run)...
-pio run -e esp32-devkitc-low-level -e esp32-devkitc-high-level
-if %errorlevel% neq 0 (
-    echo [ERROR] Build failed.
-    exit /b %errorlevel%
+call :find_tool pio.exe PIO_EXE
+if errorlevel 1 (
+    >&2 echo PlatformIO not found. Install pio or omit --with-platformio.
+    exit /b 1
 )
 
-echo ===================================================
-echo [SUCCESS] PlatformIO build checks passed!
-echo ===================================================
-endlocal
+echo [platformio] Building ESP32 samples...
+call "%PIO_EXE%" run -e esp32-devkitc-low-level -e esp32-devkitc-high-level
+if errorlevel 1 exit /b 1
+
+echo [platformio] Running static analysis...
+call "%PIO_EXE%" check -e esp32-devkitc-low-level -e esp32-devkitc-high-level --severity medium --fail-on-defect medium
+if errorlevel 1 exit /b 1
+
+exit /b 0
+
+:fail
+set "STATUS=%errorlevel%"
+
+:finish
+if exist "%TEST_EXE%" del "%TEST_EXE%" >nul 2>nul
+if defined REPO_ROOT if exist "%REPO_ROOT%" popd >nul 2>nul
+exit /b %STATUS%
+
+:usage
+echo usage: %~nx0 [--with-platformio]
+set "STATUS=2"
+goto finish

@@ -33,7 +33,22 @@ Measured on an ESP32-based Arduino target. RAM delta is 0 as all buffers are cal
 You can verify the protocol core on a desktop PC without a real PLC.
 
 ### Running Tests
-Use the PlatformIO environment or a local GCC:
+Use the default local gate for normal changes:
+
+```powershell
+.\run_ci.bat
+```
+
+This builds and runs the host tests plus the mock-socket integration test without downloading PlatformIO packages.
+
+Use the heavier PlatformIO gate only when you intentionally validate embedded examples or PlatformIO package metadata:
+
+```powershell
+.\run_ci.bat --with-platformio
+```
+
+The older function-matrix helper is still available for deeper protocol checks:
+
 ```powershell
 # Clone plc-comm-slmp-cross-verify next to this repo first, or pass --cross-verify-dir
 # Run all host-side tests

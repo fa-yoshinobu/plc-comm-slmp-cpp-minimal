@@ -27,9 +27,8 @@ jobs:
       - name: Install host tools
         run: |
           python -m pip install --upgrade pip
-          pip install platformio
           sudo apt-get update
-          sudo apt-get install -y doxygen graphviz zip
+          sudo apt-get install -y zip
 
       - name: Build host tests
         run: g++ -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_error_codes.cpp src/slmp_error_messages.cpp src/slmp_error_messages_en.cpp src/slmp_error_messages_ja.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests
@@ -39,17 +38,6 @@ jobs:
 
       - name: Run socket integration test
         run: python scripts/run_socket_integration.py --compiler g++
-
-      - name: Build PlatformIO samples
-        run: |
-          pio run -e esp32-devkitc-low-level
-          pio run -e esp32-devkitc-high-level
-
-      - name: Generate docs
-        run: |
-          mkdir -p _site
-          doxygen Doxyfile
-          test -f _site/doxygen/html/index.html
 
       - name: Resolve release version
         id: version

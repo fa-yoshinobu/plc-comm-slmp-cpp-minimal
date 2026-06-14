@@ -63,31 +63,12 @@ jobs:
             coverage.html
           retention-days: 7
 
-  platformio:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        env:
-          - esp32-devkitc-low-level
-          - esp32-devkitc-high-level
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-      - name: Install PlatformIO
-        run: pip install platformio
-      - name: Build ${{ matrix.env }}
-        run: pio run -e ${{ matrix.env }}
-
   trigger-docs-rebuild:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
       - host-tests
       - host-sanitizers
       - host-coverage
-      - platformio
     runs-on: ubuntu-latest
     steps:
       - name: Trigger docs rebuild

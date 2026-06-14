@@ -19,7 +19,7 @@ arduino-lint --compliance strict --library-manager submit .
 
 If the library is not listed in Arduino Library Manager yet, direct users to the tagged release zip from GitHub Releases.
 
-The CI workflow currently runs documentation link checks, host-side tests, size regression, and representative PlatformIO builds. Keep `arduino-lint --library-manager submit` as a manual gate until you are ready to apply for indexing.
+The default CI workflow intentionally stays host-only so normal development does not depend on PlatformIO package downloads. Keep PlatformIO sample builds and `arduino-lint --library-manager submit` as manual gates before registry or Arduino Library Manager publication.
 
 ## PlatformIO Registry
 
@@ -31,6 +31,12 @@ Validate the package locally with:
 
 ```powershell
 & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" pkg pack . --output $env:TEMP
+```
+
+Run the heavier PlatformIO sample gate only when you intentionally validate embedded examples or PlatformIO registry metadata:
+
+```powershell
+.\run_ci.bat --with-platformio
 ```
 
 Manual publish step after validation:
