@@ -1,4 +1,4 @@
-# Latest Communication Verification
+# Latest communication verification
 
 Live-device verification for `plc-comm-slmp-cpp-minimal` is summarized here.
 Detailed board evidence, command logs, historical notes, and follow-up items are

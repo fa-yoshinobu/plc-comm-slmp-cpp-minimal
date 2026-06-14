@@ -43,7 +43,7 @@ pio run -e esp32-devkitc-high-level-no-udp
 - On these maintained ESP32 Wi-Fi samples, disabling `SLMP_ENABLE_UDP_TRANSPORT` does not reduce the final image. The samples instantiate `WiFiClient` TCP transport only; the Arduino WiFi library still appears in the link graph, including `WiFiUdp.cpp`, and the UDP helper class itself is not retained in the final binary.
 - This delta is small enough for many ESP32-class application builds, but the low-level-only path remains available for tighter image budgets.
 
-## Remaining Hardware Validation
+## Remaining hardware validation
 
 This report covers build-size impact only. Live validation of `ArduinoUdpTransport`
 on real boards remains open until an actual UDP board/PLC run is captured.

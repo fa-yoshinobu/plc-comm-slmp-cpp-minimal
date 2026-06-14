@@ -1,4 +1,4 @@
-# Hardware Validation
+# Hardware validation
 
 Audience: library maintainers and validation follow-up work.
 
