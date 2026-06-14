@@ -89,7 +89,7 @@ void loop() {
 
 ## Hardware verified
 
-Live-device verification is maintained in [Hardware validation](docsrc/validation/reports/HARDWARE_VALIDATION.md).
+Live-device verification is maintained in [Latest communication verification](docsrc/user/LATEST_COMMUNICATION_VERIFICATION.md).
 See that page for verified PLC models, transports, dates, limitations, and retained validation notes.
 
 ## License and registry
