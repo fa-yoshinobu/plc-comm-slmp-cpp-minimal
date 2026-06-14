@@ -70,7 +70,7 @@
 - add ESP32-DevKitC low-level and high-level Wi-Fi samples so binary size differences can be compared on the same board
 - expand user docs with clearer high-level vs low-level guidance, address syntax notes, design philosophy, and ESP32 sample selection
 - expand Doxygen comments for both `slmp_high_level.h` and `slmp_minimal.h` so generated API docs explain the intended split between convenience helpers and the fixed-buffer core
-- add `docsrc/validation/reports/ESP32_DEVKITC_SIZE_COMPARISON.md` with measured flash/RAM deltas for the ESP32 low-level and high-level samples
+- archive measured flash/RAM deltas for the ESP32 low-level and high-level samples
 - clean Doxygen-facing docs and console comments so generated documentation stays ASCII-only and avoids unresolved markdown references
 - add optional `slmp_high_level.h` facade with string-address parsing, `readTyped`, `writeTyped`, `readNamed`, `writeNamed`, `Poller`, and compile-checked high-level sample coverage
 - remove automatic profile recommendation and probing helpers; callers must choose frame type and compatibility mode explicitly before `connect()`

@@ -31,7 +31,7 @@ The relevant C++ baseline in this repository is:
 - mock-PLC integration coverage that accepts mixed `writeBlock()` ([../../tests/slmp_socket_integration.cpp](../../tests/slmp_socket_integration.cpp))
 - a historical real-board Atom Matrix result against MELSEC iQ-R `R08CPU`
   showing that the old one-request mixed `writeBlock` layout was rejected on
-  the real PLC ([HARDWARE_VALIDATION.md](../validation/reports/HARDWARE_VALIDATION.md))
+  the real PLC (the maintainer validation archive)
 
 ## Historical Comparison Answer
 
@@ -153,7 +153,7 @@ Current scope:
   invalid payload layout used by both implementations.
 - Current library behavior should keep the corrected one-request layout and
   avoid automatic split retry.
-- If future development changes C++ mixed-write behavior, update [HARDWARE_VALIDATION.md](../validation/reports/HARDWARE_VALIDATION.md) together with this note so the historical result and the current shipped behavior stay aligned.
+- If future development changes C++ mixed-write behavior, update the maintainer validation archive together with this note so the historical result and the current shipped behavior stay aligned.
 
 ## If You Need To Re-run The Comparison
 

@@ -2,7 +2,7 @@
 
 Live-device verification for `plc-comm-slmp-cpp-minimal` is summarized here.
 Detailed board evidence, command logs, historical notes, and follow-up items are
-maintained in [Hardware validation](../validation/reports/HARDWARE_VALIDATION.md).
+maintained in the maintainer validation archive.
 
 ## Latest Verified Set
 
@@ -14,7 +14,7 @@ maintained in [Hardware validation](../validation/reports/HARDWARE_VALIDATION.md
 
 ## Retained Evidence
 
-Use [Hardware validation](../validation/reports/HARDWARE_VALIDATION.md) for:
+Use the maintainer validation archive for:
 
 - board package versions and network setup notes
 - frame dumps and end-code observations
