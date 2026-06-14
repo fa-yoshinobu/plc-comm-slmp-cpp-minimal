@@ -113,7 +113,7 @@
 - add PlatformIO smoke targets for the new console examples and document board-specific footprints and startup paths
 - add host-side function test runner coverage for additional direct, dword, random, block, timeout, and target-setting API paths
 - mark `LCS`, `LCC`, and `LCN` unsupported in the minimal client to match observed real-board behavior
-- record real-board validation results for Atom Matrix against Mitsubishi iQ-R `R08CPU`, including reconnect, endurance, benchmark, and buffer-limit captures
+- record real-board validation results for Atom Matrix against MELSEC iQ-R `R08CPU`, including reconnect, endurance, benchmark, and buffer-limit captures
 - add Python comparison worksheet documentation for the remaining mixed block-write investigation
 - add a `W5500-EVB-Pico2` example sketch and PlatformIO smoke target using Arduino-Pico `EthernetCompat`
 - add an interactive serial debug console to the `W5500-EVB-Pico2` example for ad-hoc PLC reads, writes, and frame dumps

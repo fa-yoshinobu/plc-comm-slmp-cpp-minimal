@@ -7,7 +7,7 @@
 
 ## 1. Issue Analysis (Q06UDVCPU)
 
-Testing against a Mitsubishi **Q06UDVCPU** revealed three critical differences in Legacy SLMP:
+Testing against a MELSEC **Q06UDVCPU** revealed three critical differences in Legacy SLMP:
 1.  **Frame**: Q-series built-in Ethernet only supports 3E frames.
 2.  **Device Format**: Requires 3-byte address + 1-byte device code (Total 4 bytes, vs 6 bytes in iQ-R).
 3.  **Random Bit Write**: Values must be 1-byte per bit (vs 2-bytes in iQ-R).

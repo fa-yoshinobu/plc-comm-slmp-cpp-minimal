@@ -60,7 +60,7 @@ Use frame dump helpers to inspect the exact request and response bytes.
 
 ## X/Y/B/W device numbers look wrong
 
-`B/W/SB/SW/DX/DY` use hexadecimal numbering in normal Mitsubishi notation.
+`B/W/SB/SW/DX/DY` use hexadecimal numbering in normal MELSEC notation.
 High-level string `X/Y` also need one explicit `PlcProfile`:
 
 - `slmp::highlevel::PlcProfile::IqF` uses octal string `X/Y`

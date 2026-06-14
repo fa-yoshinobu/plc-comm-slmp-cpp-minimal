@@ -373,7 +373,7 @@ Error parseAddressSpec(const char* address, PlcProfile family, AddressSpec& out)
 /**
  * @brief Format one parsed high-level address into canonical uppercase text.
  *
- * The formatted result uses Mitsubishi numbering rules for the target device
+ * The formatted result uses MELSEC numbering rules for the target device
  * family and preserves explicit dtype suffixes when the address needs them to
  * round-trip one logical value.
  *

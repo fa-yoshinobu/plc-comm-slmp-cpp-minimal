@@ -1,43 +1,20 @@
-[![Documentation](https://img.shields.io/badge/docs-GitHub_Pages-blue.svg)](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/cpp/)
+[![Documentation](https://img.shields.io/badge/docs-GitHub_Pages-blue.svg)](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/cpp/GETTING_STARTED/)
 [![Release](https://img.shields.io/github/v/release/fa-yoshinobu/plc-comm-slmp-cpp-minimal?label=release)](https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/fa-yoshinobu/plc-comm-slmp-cpp-minimal/ci.yml?branch=main&label=CI&logo=github)](https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Static Analysis: PlatformIO Check](https://img.shields.io/badge/Lint-PIO%20Check-blue.svg)](https://docs.platformio.org/en/latest/plus/pio-check.html)
 
-# SLMP Protocol (Minimal C++)
+# MELSEC SLMP for C++ / Arduino
 
-A minimal C++ SLMP client for Mitsubishi PLCs, compatible with Arduino and PlatformIO projects.
+C++ library for MELSEC SLMP (Binary 3E/4E) PLC communication on Arduino and PlatformIO.
 
 ## Supported PLC profiles
 
-Select one explicit profile before you read or write devices. The helper `slmp::highlevel::configureClientForPlcProfile` applies the frame type and compatibility mode shown here.
-
-| Profile identifier | Canonical profile | Hardware | Frame type | Notes |
-| --- | --- | --- | --- | --- |
-| `slmp::highlevel::PlcProfile::IqF` | `melsec:iq-f` | MELSEC iQ-F | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`; string `X` and `Y` addresses use octal notation; `DX` and `DY` are not valid. |
-| `slmp::highlevel::PlcProfile::IqR` | `melsec:iq-r` | MELSEC iQ-R | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`; this is the default profile used in the examples. |
-| `slmp::highlevel::PlcProfile::IqL` | `melsec:iq-l` | MELSEC iQ-L | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`; keeps its own address/range profile with iQ-R-equivalent rules. |
-| `slmp::highlevel::PlcProfile::MxF` | `melsec:mx-f` | MELSEC MX-F profile | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`. |
-| `slmp::highlevel::PlcProfile::MxR` | `melsec:mx-r` | MELSEC MX-R profile | `slmp::FrameType::Frame4E` | Uses `slmp::CompatibilityMode::iQR`. |
-| `slmp::highlevel::PlcProfile::QCpu` | `melsec:qcpu` | MELSEC Q CPU | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |
-| `slmp::highlevel::PlcProfile::LCpu` | `melsec:lcpu` | MELSEC L CPU | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |
-| `slmp::highlevel::PlcProfile::QnU` | `melsec:qnu` | MELSEC QnU | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |
-| `slmp::highlevel::PlcProfile::QnUDV` | `melsec:qnudv` | MELSEC QnU(DV) | `slmp::FrameType::Frame3E` | Uses `slmp::CompatibilityMode::Legacy`. |
+The maintained profile table is in [PLC profiles](docsrc/user/PROFILES.md). Choose one exact canonical PLC profile from that table.
 
 ## Supported device types
 
-These are the most common device families you will use first. See [supported registers](docsrc/user/SUPPORTED_REGISTERS.md) for the full catalog and profile cautions.
-
-| Family | Meaning |
-| --- | --- |
-| `D` | Data registers for normal 16-bit, 32-bit, and float values. |
-| `M` | Internal relays for direct bit reads and writes. |
-| `X` | Inputs; profile-aware string parsing is required for correct numbering. |
-| `Y` | Outputs; profile-aware string parsing is required for correct numbering. |
-| `W` | Link registers using Mitsubishi hexadecimal numbering. |
-| `R` | File registers using decimal numbering. |
-| `LTN` | Long timer current values; use `ValueType::U32` or `ValueType::S32`. |
-| `LCN` | Long counter current values; use `ValueType::U32` or `ValueType::S32`. |
+The maintained device and range tables are in [Supported registers](docsrc/user/SUPPORTED_REGISTERS.md). Use that page for supported device families, address syntax, and profile-specific notes.
 
 ## Installation
 
@@ -101,26 +78,24 @@ void loop() {
 
 ## Documentation
 
-| Page | What it covers |
+| Page | Use it for |
 | --- | --- |
+| [Full documentation site](https://fa-yoshinobu.github.io/plc-comm-docs-site/) | Unified docs for all PLC communication libraries. |
 | [Getting started](docsrc/user/GETTING_STARTED.md) | Install the library, choose a profile, and make your first read and write. |
 | [Usage guide](docsrc/user/USAGE_GUIDE.md) | Use the low-level and high-level APIs in application code. |
 | [Supported registers](docsrc/user/SUPPORTED_REGISTERS.md) | Device families, value types, and address forms. |
-| [PLC profiles](docsrc/user/PROFILES.md) | Profile identifiers, frame types, compatibility modes, and cautions. |
+| [PLC profiles](docsrc/user/PROFILES.md) | Canonical profile names, API selectors, frame types, compatibility modes, and cautions. |
 | [Examples](examples/README.md) | Maintained example folders and PlatformIO commands. |
 
 ## Hardware verified
 
-Recorded validation for this library includes the following hardware combinations.
-
-| Board or target | Transport | PLC |
-| --- | --- | --- |
-| M5Stack Atom | `WiFiClient` | Mitsubishi iQ-R `R08CPU` |
-| W6300-EVB-Pico2 | `WiFiClient` and `WiFiUDP` through W6300lwIP | Mitsubishi iQ-R `R120PCPU` |
-| W6300-EVB-Pico2 | TCP, 3E frame, legacy compatibility | Mitsubishi Q-series `Q06UDVCPU` |
+Live-device verification is maintained in [Hardware validation](docsrc/validation/reports/HARDWARE_VALIDATION.md).
+See that page for verified PLC models, transports, dates, limitations, and retained validation notes.
 
 ## License and registry
 
-This project is distributed under the [MIT License](LICENSE).
-
-PlatformIO Registry: <https://registry.platformio.org/libraries/fa-yoshinobu/slmp-connect-cpp-minimal>
+| Item | Value |
+| --- | --- |
+| License | [MIT](LICENSE) |
+| Registry | [PlatformIO Registry](https://registry.platformio.org/libraries/fa-yoshinobu/slmp-connect-cpp-minimal) |
+| Package | `slmp-connect-cpp-minimal` |

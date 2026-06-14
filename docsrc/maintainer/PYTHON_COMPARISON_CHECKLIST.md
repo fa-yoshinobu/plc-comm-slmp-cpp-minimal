@@ -29,7 +29,7 @@ The relevant C++ baseline in this repository is:
 
 - mixed block support in the codec and request builder ([../../src/slmp_minimal.cpp](../../src/slmp_minimal.cpp))
 - mock-PLC integration coverage that accepts mixed `writeBlock()` ([../../tests/slmp_socket_integration.cpp](../../tests/slmp_socket_integration.cpp))
-- a historical real-board Atom Matrix result against Mitsubishi iQ-R `R08CPU`
+- a historical real-board Atom Matrix result against MELSEC iQ-R `R08CPU`
   showing that the old one-request mixed `writeBlock` layout was rejected on
   the real PLC ([HARDWARE_VALIDATION.md](../validation/reports/HARDWARE_VALIDATION.md))
 
@@ -53,7 +53,7 @@ Recorded board:
 
 - `m5stack-atom`
 - sketch: `examples/atom_matrix_serial_console`
-- PLC: Mitsubishi iQ-R `R08CPU`
+- PLC: MELSEC iQ-R `R08CPU`
 - date: `2026-03-14`
 
 Historical result summary:
@@ -90,7 +90,7 @@ Interpreted meaning:
 
 Keep the Python-side check as close as possible to the C++ run:
 
-- same PLC: Mitsubishi iQ-R `R08CPU`
+- same PLC: MELSEC iQ-R `R08CPU`
 - same network path and target settings
 - same device addresses
 - same point counts

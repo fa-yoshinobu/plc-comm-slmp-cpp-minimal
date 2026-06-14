@@ -29,7 +29,7 @@ pio run -e esp32-devkitc-high-level-no-udp
 
 ## Related pages
 
-| Page | What to read |
+| Page | Use it for |
 | --- | --- |
 | [Getting started](../docsrc/user/GETTING_STARTED.md) | First connection, first read, and first write. |
 | [Usage guide](../docsrc/user/USAGE_GUIDE.md) | High-level and low-level API patterns. |

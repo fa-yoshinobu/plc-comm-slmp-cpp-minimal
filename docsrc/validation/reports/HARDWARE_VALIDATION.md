@@ -34,9 +34,9 @@ the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
 
 | Target | Transport | Bring-up sketch | Status | Notes |
 |---|---|---|---|---|
-| `m5stack-atom` | `WiFiClient` | `examples/atom_matrix_serial_console` | validated | real-board `check`, `funcheck`, `endurance 1000`, `bench pair 1000`, `bench block 300`, and `reconnect` recorded on 2026-03-14 against Mitsubishi iQ-R `R08CPU`; direct path passed, API path passed except mixed `writeBlock`, durability finished 1000/1000, pair benchmark averaged 18 ms per cycle, block benchmark averaged 17 ms per cycle, and reconnect recovered twice after transport errors |
+| `m5stack-atom` | `WiFiClient` | `examples/atom_matrix_serial_console` | validated | real-board `check`, `funcheck`, `endurance 1000`, `bench pair 1000`, `bench block 300`, and `reconnect` recorded on 2026-03-14 against MELSEC iQ-R `R08CPU`; direct path passed, API path passed except mixed `writeBlock`, durability finished 1000/1000, pair benchmark averaged 18 ms per cycle, block benchmark averaged 17 ms per cycle, and reconnect recovered twice after transport errors |
 | `wiznet_6300_evb_pico2` | `WiFiClient` / `WiFiUDP` via `W6300lwIP` | `examples/w6300_evb_pico2_serial_console` | validated | serial console now exposes `transport tcp|udp`, `frame 3e|4e`, and `txlimit sweep [all|words|block]` (linear and `binary` variants) plus BOOTSEL shortcuts; benchmark and `funcheck` recorded on 2026-03-19 against real PLC; 300 cycles of `bench block` passed for both 4E and 3E frames; `funcheck` passed with 3E frames |
-| real Mitsubishi PLC | TCP | any supported sketch | validated | Atom Matrix `check` and `funcheck` recorded against Mitsubishi iQ-R `R08CPU` on 2026-03-14; W6300 `bench block` and `funcheck` recorded against iQ-R `R120PCPU` on 2026-03-19; Q06UDVCPU initial failure analyzed and resolved via new `CompatibilityMode` (Legacy) on 2026-03-19 |
+| real MELSEC PLC | TCP | any supported sketch | validated | Atom Matrix `check` and `funcheck` recorded against MELSEC iQ-R `R08CPU` on 2026-03-14; W6300 `bench block` and `funcheck` recorded against iQ-R `R120PCPU` on 2026-03-19; Q06UDVCPU initial failure analyzed and resolved via new `CompatibilityMode` (Legacy) on 2026-03-19 |
 
 ## Console Comparison Snapshot
 
@@ -50,17 +50,17 @@ the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
 ### 2026-03-19: Q-Series (Legacy SLMP) Compatibility Update
 
 - Target: `wiznet_6300_evb_pico2`
-- PLC model: Mitsubishi Q-series `Q06UDVCPU`
+- PLC model: MELSEC Q-series `Q06UDVCPU`
 - Issue: Initial `funcheck` failed due to frame and device format mismatches.
 - Resolution: 
   - Added `CompatibilityMode` (Legacy) supporting 4-byte device specs and 1-byte random bit packing.
   - Verified `frame 3e` + `compat legacy` on Q06UDVCPU.
   - Result: **All supported API operations PASS.**
 
-### 2026-03-19: W6300-EVB-Pico2 interactive console against Mitsubishi iQ-R `R120PCPU`
+### 2026-03-19: W6300-EVB-Pico2 interactive console against MELSEC iQ-R `R120PCPU`
 
 - Target: `wiznet_6300_evb_pico2` with `examples/w6300_evb_pico2_serial_console`
-- PLC model: Mitsubishi iQ-R `R120PCPU`
+- PLC model: MELSEC iQ-R `R120PCPU`
 - Transport: `WiFiClient` (TCP) via `W6300lwIP`
 - Frame Type: 3E / 4E
 - Result: Successfully validated 4E and 3E frame switching and communication.
@@ -72,10 +72,10 @@ the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
   - 16-bit packed words for bit blocks work as expected.
   - Hex-addressing for `X, Y, B, W, SB, SW, DX, DY` verified.
 
-### 2026-03-14: Atom Matrix interactive console against Mitsubishi iQ-R `R08CPU`
+### 2026-03-14: Atom Matrix interactive console against MELSEC iQ-R `R08CPU`
 
 - Target: `m5stack-atom` with `examples/atom_matrix_serial_console`
-- PLC model: Mitsubishi iQ-R `R08CPU`
+- PLC model: MELSEC iQ-R `R08CPU`
 - Transport: `WiFiClient`
 - Result: the manual `check` scenario completed end-to-end on a real board and a real PLC
 - Verified operator flow: `check` printed `guide`, `target`, and `command` before each write; the Atom front button accepted `OK` and advanced to the next step
@@ -85,10 +85,10 @@ the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
 - Current shipped Atom Matrix scenario uses non-leading addresses such as `SD100`, `SM100`, `D100`, `M100`, `R200`, and `ZR300`
 - Current shipped Atom Matrix scenario uses decimal write values and silently clears accepted `OK` writes back to `0`
 
-### 2026-03-14: Atom Matrix `funcheck` against Mitsubishi iQ-R `R08CPU`
+### 2026-03-14: Atom Matrix `funcheck` against MELSEC iQ-R `R08CPU`
 
 - Target: `m5stack-atom` with `examples/atom_matrix_serial_console`
-- PLC model: Mitsubishi iQ-R `R08CPU`
+- PLC model: MELSEC iQ-R `R08CPU`
 - Transport: `WiFiClient`
 - `funcheck direct` result: `ok=26`, `skip=12`, `fail=0`
 - `funcheck api` result: `ok=13`, `skip=0`, `fail=1`
@@ -110,10 +110,10 @@ the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
   - the comparison result is summarized in [PYTHON_COMPARISON_CHECKLIST.md](../../maintainer/PYTHON_COMPARISON_CHECKLIST.md)
   - both implementations sent the same first-pass mixed request shape and hit the same `0xC05B` PLC end code
 
-### 2026-03-14: Atom Matrix `endurance 1000` against Mitsubishi iQ-R `R08CPU`
+### 2026-03-14: Atom Matrix `endurance 1000` against MELSEC iQ-R `R08CPU`
 
 - Target: `m5stack-atom` with `examples/atom_matrix_serial_console`
-- PLC model: Mitsubishi iQ-R `R08CPU`
+- PLC model: MELSEC iQ-R `R08CPU`
 - Transport: `WiFiClient`
 - Command: `endurance 1000`
 - Result: completed `1000/1000` attempts with `ok=1000`, `fail=0`
@@ -135,10 +135,10 @@ the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
 - `D540..D541` and packed `M540` for `rblk/wblk`
 - Observed stability: no disconnect, PLC error, or auto-stop event occurred during the recorded 1000-cycle run
 
-### 2026-03-14: Atom Matrix `txlimit probe` against Mitsubishi iQ-R `R08CPU`
+### 2026-03-14: Atom Matrix `txlimit probe` against MELSEC iQ-R `R08CPU`
 
 - Target: `m5stack-atom` with `examples/atom_matrix_serial_console`
-- PLC model: Mitsubishi iQ-R `R08CPU`
+- PLC model: MELSEC iQ-R `R08CPU`
 - Transport: `WiFiClient`
 - Command: `txlimit probe`
 - Buffer assumptions printed by the board:
@@ -159,10 +159,10 @@ the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
 - `writeBlock words one_over=buffer_too_small`
 - Result: the library accepted exact-fit requests and rejected one-over requests locally with `buffer_too_small`, matching the current `tx_buffer` calculation logic
 
-### 2026-03-14: Atom Matrix `bench pair 1000` against Mitsubishi iQ-R `R08CPU`
+### 2026-03-14: Atom Matrix `bench pair 1000` against MELSEC iQ-R `R08CPU`
 
 - Target: `m5stack-atom` with `examples/atom_matrix_serial_console`
-- PLC model: Mitsubishi iQ-R `R08CPU`
+- PLC model: MELSEC iQ-R `R08CPU`
 - Transport: `WiFiClient`
 - Command: `bench pair 1000`
 - Result: completed `1000` cycles and `2000` requests with `fail=0`
@@ -176,12 +176,12 @@ the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
 - Reported frame sizes at the end of the run:
   - `last_req_bytes=27`
   - `last_resp_bytes=17`
-- Interpretation: the Atom Matrix sustained about `110` paired write+read request pairs per second against the recorded Mitsubishi iQ-R `R08CPU` setup
+- Interpretation: the Atom Matrix sustained about `110` paired write+read request pairs per second against the recorded MELSEC iQ-R `R08CPU` setup
 
-### 2026-03-14: Atom Matrix `bench block 300` against Mitsubishi iQ-R `R08CPU`
+### 2026-03-14: Atom Matrix `bench block 300` against MELSEC iQ-R `R08CPU`
 
 - Target: `m5stack-atom` with `examples/atom_matrix_serial_console`
-- PLC model: Mitsubishi iQ-R `R08CPU`
+- PLC model: MELSEC iQ-R `R08CPU`
 - Transport: `WiFiClient`
 - Command: `bench block 300`
 - Result: completed `300` cycles and `600` requests with `fail=0`
@@ -195,7 +195,7 @@ the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
 - Reported frame sizes at the end of the run:
   - `last_req_bytes=29`
   - `last_resp_bytes=47`
-- Interpretation: the Atom Matrix sustained about `110` block write+read request pairs per second against the recorded Mitsubishi iQ-R `R08CPU` setup, with slightly lower average cycle time than the recorded `pair` run
+- Interpretation: the Atom Matrix sustained about `110` block write+read request pairs per second against the recorded MELSEC iQ-R `R08CPU` setup, with slightly lower average cycle time than the recorded `pair` run
 
 ### 2026-03-19: W6300 `txlimit sweep` console and CLI verification
 
@@ -211,10 +211,10 @@ the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
   - Console and CLI compiled successfully
   - The sweep command is available for runtime upper-bound testing once a PLC is connected
 
-### 2026-03-14: Atom Matrix `reconnect` against Mitsubishi iQ-R `R08CPU`
+### 2026-03-14: Atom Matrix `reconnect` against MELSEC iQ-R `R08CPU`
 
 - Target: `m5stack-atom` with `examples/atom_matrix_serial_console`
-- PLC model: Mitsubishi iQ-R `R08CPU`
+- PLC model: MELSEC iQ-R `R08CPU`
 - Transport: `WiFiClient`
 - Command: `reconnect`
 - Result at manual stop: `attempts=188`, `ok=174`, `fail=14`, `recoveries=2`
@@ -231,12 +231,12 @@ the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
   - second recovery occurred after `10` failed attempts
   - repeated ESP32-side socket logs showed `errno: 104` (`Connection reset by peer`) while the PLC side was refusing or resetting the socket
   - the mode continued running through the failures and only stopped when the front button long-press was used
-- Interpretation: the reconnect mode behaved as intended for recovery testing, counting failures without auto-stopping and confirming that the session could recover from at least two real transport loss windows against the recorded Mitsubishi iQ-R `R08CPU` setup
+- Interpretation: the reconnect mode behaved as intended for recovery testing, counting failures without auto-stopping and confirming that the session could recover from at least two real transport loss windows against the recorded MELSEC iQ-R `R08CPU` setup
 
-### 2026-03-14: Atom Matrix `reconnect` during PLC reset against Mitsubishi iQ-R `R08CPU`
+### 2026-03-14: Atom Matrix `reconnect` during PLC reset against MELSEC iQ-R `R08CPU`
 
 - Target: `m5stack-atom` with `examples/atom_matrix_serial_console`
-- PLC model: Mitsubishi iQ-R `R08CPU`
+- PLC model: MELSEC iQ-R `R08CPU`
 - Transport: `WiFiClient`
 - Trigger: PLC reset while `reconnect` was running
 - Command: `reconnect`
@@ -255,12 +255,12 @@ the old frame shape, not as a current limitation of mixed word+bit `1406/0002`.
   - the second PLC reset window recovered after `3` failed attempts
   - the board logged `transport_error end=0x0` on the failing `readOneWord` cycle, then returned to steady 250 ms retry cadence after recovery
   - the mode continued running through both reset windows and only stopped when the front button long-press was used
-- Interpretation: against the recorded Mitsubishi iQ-R `R08CPU` setup, PLC reset recovery was better than the earlier peer-reset run, with shorter failure streaks and successful return to steady-state reconnect timing after each reset
+- Interpretation: against the recorded MELSEC iQ-R `R08CPU` setup, PLC reset recovery was better than the earlier peer-reset run, with shorter failure streaks and successful return to steady-state reconnect timing after each reset
 
-### 2026-03-14: Atom Matrix `reconnect` during Wi-Fi AP power-off against Mitsubishi iQ-R `R08CPU`
+### 2026-03-14: Atom Matrix `reconnect` during Wi-Fi AP power-off against MELSEC iQ-R `R08CPU`
 
 - Target: `m5stack-atom` with `examples/atom_matrix_serial_console`
-- PLC model: Mitsubishi iQ-R `R08CPU`
+- PLC model: MELSEC iQ-R `R08CPU`
 - Transport: `WiFiClient`
 - Trigger: Wi-Fi AP power-off while `reconnect` was running
 - Command: `reconnect`

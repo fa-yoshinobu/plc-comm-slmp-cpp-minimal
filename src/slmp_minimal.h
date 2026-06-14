@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file slmp_minimal.h
  * @brief Ultra-lightweight SLMP (MC Protocol) Client for Embedded C++.
  * 
@@ -170,7 +170,7 @@ struct BlockWriteOptions {
  *
  * This namespace is the recommended way to create @ref DeviceAddress values in
  * application code. It keeps the call site explicit about whether the PLC uses
- * decimal numbering or Mitsubishi hexadecimal numbering.
+ * decimal numbering or MELSEC hexadecimal numbering.
  *
  * Typical usage:
  * @code
@@ -215,7 +215,7 @@ constexpr HexNo hex(uint32_t value) { return {value}; }
     }
 
 /** @name Decimal Device Helpers
- * Helpers for devices that use Mitsubishi decimal numbering.
+ * Helpers for devices that use MELSEC decimal numbering.
  *
  * This group includes standard relay/register devices, timer and counter
  * families, long timer / long retentive timer / long counter families, and
@@ -261,7 +261,7 @@ SLMP_DEC_DEVICE_HELPER(RD)
 /** @} */
 
 /** @name Hexadecimal Device Helpers
- * Helpers for devices that follow Mitsubishi hexadecimal numbering.
+ * Helpers for devices that follow MELSEC hexadecimal numbering.
  *
  * Use these factories together with @ref hex. This applies to `X`, `Y`, `B`,
  * `W`, `SB`, `SW`, `DX`, and `DY`.
