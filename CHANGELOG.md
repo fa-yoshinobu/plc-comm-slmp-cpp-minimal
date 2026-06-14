@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0
+
+- bump release metadata to 0.8.0 for the unified PLC communication library release
+
 ## 0.4.12
 
 - remove the non-manual Remote STOP `force` parameters; `remoteStop()` and `beginRemoteStop(now_ms)` now expose only the manual fixed request data `01 00`
