@@ -2,105 +2,289 @@
 
 ## LTN/LSTN/LCN/LZ reads return unexpected values
 
-These are 32-bit families. Using `U16` yields wrong data.
-
-Fix: use `U32` or `S32` value type.
+| Item | Detail |
+| --- | --- |
+| Symptom | Long timer, long counter, or long index values look truncated or offset. |
+| Root cause | `LTN`, `LSTN`, `LCN`, and `LZ` are 32-bit logical families. |
+| Fix | Read them with `:D` for unsigned 32-bit or `:L` for signed 32-bit. |
 
 ```cpp
-slmp::highlevel::Value value;
-const slmp::Error err = slmp::highlevel::readTyped(
-    plc,
-    slmp::highlevel::PlcProfile::IqR,
-    "LTN0:D",
-    value);
+#include <cstddef>
+#include <cstdint>
+
+#include <slmp_high_level.h>
+#include <slmp_minimal.h>
+
+class NoopTransport final : public slmp::ITransport {
+  public:
+    bool connect(const char*, uint16_t) override { return false; }
+    void close() override {}
+    bool connected() const override { return false; }
+    bool writeAll(const uint8_t*, size_t) override { return false; }
+    bool readExact(uint8_t*, size_t, uint32_t) override { return false; }
+    size_t write(const uint8_t*, size_t) override { return 0U; }
+    size_t read(uint8_t*, size_t) override { return 0U; }
+    size_t available() override { return 0U; }
+};
+
+int main() {
+    NoopTransport transport;
+    uint8_t tx[128] = {};
+    uint8_t rx[128] = {};
+    slmp::SlmpClient plc(transport, tx, sizeof(tx), rx, sizeof(rx));
+    constexpr auto profile = slmp::highlevel::PlcProfile::IqR;
+    slmp::highlevel::configureClientForPlcProfile(plc, profile);
+
+    slmp::highlevel::Value value;
+    const slmp::Error err = slmp::highlevel::readTyped(plc, profile, "LTN0:D", value);
+    return (err == slmp::Error::Ok || err == slmp::Error::NotConnected) ? 0 : 1;
+}
 ```
 
-## Mixed block write rejected by PLC
+## Mixed block write is rejected by the PLC
 
-Command `0x1406` does not accept word + bit combinations in one request.
-
-Fix: separate word writes and bit writes into distinct calls.
+| Item | Detail |
+| --- | --- |
+| Symptom | A block write that mixes word devices and bit devices fails. |
+| Root cause | SLMP command `0x1406` does not accept word and bit blocks in one request on the target PLC path. |
+| Fix | Send word writes and bit writes as separate calls. |
 
 ```cpp
-const uint16_t wordValue = 1234U;
-const bool bitValue = true;
+#include <cstddef>
+#include <cstdint>
 
-slmp::Error wordErr = plc.writeOneWord(slmp::dev::D(slmp::dev::dec(9000)), wordValue);
-slmp::Error bitErr = plc.writeOneBit(slmp::dev::M(slmp::dev::dec(9000)), bitValue);
+#include <slmp_minimal.h>
+
+class NoopTransport final : public slmp::ITransport {
+  public:
+    bool connect(const char*, uint16_t) override { return false; }
+    void close() override {}
+    bool connected() const override { return false; }
+    bool writeAll(const uint8_t*, size_t) override { return false; }
+    bool readExact(uint8_t*, size_t, uint32_t) override { return false; }
+    size_t write(const uint8_t*, size_t) override { return 0U; }
+    size_t read(uint8_t*, size_t) override { return 0U; }
+    size_t available() override { return 0U; }
+};
+
+int main() {
+    NoopTransport transport;
+    uint8_t tx[128] = {};
+    uint8_t rx[128] = {};
+    slmp::SlmpClient plc(transport, tx, sizeof(tx), rx, sizeof(rx));
+    plc.setFrameType(slmp::FrameType::Frame4E);
+    plc.setCompatibilityMode(slmp::CompatibilityMode::iQR);
+
+    const slmp::Error wordErr = plc.writeOneWord(slmp::dev::D(slmp::dev::dec(9000)), 1234U);
+    const slmp::Error bitErr = plc.writeOneBit(slmp::dev::M(slmp::dev::dec(9000)), true);
+    return (wordErr == slmp::Error::NotConnected && bitErr == slmp::Error::NotConnected) ? 0 : 1;
+}
 ```
 
 ## G or HG address fails
 
-`G` and `HG` are not in the public high-level surface for normal direct device access.
-
-Fix: use raw `slmp::SlmpClient` methods for module buffer access.
+| Item | Detail |
+| --- | --- |
+| Symptom | A normal high-level address such as `G100` or `HG100` does not work as an ordinary device. |
+| Root cause | Module buffer memory is an extended SLMP target, not a normal high-level direct device family. |
+| Fix | Use `slmp::SlmpClient` module-buffer APIs such as `readWordsModuleBuf`. |
 
 ```cpp
-uint16_t words[4] = {};
-const slmp::Error err = plc.readWordsModuleBuf(3, false, 100, 4, words, 4);
+#include <cstddef>
+#include <cstdint>
+
+#include <slmp_minimal.h>
+
+class NoopTransport final : public slmp::ITransport {
+  public:
+    bool connect(const char*, uint16_t) override { return false; }
+    void close() override {}
+    bool connected() const override { return false; }
+    bool writeAll(const uint8_t*, size_t) override { return false; }
+    bool readExact(uint8_t*, size_t, uint32_t) override { return false; }
+    size_t write(const uint8_t*, size_t) override { return 0U; }
+    size_t read(uint8_t*, size_t) override { return 0U; }
+    size_t available() override { return 0U; }
+};
+
+int main() {
+    NoopTransport transport;
+    uint8_t tx[128] = {};
+    uint8_t rx[128] = {};
+    slmp::SlmpClient plc(transport, tx, sizeof(tx), rx, sizeof(rx));
+    plc.setFrameType(slmp::FrameType::Frame4E);
+    plc.setCompatibilityMode(slmp::CompatibilityMode::iQR);
+
+    uint16_t words[4] = {};
+    const slmp::Error err = plc.readWordsModuleBuf(3, false, 100, 4, words, 4);
+    return err == slmp::Error::NotConnected ? 0 : 1;
+}
 ```
 
 ## DX or DY fails on iQ-F
 
-`DX` and `DY` are not valid for the iQ-F profile.
-
-Fix: use `X` and `Y` instead.
-
-```cpp
-slmp::highlevel::Value input;
-const slmp::Error err = slmp::highlevel::readTyped(
-    plc,
-    slmp::highlevel::PlcProfile::IqF,
-    "X20",
-    input);
-```
-
-## PLC profile not set
-
-The library requires explicit profile selection to derive frame type and device ranges. There is no default.
-
-Fix: call `slmp::highlevel::configureClientForPlcProfile(client, profile)` before any reads or writes.
+| Item | Detail |
+| --- | --- |
+| Symptom | `DX` or `DY` is rejected when the selected profile is iQ-F. |
+| Root cause | The iQ-F profile does not support `DX` or `DY` in the high-level parser. |
+| Fix | Use `X` and `Y` with `slmp::highlevel::PlcProfile::IqF`. |
 
 ```cpp
-constexpr auto profile = slmp::highlevel::PlcProfile::IqR;
-slmp::highlevel::configureClientForPlcProfile(plc, profile);
-```
+#include <cstddef>
+#include <cstdint>
 
-## High-level helpers unavailable
-
-If `slmp::highlevel::readTyped` or `slmp::highlevel::readNamed` are undefined, `slmp_high_level.h` is not included by default; it must be explicitly included.
-
-Fix: add `#include <slmp_high_level.h>`.
-
-```cpp
 #include <slmp_high_level.h>
+
+int main() {
+    slmp::highlevel::AddressSpec input{};
+    const slmp::Error err = slmp::highlevel::parseAddressSpec(
+        "X20",
+        slmp::highlevel::PlcProfile::IqF,
+        input);
+    return err == slmp::Error::Ok ? 0 : 1;
+}
+```
+
+## Read or write fails because no PLC profile was set
+
+| Item | Detail |
+| --- | --- |
+| Symptom | Profile-sensitive addressing, frame type, or compatibility mode does not match your PLC. |
+| Root cause | The helper layer does not probe the PLC and does not infer the profile from model text. |
+| Fix | Choose a concrete `slmp::highlevel::PlcProfile` and call `configureClientForPlcProfile` before communication. |
+
+```cpp
+#include <cstddef>
+#include <cstdint>
+
+#include <slmp_high_level.h>
+#include <slmp_minimal.h>
+
+class NoopTransport final : public slmp::ITransport {
+  public:
+    bool connect(const char*, uint16_t) override { return false; }
+    void close() override {}
+    bool connected() const override { return false; }
+    bool writeAll(const uint8_t*, size_t) override { return false; }
+    bool readExact(uint8_t*, size_t, uint32_t) override { return false; }
+    size_t write(const uint8_t*, size_t) override { return 0U; }
+    size_t read(uint8_t*, size_t) override { return 0U; }
+    size_t available() override { return 0U; }
+};
+
+int main() {
+    NoopTransport transport;
+    uint8_t tx[64] = {};
+    uint8_t rx[64] = {};
+    slmp::SlmpClient plc(transport, tx, sizeof(tx), rx, sizeof(rx));
+
+    constexpr auto profile = slmp::highlevel::PlcProfile::IqR;
+    slmp::highlevel::configureClientForPlcProfile(plc, profile);
+    return plc.compatibilityMode() == slmp::CompatibilityMode::iQR ? 0 : 1;
+}
+```
+
+## High-level helpers are not found by the compiler
+
+| Item | Detail |
+| --- | --- |
+| Symptom | Names such as `slmp::highlevel::readTyped` or `slmp::highlevel::Poller` are undefined. |
+| Root cause | `slmp_high_level.h` is optional and is not included by `slmp_minimal.h`. |
+| Fix | Include `slmp_high_level.h` explicitly in any file that uses the high-level facade. |
+
+```cpp
+#include <cstddef>
+#include <cstdint>
+
+#include <slmp_high_level.h>
+
+int main() {
+    slmp::highlevel::AddressSpec spec{};
+    const slmp::Error err = slmp::highlevel::parseAddressSpec(
+        "D100",
+        slmp::highlevel::PlcProfile::IqR,
+        spec);
+    return err == slmp::Error::Ok ? 0 : 1;
+}
+```
+
+## Unspecified profile returns an immediate error
+
+| Item | Detail |
+| --- | --- |
+| Symptom | Profile-aware helpers return `slmp::Error::InvalidArgument` before any PLC request is sent. |
+| Root cause | `slmp::highlevel::PlcProfile::Unspecified` is not a concrete PLC profile. |
+| Fix | Pass one concrete profile such as `slmp::highlevel::PlcProfile::IqR`. |
+
+```cpp
+#include <cstddef>
+#include <cstdint>
+
+#include <slmp_high_level.h>
+
+int main() {
+    slmp::highlevel::AddressSpec spec{};
+    const slmp::Error bad = slmp::highlevel::parseAddressSpec(
+        "D100",
+        slmp::highlevel::PlcProfile::Unspecified,
+        spec);
+    const slmp::Error good = slmp::highlevel::parseAddressSpec(
+        "D100",
+        slmp::highlevel::PlcProfile::IqR,
+        spec);
+    return (bad == slmp::Error::InvalidArgument && good == slmp::Error::Ok) ? 0 : 1;
+}
 ```
 
 ## X or Y string address is rejected
 
-String `X` and `Y` addresses require an explicit PLC profile because iQ-F uses octal notation while other supported profiles use hexadecimal notation.
-
-Fix: use a profile-aware overload.
+| Item | Detail |
+| --- | --- |
+| Symptom | A string address such as `X20` is rejected or maps to the wrong point. |
+| Root cause | `X` and `Y` numbering depends on the PLC profile; iQ-F uses octal, while the other supported profiles use hexadecimal. |
+| Fix | Use the profile-aware overloads of the high-level helpers. |
 
 ```cpp
-slmp::highlevel::Value input;
-const slmp::Error err = slmp::highlevel::readTyped(
-    plc,
-    slmp::highlevel::PlcProfile::IqR,
-    "X20",
-    input);
+#include <cstddef>
+#include <cstdint>
+
+#include <slmp_high_level.h>
+
+int main() {
+    slmp::highlevel::AddressSpec spec{};
+    const slmp::Error err = slmp::highlevel::parseAddressSpec(
+        "X20",
+        slmp::highlevel::PlcProfile::IqR,
+        spec);
+    return err == slmp::Error::Ok ? 0 : 1;
+}
 ```
 
-## D50.D reads the wrong thing
+## D50.D reads bit 13 instead of a 32-bit value
 
-`D50.D` is bit `0xD` of `D50`, not a 32-bit type request. Type suffixes use `:`, while bit-in-word access uses `.`.
-
-Fix: use `D50:D` for unsigned 32-bit data and `D50.D` only for bit 13.
+| Item | Detail |
+| --- | --- |
+| Symptom | `D50.D` behaves like one bit rather than a double word. |
+| Root cause | Dot notation is bit-in-word access; `D` after the dot is hexadecimal bit index 13. |
+| Fix | Use `D50:D` for unsigned 32-bit data and reserve `D50.D` for bit 13. |
 
 ```cpp
-slmp::highlevel::Value dword;
-slmp::highlevel::readTyped(plc, slmp::highlevel::PlcProfile::IqR, "D50:D", dword);
+#include <cstddef>
+#include <cstdint>
 
-slmp::highlevel::Value bit13;
-slmp::highlevel::readTyped(plc, slmp::highlevel::PlcProfile::IqR, "D50.D", bit13);
+#include <slmp_high_level.h>
+
+int main() {
+    slmp::highlevel::AddressSpec dword{};
+    slmp::highlevel::AddressSpec bit13{};
+    const slmp::Error dwordErr = slmp::highlevel::parseAddressSpec(
+        "D50:D",
+        slmp::highlevel::PlcProfile::IqR,
+        dword);
+    const slmp::Error bitErr = slmp::highlevel::parseAddressSpec(
+        "D50.D",
+        slmp::highlevel::PlcProfile::IqR,
+        bit13);
+    return (dwordErr == slmp::Error::Ok && bitErr == slmp::Error::Ok) ? 0 : 1;
+}
 ```

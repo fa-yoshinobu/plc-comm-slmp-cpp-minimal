@@ -36,11 +36,14 @@ The high-level layer is optional and is not included by `slmp_minimal.h` automat
 
 Call `slmp::highlevel::configureClientForPlcProfile` before the first read or write. It applies the frame type and compatibility mode for the selected PLC profile; it does not auto-detect your PLC.
 
-```cpp
-constexpr auto profile = slmp::highlevel::PlcProfile::IqR;
-slmp::highlevel::configureClientForPlcProfile(plc, profile);
-Serial.println(slmp::highlevel::plcProfileLabel(profile));
-```
+| Target | Profile to start with |
+| --- | --- |
+| MELSEC iQ-R | `slmp::highlevel::PlcProfile::IqR` |
+| MELSEC iQ-F | `slmp::highlevel::PlcProfile::IqF` |
+| MELSEC iQ-L | `slmp::highlevel::PlcProfile::IqL` |
+| Q/L legacy CPU | `slmp::highlevel::PlcProfile::QCpu` or `slmp::highlevel::PlcProfile::LCpu` |
+
+The complete sketches below show where the profile configuration belongs.
 
 ## First read
 

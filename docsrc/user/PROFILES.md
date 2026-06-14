@@ -25,9 +25,37 @@ operator workflow.
 ## How to select
 
 ```cpp
-constexpr auto profile = slmp::highlevel::PlcProfile::IqR;
-slmp::highlevel::configureClientForPlcProfile(plc, profile);
-Serial.println(slmp::highlevel::plcProfileLabel(profile));
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+
+#include <slmp_high_level.h>
+#include <slmp_minimal.h>
+
+class NoopTransport final : public slmp::ITransport {
+  public:
+    bool connect(const char*, uint16_t) override { return false; }
+    void close() override {}
+    bool connected() const override { return false; }
+    bool writeAll(const uint8_t*, size_t) override { return false; }
+    bool readExact(uint8_t*, size_t, uint32_t) override { return false; }
+    size_t write(const uint8_t*, size_t) override { return 0U; }
+    size_t read(uint8_t*, size_t) override { return 0U; }
+    size_t available() override { return 0U; }
+};
+
+int main() {
+    NoopTransport transport;
+    uint8_t tx[64] = {};
+    uint8_t rx[64] = {};
+    slmp::SlmpClient plc(transport, tx, sizeof(tx), rx, sizeof(rx));
+
+    constexpr auto profile = slmp::highlevel::PlcProfile::IqR;
+    slmp::highlevel::configureClientForPlcProfile(plc, profile);
+    std::printf("%s\n", slmp::highlevel::plcProfileLabel(profile));
+
+    return plc.frameType() == slmp::FrameType::Frame4E ? 0 : 1;
+}
 ```
 
 ## Profile-specific cautions

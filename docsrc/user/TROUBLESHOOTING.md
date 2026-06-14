@@ -58,10 +58,6 @@ Common causes:
 
 Use frame dump helpers to inspect the exact request and response bytes.
 
-You can also reproduce this locally with:
-
-- `python scripts\run_socket_integration.py --compiler g++ --scenario malformed`
-
 ## X/Y/B/W device numbers look wrong
 
 `B/W/SB/SW/DX/DY` use hexadecimal numbering in normal Mitsubishi notation.
@@ -121,22 +117,14 @@ Do not read these as plain 16-bit values.
 The profile-aware parser rejects `DX` and `DY` for `slmp::highlevel::PlcProfile::IqF`.
 
 Use `X` and `Y` for iQ-F projects, and keep using the profile-aware overloads:
-
-```cpp
-slmp::highlevel::Value value;
-slmp::highlevel::readTyped(plc, slmp::highlevel::PlcProfile::IqF, "X20", value);
-```
+call `slmp::highlevel::readTyped(plc, slmp::highlevel::PlcProfile::IqF, "X20", value)` after configuring the same profile on the client.
 
 ## `G` or `HG` fails as a normal address
 
 The low-level direct device path rejects `G` and `HG`.
 
 Use module-buffer helpers instead:
-
-```cpp
-uint16_t words[4] = {};
-plc.readWordsModuleBuf(3, false, 100, 4, words, 4);
-```
+call `plc.readWordsModuleBuf(3, false, 100, 4, words, 4)` with a caller-owned `uint16_t` output buffer.
 
 ## Connecting to GX Simulator 3 (GX Works3)
 
@@ -146,10 +134,7 @@ You can connect to the GX Simulator 3 using `127.0.0.1` and a calculated port nu
 2.  **Calculate Port Number**:
     - The default port is `55` + `System Number` + `PLC Number`.
     - Example: System 1, PLC 1 => Port **`5511`**.
-3.  **Connection**:
-    ```cpp
-    plc.connect("127.0.0.1", 5511);
-    ```
+3. **Connection**: connect to `127.0.0.1` and the calculated port, for example `5511`.
 
 Note: **GX Simulator 2** (GX Works2) uses a proprietary protocol and is **not compatible** with this SLMP library.
 
@@ -165,18 +150,8 @@ For interactive frame-dump inspection, use the companion console-app repository:
 
 - <https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal-console-app>
 
-For desktop-only regression before flashing a board, use:
-
-- `python scripts\run_socket_integration.py --compiler g++`
-
 ## High-level helpers are not available in my build
 
 The optional helper layer in `slmp_high_level.h` can be compiled out.
 
-Check whether your build defines:
-
-```cpp
-#define SLMP_MINIMAL_ENABLE_HIGH_LEVEL 0
-```
-
-If that macro is set to `0`, only the low-level `slmp_minimal.h` core API is available.
+Check whether your build defines `SLMP_MINIMAL_ENABLE_HIGH_LEVEL` as `0`. If it does, only the low-level `slmp_minimal.h` core API is available.

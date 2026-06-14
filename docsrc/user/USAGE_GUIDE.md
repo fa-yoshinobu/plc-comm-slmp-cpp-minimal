@@ -388,17 +388,12 @@ void loop() {
 
 `LTN`, `LSTN`, `LCN`, and `LZ` are 32-bit families in the high-level API. Use `slmp::highlevel::ValueType::U32` or `slmp::highlevel::ValueType::S32`.
 
-```cpp
-slmp::highlevel::Value timer;
-slmp::highlevel::readTyped(plc, kProfile, "LTN0:D", timer);
-Serial.printf("LTN0=%lu\n", static_cast<unsigned long>(timer.u32));
-
-slmp::highlevel::Value counter;
-slmp::highlevel::readTyped(plc, kProfile, "LCN0:L", counter);
-Serial.printf("LCN0=%ld\n", static_cast<long>(counter.s32));
-```
-
-> **Caution:** Plain 16-bit access to LTN/LSTN/LCN/LZ yields wrong data.
+| Family | Unsigned form | Signed form | Caution |
+| --- | --- | --- | --- |
+| `LTN` | `LTN0:D` | `LTN0:L` | Plain 16-bit access yields wrong data. |
+| `LSTN` | `LSTN0:D` | `LSTN0:L` | Plain 16-bit access yields wrong data. |
+| `LCN` | `LCN0:D` | `LCN0:L` | Plain 16-bit access yields wrong data. |
+| `LZ` | `LZ0:D` | `LZ0:L` | Plain 16-bit access yields wrong data. |
 
 ## Address reference table
 
