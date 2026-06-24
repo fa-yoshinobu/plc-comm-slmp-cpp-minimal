@@ -1,16 +1,27 @@
 # Changelog
 
-## Unreleased
+All notable changes to this project will be documented in this file.
 
-- add 4 missing RD device encoding entries (`rd0_iqr`, `rd0_legacy`, `rd524287_iqr`, `rd524287_legacy`) to `tests/generated_shared_spec.h`
-- add `read_words_rd524286_2_iqr` frame golden vector to `tests/generated_shared_spec.h`
-- fix `testSharedGoldenFrames` dispatch in `tests/slmp_minimal_tests.cpp` to use `RD(524286)` for the new frame case instead of hardcoded `D(100)`
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.8.0
+## [1.0.0] - 2026-06-24
+
+### Added
+- Added 4 missing RD device encoding entries (`rd0_iqr`, `rd0_legacy`, `rd524287_iqr`, `rd524287_legacy`) to `tests/generated_shared_spec.h`.
+- Added `read_words_rd524286_2_iqr` frame golden vector to `tests/generated_shared_spec.h`.
+
+### Changed
+- Bumped PlatformIO and Arduino library metadata to `1.0.0` for the first stable release line.
+
+### Fixed
+- Fixed `testSharedGoldenFrames` dispatch in `tests/slmp_minimal_tests.cpp` to use `RD(524286)` for the new frame case instead of hardcoded `D(100)`.
+
+## [0.8.0]
 
 - bump release metadata to 0.8.0 for the unified PLC communication library release
 
-## 0.4.12
+## [0.4.12]
 
 - remove the non-manual Remote STOP `force` parameters; `remoteStop()` and `beginRemoteStop(now_ms)` now expose only the manual fixed request data `01 00`
 - align Self Test loopback input validation with the manual: 1..960 bytes, ASCII `0`-`9`/`A`-`F` only
@@ -18,64 +29,64 @@
 - fix the local documentation release build so `build_docs.bat` creates the Doxygen output root and correctly rewrites `OUTPUT_DIRECTORY`
 - republish the PlatformIO package after the release-check fix so the registry package points at the current README and release metadata
 
-## 0.4.11
+## [0.4.11]
 
 - split SLMP end-code text out of the core source and add optional English/Japanese message tables without corrective-action text
 - fix `writeBlock()` payload layout so each `1406` block writes its data immediately after that block's device spec and point count
 - remove `retry_mixed_on_error` from `BlockWriteOptions`; mixed block-write failures now return the PLC end code unchanged, and only explicit `split_mixed_blocks` sends separate block writes
 - guard Extended Specification `HG` module-buffer access before transport so only `U3E0\HG` through `U3E3\HG` are accepted
 
-## 0.4.10
+## [0.4.10]
 
 - add ESP32-DevKitC no-UDP size probe environments for low-level and high-level samples
 - refresh the ESP32 size baseline/report with current PlatformIO output and record that disabling `SLMP_ENABLE_UDP_TRANSPORT` has `0` byte Flash/RAM impact for the maintained TCP-only samples
 
-## 0.4.9
+## [0.4.9]
 
 - bump the library revision for the cross-library SLMP parity release; the C++ route guards from `0.4.8` remain aligned with the updated shared verification suite
 - keep `PlcFamilyDefaults` compatible with the PlatformIO ESP32 C++ mode used by the high-level sample build
 
-## 0.4.8
+## [0.4.8]
 
 - tighten long-device route guards so `LTN/LSTN/LCN/LZ` avoid unsupported direct/raw word and dword paths, while supported random/named dword paths remain available
 - align `LCS/LCC` writes with the random/named bit route policy
 - keep family-aware high-level read plans from losing `X/Y` parsing context during plan execution
 
-## 0.4.7
+## [0.4.7]
 
 - align the high-level examples and user docs with the existing `PlcFamily` defaults so the standard route now consistently starts from `configureClientForPlcFamily(...)`
 - update compile-checked high-level samples to use family-aware overloads for `readTyped`, `readNamed`, `writeNamed`, and `Poller::compile`
 
-## 0.4.6
+## [0.4.6]
 
 - add `PlcFamily`, `configureClientForPlcFamily()`, and family-aware high-level parse/normalize/read/write overloads so the optional facade can derive fixed frame/profile defaults from one explicit family
 - make high-level string `X/Y` addresses require explicit `PlcFamily`, use octal for `IqF`, keep other supported families hexadecimal, and refresh host tests and docs for the stricter family model
 
-## 0.4.5
+## [0.4.5]
 
 - add device-range catalog helpers and CPU operation-state decoding helpers to the optional high-level facade
 - expand host regression coverage and README guidance for the new device-range and CPU-state helpers
 
-## 0.4.4
+## [0.4.4]
 
 - add guard logic for unsupported long-timer direct reads and unsupported `LCS/LCC` random, block, and monitor-registration paths so the minimal client matches the shared cross-library consistency rules
 - expand host regression coverage for the guarded paths and long-device command routing
 
-## 0.4.3
+## [0.4.3]
 
 - regenerate `tests/generated_shared_spec.h` from `plc-comm-slmp-cross-verify/specs/shared` so host tests and release builds consume the same canonical parity vectors as the cross-library verification harness
 
-## 0.4.2
+## [0.4.2]
 
 - add public `normalizeAddress()` and `formatAddressSpec()` helpers to the optional high-level facade so application code can canonicalize string device addresses without duplicating parser logic
 - refresh README, usage guide, example guide, and API policy notes to describe the public address-normalization helpers and the no-hidden-split rule more directly
 
-## 0.4.1
+## [0.4.1]
 
 - republish the PlatformIO package after the console split so the registry metadata and package contents match the library-only layout
 - keep console applications in the companion repository while the core package stays focused on the minimal library and maintained small examples
 
-## 0.4.0
+## [0.4.0]
 
 - add ESP32-DevKitC low-level and high-level Wi-Fi samples so binary size differences can be compared on the same board
 - expand user docs with clearer high-level vs low-level guidance, address syntax notes, design philosophy, and ESP32 sample selection
@@ -105,18 +116,18 @@
 - add typed helpers for `1006` remote reset, `0619` self-test loopback, and `1617` clear error
 - extend `endCodeString()` with additional practical hardware codes including `0xC056`, `0xC201`, `0xC810`, and `0x414A`
 
-## 0.3.0
+## [0.3.0]
 
 - add support for SLMP 3E binary frames via `setFrameType()`
 - validate 3E/4E cross-frame communication stability against GX Simulator 3 for all major device families
 - fix buffer capacity checks and payload construction in `writeBlock()` and `readBlock()`
 - update documentation with GX Simulator 3 connection rules and port numbering guidance
 
-## 0.2.1
+## [0.2.1]
 
 - fix the host-side dword request header tests so `writeOneDWord()` and `writeDWords()` expect the correct transmitted word count
 
-## 0.2.0
+## [0.2.0]
 
 - add W6300-EVB-Pico2, ESP32-C3, and Atom Matrix interactive console examples with shared direct, one-shot, random, block, target, password, and frame-dump command coverage
 - add Atom Matrix hardware-specific demo, manual check, automated `funcheck`, `txlimit`, `bench`, `endurance`, and `reconnect` modes
@@ -136,14 +147,14 @@
 - verify required files are present in the release zip before uploading assets
 - fix publishing notes to match the current CI checks
 
-## 0.1.1
+## [0.1.1]
 
 - add release/install guidance and shorter board-specific start paths in `README.md`
 - add `library.json` and publishing notes for future PlatformIO Registry packaging
 - add hardware validation backlog documentation and a GitHub issue template
 - add Markdown link checks to CI and document Arduino Library Manager submission as a manual gate while hardware validation is still pending
 
-## 0.1.0
+## [0.1.0]
 
 - initial public minimal C++ release for ESP32 and RP2040 class boards
 - TCP + SLMP 4E binary core with direct, random, and block device access
