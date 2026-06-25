@@ -97,3 +97,9 @@ See that page for verified PLC models, transports, dates, limitations, and retai
 | License | [MIT](LICENSE) |
 | Registry | [PlatformIO Registry](https://registry.platformio.org/libraries/fa-yoshinobu/slmp-connect-cpp-minimal) |
 | Package | `slmp-connect-cpp-minimal` |
+
+## Commercial support
+
+If you plan to embed this library in a paid or commercial product, please consider a separate support agreement or supporting the project as a sponsor.
+
+Contact: <https://fa-labo.com/contact.html>
