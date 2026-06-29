@@ -24,7 +24,7 @@ Measured on an ESP32-based Arduino target. RAM delta is 0 as all buffers are cal
 | baseline (`readTypeName`) | `+0` | `0` |
 | direct read/write | `+2,068` | `0` |
 | password unlock/lock | `+316` | `0` |
-| end code text decoding | `+728` | `0` |
+| end code key helpers | small | `0` |
 | random read/write | `+1,440` | `0` |
 | block read/write | `+1,392` | `0` |
 

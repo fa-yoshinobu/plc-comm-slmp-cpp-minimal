@@ -30,7 +30,7 @@ What should remain stable unless there is a strong reason:
 - `slmp::DeviceAddress`
 - `slmp::SlmpClient` core read/write API
 - `slmp::endCodeString()`
-- `slmp::endCodeMessageEnglish()` / `slmp::endCodeMessageJapanese()`
+- `slmp::isRemotePasswordEndCode()`
 - `slmp::formatHexBytes()`
 
 Breaking changes policy:

@@ -19,9 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Library: Made high-level address parsing require explicit value type suffixes such as `:U`, `:S`, `:D`, `:L`, `:F`, or `:BIT`; bare devices no longer default to unsigned word, bit, or long-timer dword interpretations.
+- Library: Removed embedded localized SLMP end-code message text; end-code helpers now return stable code-derived keys while message lookup hooks return `nullptr`.
+- Docs: Updated maintainer notes and build configuration for the end-code key helper contract.
 
 ### Tests
 - Tests: Updated generated shared-spec vectors and high-level tests for explicit dtype requirements.
+- Tests: Updated SLMP end-code helper coverage for code-derived keys and non-embedded messages.
 
 ## [1.0.0] - 2026-06-24
 

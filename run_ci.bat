@@ -32,7 +32,7 @@ echo [CI] SLMP minimal C++ local gate
 echo ===================================================
 
 echo [1/3] Building host tests...
-call "%CXX_EXE%" -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_error_codes.cpp src/slmp_error_messages.cpp src/slmp_error_messages_en.cpp src/slmp_error_messages_ja.cpp src/slmp_high_level.cpp -o "%TEST_EXE%"
+call "%CXX_EXE%" -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_error_codes.cpp src/slmp_high_level.cpp -o "%TEST_EXE%"
 if errorlevel 1 goto fail
 
 echo [2/3] Running host tests...
