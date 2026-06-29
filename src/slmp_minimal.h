@@ -1365,8 +1365,16 @@ const char* errorString(Error error);
  *
  * Implemented in optional slmp_error_codes.cpp. Include/link that file only
  * when end-code labels or category helpers are needed.
+ * The returned pointer refers to an internal rotating buffer. Copy the string
+ * or use formatEndCodeString() when the value must be retained long-term.
  */
 const char* endCodeString(uint16_t end_code);
+/**
+ * @brief Format a compact code-derived SLMP end-code label into caller-owned storage.
+ *
+ * The buffer must have room for at least 19 bytes including the null terminator.
+ */
+char* formatEndCodeString(uint16_t end_code, char* buffer, size_t buffer_size);
 /** @brief Return true when an SLMP end code is related to remote password protection. */
 bool isRemotePasswordEndCode(uint16_t end_code);
 /** @brief Helper to format bytes as a hex string (e.g. "01 02 AB"). Used for logging. */

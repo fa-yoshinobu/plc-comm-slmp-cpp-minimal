@@ -882,6 +882,16 @@ void testPlcErrorAndStrings() {
     assert(std::string(slmp::endCodeString(0xC810U)) == "slmp_end_code_c810");
     assert(std::string(slmp::endCodeString(0xD913U)) == "slmp_end_code_d913");
     assert(std::string(slmp::endCodeString(0xDEADU)) == "slmp_end_code_dead");
+    const char* first_end_code_key = slmp::endCodeString(0xC201U);
+    const char* second_end_code_key = slmp::endCodeString(0xC810U);
+    assert(first_end_code_key != second_end_code_key);
+    assert(std::string(first_end_code_key) == "slmp_end_code_c201");
+    assert(std::string(second_end_code_key) == "slmp_end_code_c810");
+    char end_code_buffer[19] = {};
+    assert(slmp::formatEndCodeString(0xD913U, end_code_buffer, sizeof(end_code_buffer)) == end_code_buffer);
+    assert(std::string(end_code_buffer) == "slmp_end_code_d913");
+    char short_end_code_buffer[18] = {};
+    assert(slmp::formatEndCodeString(0xD913U, short_end_code_buffer, sizeof(short_end_code_buffer)) == nullptr);
     assert(slmp::isRemotePasswordEndCode(0xC201U));
     assert(slmp::isRemotePasswordEndCode(0xC810U));
     assert(!slmp::isRemotePasswordEndCode(0x4031U));

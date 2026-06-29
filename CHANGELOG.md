@@ -15,9 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Tooling`: Developer/operator command-line tools and helper utilities.
 - `CI`: Release checks, workflow scripts, or automation-only changes.
 
-## [Unreleased] - 2026-06-29
+## [Unreleased]
+
+## [1.1.0] - 2026-06-29
+
+### Fixed
+- Library: Avoid overwriting the immediately previous `endCodeString()` result on consecutive calls, and add `formatEndCodeString()` for caller-owned output buffers.
 
 ### Changed
+- Release: Bumped PlatformIO and Arduino library metadata to `1.1.0`.
 - Library: Made high-level address parsing require explicit value type suffixes such as `:U`, `:S`, `:D`, `:L`, `:F`, or `:BIT`; bare devices no longer default to unsigned word, bit, or long-timer dword interpretations.
 - Library: Removed embedded localized SLMP end-code message text; end-code helpers now return stable code-derived keys while message lookup hooks return `nullptr`.
 - Docs: Updated maintainer notes and build configuration for the end-code key helper contract.

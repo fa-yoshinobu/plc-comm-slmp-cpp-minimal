@@ -7,6 +7,10 @@
 
 namespace {
 
+constexpr size_t kEndCodeStringBufferSize = sizeof("slmp_end_code_0000");
+constexpr size_t kEndCodePrefixLength = 14;
+constexpr size_t kEndCodeRingSize = 8;
+
 void write_hex4(uint16_t value, char* out) {
     static constexpr char kHex[] = "0123456789abcdef";
     out[0] = kHex[(value >> 12) & 0x0F];
@@ -15,13 +19,33 @@ void write_hex4(uint16_t value, char* out) {
     out[3] = kHex[value & 0x0F];
 }
 
+void write_end_code_string(uint16_t end_code, char* out) {
+    static constexpr char kPrefix[] = "slmp_end_code_";
+    for (size_t i = 0; i < kEndCodePrefixLength; ++i) {
+        out[i] = kPrefix[i];
+    }
+    write_hex4(end_code, &out[kEndCodePrefixLength]);
+    out[kEndCodeStringBufferSize - 1] = '\0';
+}
+
 }  // namespace
 
 namespace slmp {
 
+char* formatEndCodeString(uint16_t end_code, char* buffer, size_t buffer_size) {
+    if (buffer == nullptr || buffer_size < kEndCodeStringBufferSize) {
+        return nullptr;
+    }
+    write_end_code_string(end_code, buffer);
+    return buffer;
+}
+
 const char* endCodeString(uint16_t end_code) {
-    static char label[] = "slmp_end_code_0000";
-    write_hex4(end_code, &label[14]);
+    static thread_local char labels[kEndCodeRingSize][kEndCodeStringBufferSize] = {};
+    static thread_local size_t next_label = 0;
+    char* label = labels[next_label];
+    next_label = (next_label + 1) % kEndCodeRingSize;
+    write_end_code_string(end_code, label);
     return label;
 }
 
