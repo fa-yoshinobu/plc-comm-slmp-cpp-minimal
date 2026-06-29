@@ -1707,19 +1707,22 @@ void testFrame3E() {
 void testHighLevelParserAndTypedHelpers() {
     {
         slmp::highlevel::AddressSpec spec{};
-        assert(slmp::highlevel::parseAddressSpec("D100", spec) == slmp::Error::Ok);
+        assert(slmp::highlevel::parseAddressSpec("D100", spec) == slmp::Error::InvalidArgument);
+        assert(slmp::highlevel::parseAddressSpec("D100:U", spec) == slmp::Error::Ok);
         assert(spec.device.code == slmp::DeviceCode::D);
         assert(spec.device.number == 100U);
         assert(spec.type == slmp::highlevel::ValueType::U16);
         assert(spec.bit_index < 0);
+        assert(spec.explicit_type);
     }
 
     {
         slmp::highlevel::AddressSpec spec{};
-        assert(slmp::highlevel::parseAddressSpec("M1000", spec) == slmp::Error::Ok);
+        assert(slmp::highlevel::parseAddressSpec("M1000:BIT", spec) == slmp::Error::Ok);
         assert(spec.device.code == slmp::DeviceCode::M);
         assert(spec.device.number == 1000U);
         assert(spec.type == slmp::highlevel::ValueType::Bit);
+        assert(spec.explicit_type);
     }
 
     {
@@ -1761,18 +1764,18 @@ void testHighLevelParserAndTypedHelpers() {
             bool explicit_type;
         };
         const ParseCase parse_cases[] = {
-            {"Z100", slmp::DeviceCode::Z, slmp::highlevel::ValueType::U16, false},
-            {"LZ100", slmp::DeviceCode::LZ, slmp::highlevel::ValueType::U32, false},
-            {"RD100", slmp::DeviceCode::RD, slmp::highlevel::ValueType::U16, false},
-            {"LTN100", slmp::DeviceCode::LTN, slmp::highlevel::ValueType::U32, false},
-            {"LSTN100", slmp::DeviceCode::LSTN, slmp::highlevel::ValueType::U32, false},
-            {"LCN100", slmp::DeviceCode::LCN, slmp::highlevel::ValueType::U32, false},
-            {"LTS100", slmp::DeviceCode::LTS, slmp::highlevel::ValueType::Bit, false},
-            {"LTC100", slmp::DeviceCode::LTC, slmp::highlevel::ValueType::Bit, false},
-            {"LSTS100", slmp::DeviceCode::LSTS, slmp::highlevel::ValueType::Bit, false},
-            {"LSTC100", slmp::DeviceCode::LSTC, slmp::highlevel::ValueType::Bit, false},
-            {"LCS100", slmp::DeviceCode::LCS, slmp::highlevel::ValueType::Bit, false},
-            {"LCC100", slmp::DeviceCode::LCC, slmp::highlevel::ValueType::Bit, false},
+            {"Z100:U", slmp::DeviceCode::Z, slmp::highlevel::ValueType::U16, true},
+            {"LZ100:D", slmp::DeviceCode::LZ, slmp::highlevel::ValueType::U32, true},
+            {"RD100:U", slmp::DeviceCode::RD, slmp::highlevel::ValueType::U16, true},
+            {"LTN100:D", slmp::DeviceCode::LTN, slmp::highlevel::ValueType::U32, true},
+            {"LSTN100:D", slmp::DeviceCode::LSTN, slmp::highlevel::ValueType::U32, true},
+            {"LCN100:D", slmp::DeviceCode::LCN, slmp::highlevel::ValueType::U32, true},
+            {"LTS100:BIT", slmp::DeviceCode::LTS, slmp::highlevel::ValueType::Bit, true},
+            {"LTC100:BIT", slmp::DeviceCode::LTC, slmp::highlevel::ValueType::Bit, true},
+            {"LSTS100:BIT", slmp::DeviceCode::LSTS, slmp::highlevel::ValueType::Bit, true},
+            {"LSTC100:BIT", slmp::DeviceCode::LSTC, slmp::highlevel::ValueType::Bit, true},
+            {"LCS100:BIT", slmp::DeviceCode::LCS, slmp::highlevel::ValueType::Bit, true},
+            {"LCC100:BIT", slmp::DeviceCode::LCC, slmp::highlevel::ValueType::Bit, true},
             {"RD100:D", slmp::DeviceCode::RD, slmp::highlevel::ValueType::U32, true},
         };
 
@@ -1815,7 +1818,7 @@ void testHighLevelParserAndTypedHelpers() {
 
         transport.queueResponse(makeResponse(makeGenericRequest(0x0401, 0x0003), 0x0000, {0x10}));
         slmp::highlevel::Value value{};
-        assert(slmp::highlevel::readTyped(plc, "M100", value) == slmp::Error::Ok);
+        assert(slmp::highlevel::readTyped(plc, "M100:BIT", value) == slmp::Error::Ok);
         assert(value.type == slmp::highlevel::ValueType::Bit);
         assert(value.bit);
     }
@@ -1828,7 +1831,7 @@ void testHighLevelParserAndTypedHelpers() {
 
         transport.queueResponse(makeResponse(makeGenericRequest(0x0401, 0x0002), 0x0000, {0x34, 0x12}));
         slmp::highlevel::Value value{};
-        assert(slmp::highlevel::readTyped(plc, "Z100", value) == slmp::Error::Ok);
+        assert(slmp::highlevel::readTyped(plc, "Z100:U", value) == slmp::Error::Ok);
         assert(value.type == slmp::highlevel::ValueType::U16);
         assert(value.u16 == 0x1234U);
         assertDirectRequestHeader(transport.lastWrite(), 0x0401, 0x0002, {slmp::DeviceCode::Z, 100U});
@@ -1842,7 +1845,7 @@ void testHighLevelParserAndTypedHelpers() {
 
         transport.queueResponse(makeResponse(makeGenericRequest(0x0401, 0x0002), 0x0000, {0x02, 0x00, 0x03, 0x00, 0x03, 0x00, 0x00, 0x00}));
         slmp::highlevel::Value value{};
-        assert(slmp::highlevel::readTyped(plc, "LTS100", value) == slmp::Error::Ok);
+        assert(slmp::highlevel::readTyped(plc, "LTS100:BIT", value) == slmp::Error::Ok);
         assert(value.type == slmp::highlevel::ValueType::Bit);
         assert(value.bit);
         assertDirectRequestHeader(transport.lastWrite(), 0x0401, 0x0002, {slmp::DeviceCode::LTN, 100U}, 4U);
@@ -1856,7 +1859,7 @@ void testHighLevelParserAndTypedHelpers() {
 
         transport.queueResponse(makeResponse(makeGenericRequest(0x0401, 0x0003), 0x0000, {0x10}));
         slmp::highlevel::Value value{};
-        assert(slmp::highlevel::readTyped(plc, "LCS100", value) == slmp::Error::Ok);
+        assert(slmp::highlevel::readTyped(plc, "LCS100:BIT", value) == slmp::Error::Ok);
         assert(value.type == slmp::highlevel::ValueType::Bit);
         assert(value.bit);
         assertDirectRequestHeader(transport.lastWrite(), 0x0401, 0x0003, {slmp::DeviceCode::LCS, 100U});
@@ -1911,7 +1914,7 @@ void testHighLevelParserAndTypedHelpers() {
 
         transport.queueResponse(makeResponse(makeGenericRequest(0x1402, 0x0003), 0x0000, {}));
         const slmp::highlevel::Value value = slmp::highlevel::Value::bitValue(true);
-        assert(slmp::highlevel::writeTyped(plc, "LCC100", value) == slmp::Error::Ok);
+        assert(slmp::highlevel::writeTyped(plc, "LCC100:BIT", value) == slmp::Error::Ok);
         assert(readLe16(transport.lastWrite().data() + 15) == 0x1402U);
         assert(readLe16(transport.lastWrite().data() + 17) == 0x0003U);
         assert(transport.lastWrite()[19] == 0x01U);
@@ -1928,7 +1931,7 @@ void testHighLevelParserAndTypedHelpers() {
 
         transport.queueResponse(makeResponse(makeGenericRequest(0x1402, 0x0002), 0x0000, {}));
         const slmp::highlevel::Value value = slmp::highlevel::Value::u32Value(0x12345678UL);
-        assert(slmp::highlevel::writeTyped(plc, "LZ100", value) == slmp::Error::Ok);
+        assert(slmp::highlevel::writeTyped(plc, "LZ100:D", value) == slmp::Error::Ok);
         assert(readLe16(transport.lastWrite().data() + 15) == 0x1402U);
         assert(readLe16(transport.lastWrite().data() + 17) == 0x0002U);
         assert(transport.lastWrite()[19] == 0x00U);
@@ -1946,7 +1949,7 @@ void testHighLevelParserAndTypedHelpers() {
 
         transport.queueResponse(makeResponse(makeGenericRequest(0x1402, 0x0002), 0x0000, {}));
         const slmp::highlevel::Value value = slmp::highlevel::Value::u32Value(0x12345678UL);
-        assert(slmp::highlevel::writeTyped(plc, "LTN100", value) == slmp::Error::Ok);
+        assert(slmp::highlevel::writeTyped(plc, "LTN100:D", value) == slmp::Error::Ok);
         assert(readLe16(transport.lastWrite().data() + 15) == 0x1402U);
         assert(readLe16(transport.lastWrite().data() + 17) == 0x0002U);
         assert(transport.lastWrite()[19] == 0x00U);
@@ -1964,7 +1967,7 @@ void testHighLevelParserAndTypedHelpers() {
 
         transport.queueResponse(makeResponse(makeGenericRequest(0x1402, 0x0003), 0x0000, {}));
         const slmp::highlevel::Value value = slmp::highlevel::Value::bitValue(true);
-        assert(slmp::highlevel::writeTyped(plc, "LTC100", value) == slmp::Error::Ok);
+        assert(slmp::highlevel::writeTyped(plc, "LTC100:BIT", value) == slmp::Error::Ok);
         assert(readLe16(transport.lastWrite().data() + 15) == 0x1402U);
         assert(readLe16(transport.lastWrite().data() + 17) == 0x0003U);
         assert(transport.lastWrite()[19] == 0x01U);
@@ -1984,14 +1987,14 @@ void testHighLevelAddressFormatting() {
     {
         char normalized[32] = {};
         assert(slmp::highlevel::normalizeAddress(" x1a ", normalized, sizeof(normalized)) == slmp::Error::InvalidArgument);
-        assert(slmp::highlevel::normalizeAddress(" x1a ", slmp::highlevel::PlcProfile::IqR, normalized, sizeof(normalized)) == slmp::Error::Ok);
-        assert(std::string(normalized) == "X1A");
+        assert(slmp::highlevel::normalizeAddress(" x1a:bit ", slmp::highlevel::PlcProfile::IqR, normalized, sizeof(normalized)) == slmp::Error::Ok);
+        assert(std::string(normalized) == "X1A:BIT");
     }
 
     {
         char normalized[32] = {};
-        assert(slmp::highlevel::normalizeAddress(" y217 ", slmp::highlevel::PlcProfile::IqF, normalized, sizeof(normalized)) == slmp::Error::Ok);
-        assert(std::string(normalized) == "Y217");
+        assert(slmp::highlevel::normalizeAddress(" y217:bit ", slmp::highlevel::PlcProfile::IqF, normalized, sizeof(normalized)) == slmp::Error::Ok);
+        assert(std::string(normalized) == "Y217:BIT");
     }
 
     {
@@ -2010,19 +2013,19 @@ void testHighLevelAddressFormatting() {
 
     {
         slmp::highlevel::AddressSpec spec{};
-        assert(slmp::highlevel::parseAddressSpec("X217", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::Ok);
+        assert(slmp::highlevel::parseAddressSpec("X217:BIT", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::Ok);
         assert(spec.device.code == slmp::DeviceCode::X);
         assert(spec.device.number == 0x8FU);
         char formatted[32] = {};
         assert(slmp::highlevel::formatAddressSpec(spec, slmp::highlevel::PlcProfile::IqF, formatted, sizeof(formatted)) == slmp::Error::Ok);
-        assert(std::string(formatted) == "X217");
+        assert(std::string(formatted) == "X217:BIT");
     }
 
     {
         slmp::highlevel::AddressSpec spec{};
-        assert(slmp::highlevel::parseAddressSpec("DX10", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::UnsupportedDevice);
-        assert(slmp::highlevel::parseAddressSpec("DY10", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::UnsupportedDevice);
-        assert(slmp::highlevel::parseAddressSpec("DX10", slmp::highlevel::PlcProfile::IqR, spec) == slmp::Error::Ok);
+        assert(slmp::highlevel::parseAddressSpec("DX10:BIT", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("DY10:BIT", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("DX10:BIT", slmp::highlevel::PlcProfile::IqR, spec) == slmp::Error::Ok);
     }
 
     {
@@ -2074,17 +2077,17 @@ void testHighLevelNamedReadAndPoller() {
     transport.queueResponse(makeResponse(bit_request, 0x0000, {0x10}));
 
     const std::vector<std::string> addresses = {
-        "D100",
+        "D100:U",
         "D101:S",
         "D200:F",
         "D50.3",
-        "M100",
+        "M100:BIT",
     };
 
     slmp::highlevel::Snapshot snapshot;
     assert(slmp::highlevel::readNamed(plc, addresses, snapshot) == slmp::Error::Ok);
     assert(snapshot.size() == addresses.size());
-    assert(snapshot[0].address == "D100");
+    assert(snapshot[0].address == "D100:U");
     assert(snapshot[0].value.u16 == 0x1234U);
     assert(snapshot[1].value.s16 == static_cast<int16_t>(0xFFFEU));
     uint32_t float_bits = 0;

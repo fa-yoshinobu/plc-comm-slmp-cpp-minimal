@@ -258,17 +258,6 @@ static bool getLongReadAccess(DeviceCode code, LongReadAccess& out) {
     }
 }
 
-static ValueType defaultValueType(const DeviceMeta& meta) {
-    LongReadAccess long_read{};
-    if (getLongReadAccess(meta.code, long_read) && long_read.role == LongReadRole::Current) {
-        return ValueType::U32;
-    }
-    if (meta.code == DeviceCode::LZ) {
-        return ValueType::U32;
-    }
-    return meta.bit_unit ? ValueType::Bit : ValueType::U16;
-}
-
 static bool validateLongReadType(DeviceCode code, ValueType type) {
     LongReadAccess long_read{};
     if (!getLongReadAccess(code, long_read)) {
@@ -323,10 +312,6 @@ static WriteRoute resolveWriteRoute(const AddressSpec& spec) {
 }
 
 static bool normalizeRequestedType(const DeviceMeta& meta, ValueType& type) {
-    if (meta.bit_unit && type == ValueType::U16) {
-        type = ValueType::Bit;
-        return true;
-    }
     if (meta.bit_unit) {
         return type == ValueType::Bit;
     }
@@ -1343,15 +1328,7 @@ static Error parseAddressSpecImpl(const char* address, const PlcProfile* family,
         return Error::Ok;
     }
 
-    DeviceAddress device{};
-    const DeviceMeta* meta = nullptr;
-    const Error err = parseDeviceOnly(text.c_str(), device, &meta, family);
-    if (err != Error::Ok) return err;
-    out.device = device;
-    out.type = defaultValueType(*meta);
-    out.bit_index = -1;
-    out.explicit_type = false;
-    return Error::Ok;
+    return Error::InvalidArgument;
 }
 
 Error parseAddressSpec(const char* address, AddressSpec& out) {
@@ -1388,13 +1365,10 @@ static Error formatAddressSpecImpl(const AddressSpec& spec, const PlcProfile* fa
         return copyTextToBuffer(formatted, out, out_size);
     }
 
-    const ValueType default_type = defaultValueType(*meta);
-    if (spec.explicit_type || spec.type != default_type) {
-        const char* suffix = valueTypeSuffix(spec.type);
-        if (suffix == nullptr) return Error::InvalidArgument;
-        formatted.push_back(':');
-        formatted += suffix;
-    }
+    const char* suffix = valueTypeSuffix(spec.type);
+    if (suffix == nullptr) return Error::InvalidArgument;
+    formatted.push_back(':');
+    formatted += suffix;
 
     return copyTextToBuffer(formatted, out, out_size);
 }

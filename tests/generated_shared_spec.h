@@ -141,7 +141,7 @@ struct NormalizeCase {
 
 static constexpr NormalizeCase kCases[] = {
     {"float_suffix", " d200:f ", "D200:F"},
-    {"hex_device", " x1a ", "X1A"},
+    {"hex_device", " w1a:u ", "W1A:U"},
     {"bit_in_word_hex", "d50.a", "D50.A"},
     {"bit_in_word_hex_d_not_dtype", "d50.d", "D50.D"},
     {"explicit_dword", "rd100:d", "RD100:D"},
@@ -163,8 +163,8 @@ struct ParseCase {
 };
 
 static constexpr ParseCase kCases[] = {
-    {"plain_word", "D100", slmp::Error::Ok, slmp::DeviceCode::D, 100U, slmp::highlevel::ValueType::U16, false, -1, true},
-    {"plain_bit_device", "M1000", slmp::Error::Ok, slmp::DeviceCode::M, 1000U, slmp::highlevel::ValueType::Bit, false, -1, true},
+    {"explicit_word", "D100:U", slmp::Error::Ok, slmp::DeviceCode::D, 100U, slmp::highlevel::ValueType::U16, true, -1, true},
+    {"explicit_bit_device", "M1000:BIT", slmp::Error::Ok, slmp::DeviceCode::M, 1000U, slmp::highlevel::ValueType::Bit, true, -1, true},
     {"float_suffix", "D200:F", slmp::Error::Ok, slmp::DeviceCode::D, 200U, slmp::highlevel::ValueType::Float32, true, -1, true},
     {"bit_in_word_hex", "D50.A", slmp::Error::Ok, slmp::DeviceCode::D, 50U, slmp::highlevel::ValueType::Bit, false, 10, true},
     {"bit_in_word_hex_d_not_dtype", "D50.D", slmp::Error::Ok, slmp::DeviceCode::D, 50U, slmp::highlevel::ValueType::Bit, false, 13, true},

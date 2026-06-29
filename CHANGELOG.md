@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Tooling`: Developer/operator command-line tools and helper utilities.
 - `CI`: Release checks, workflow scripts, or automation-only changes.
 
+## [Unreleased] - 2026-06-29
+
+### Changed
+- Library: Made high-level address parsing require explicit value type suffixes such as `:U`, `:S`, `:D`, `:L`, `:F`, or `:BIT`; bare devices no longer default to unsigned word, bit, or long-timer dword interpretations.
+
+### Tests
+- Tests: Updated generated shared-spec vectors and high-level tests for explicit dtype requirements.
+
 ## [1.0.0] - 2026-06-24
 
 ### Added
