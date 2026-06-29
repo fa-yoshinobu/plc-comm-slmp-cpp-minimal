@@ -11,7 +11,7 @@ Use this page to make your first SLMP read and write from an Arduino-compatible 
 | Build system | PlatformIO or Arduino IDE. |
 | Network stack | A board or shield that provides a `WiFiClient` or `EthernetClient` compatible TCP client. |
 | PLC endpoint | Your PLC is reachable at `192.168.250.100`; TCP uses port `1025`, and UDP uses port `1035`. |
-| Register for testing | A safe word register such as `D100` for reads and a test-only word such as `D9000` for writes. |
+| Register for testing | A safe word register such as `D100:U` for reads and a test-only word such as `D9000:U` for writes. |
 
 ## Add the library
 
@@ -47,7 +47,7 @@ The complete sketches below show where the profile configuration belongs.
 
 ## First read
 
-This complete sketch connects to `192.168.250.100:1025` and reads `D100` once per second.
+This complete sketch connects to `192.168.250.100:1025` and reads `D100:U` once per second.
 
 ```cpp
 #include <Arduino.h>
@@ -87,7 +87,7 @@ void setup() {
 
 void loop() {
     slmp::highlevel::Value value;
-    const slmp::Error err = slmp::highlevel::readTyped(plc, kProfile, "D100", value);
+    const slmp::Error err = slmp::highlevel::readTyped(plc, kProfile, "D100:U", value);
     if (err == slmp::Error::Ok) {
         Serial.printf("D100=%u\n", static_cast<unsigned>(value.u16));
     } else {
@@ -107,7 +107,7 @@ D100=1234
 
 ## First write
 
-Use a test-only register that your PLC program does not use for control decisions. This example writes `1234` to `D9000` and then reads it back.
+Use a test-only register that your PLC program does not use for control decisions. This example writes `1234` to `D9000:U` and then reads it back.
 
 ```cpp
 #include <Arduino.h>
@@ -149,14 +149,14 @@ void loop() {
         const slmp::Error writeErr = slmp::highlevel::writeTyped(
             plc,
             kProfile,
-            "D9000",
+            "D9000:U",
             slmp::highlevel::Value::u16Value(1234U));
         Serial.printf("write D9000: %s\n", slmp::errorString(writeErr));
         wroteOnce = (writeErr == slmp::Error::Ok);
     }
 
     slmp::highlevel::Value value;
-    const slmp::Error readErr = slmp::highlevel::readTyped(plc, kProfile, "D9000", value);
+    const slmp::Error readErr = slmp::highlevel::readTyped(plc, kProfile, "D9000:U", value);
     if (readErr == slmp::Error::Ok) {
         Serial.printf("D9000=%u\n", static_cast<unsigned>(value.u16));
     }
@@ -169,7 +169,7 @@ void loop() {
 
 1. The board joins the same network as your PLC.
 2. The serial monitor prints `PLC connected`.
-3. `D100` prints a stable value or a value you expect from the PLC.
+3. `D100:U` prints a stable value or a value you expect from the PLC.
 4. The write test uses a safe address reserved for bring-up.
 5. A write followed by a read returns the value you wrote.
 

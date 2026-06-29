@@ -114,11 +114,11 @@ struct Value {
  * @brief Parsed logical address accepted by the high-level helpers.
  *
  * Examples:
- * - `D100`
+ * - `D100:U`
  * - `D100:S`
  * - `D200:F`
  * - `D50.3`
- * - `M1000`
+ * - `M1000:BIT`
  *
  * Device families accepted by the parser include:
  * - standard relay/register devices such as `D`, `M`, `X`, `Y`, `R`, `ZR`
@@ -334,25 +334,24 @@ Error readDeviceRangeCatalogForPlcProfile(SlmpClient& client, PlcProfile profile
  * @brief Parse a high-level address string.
  *
  * Accepted forms:
- * - `D100`
+ * - `D100:U`
  * - `D100:S`
  * - `D200:D`
  * - `D200:L`
  * - `D200:F`
  * - `D50.3`
- * - `M1000`
+ * - `M1000:BIT`
  *
- * Direct bit devices such as `M1000` default to @ref ValueType::Bit.
- * Word devices default to @ref ValueType::U16, except plain `LTN`, `LSTN`,
- * and `LCN`, which default to @ref ValueType::U32 current-value access.
  * Dtype suffixes are interpreted as:
+ * - `:BIT` direct bit device
+ * - `:U` unsigned 16-bit
  * - `:S` signed 16-bit
  * - `:D` unsigned 32-bit
  * - `:L` signed 32-bit
  * - `:F` float32
  *
- * For addresses without an explicit suffix, @ref AddressSpec::explicit_type is `false`,
- * which allows higher layers to preserve the user's original intent.
+ * Addresses without an explicit suffix are rejected. Use `.n` notation for a
+ * bit inside a word device.
  *
  * @param address Address string to parse.
  * @param out Parsed result.
@@ -378,10 +377,10 @@ Error parseAddressSpec(const char* address, PlcProfile family, AddressSpec& out)
  * round-trip one logical value.
  *
  * Examples:
- * - `D100`
+ * - `D100:U`
  * - `D200:F`
  * - `D50.A`
- * - `X1A`
+ * - `X1A:BIT`
  *
  * @param spec Parsed address specification to format.
  * @param out Caller-provided destination buffer.
@@ -458,15 +457,15 @@ Error readTyped(SlmpClient& client, const char* device, const char* dtype, Value
 Error readTyped(SlmpClient& client, PlcProfile family, const char* device, const char* dtype, Value& out);
 
 /**
- * @brief Read one logical value using one address string such as `D100` or `D200:F`.
+ * @brief Read one logical value using one address string such as `D100:U` or `D200:F`.
  *
  * This overload is the most convenient form for application code because the
- * type can be inferred from the address string.
+ * type is declared in the address string.
  *
  * Examples:
- * - `Z100`
+ * - `Z100:U`
  * - `RD100:D`
- * - `LTS10`
+ * - `LTS10:BIT`
  * - `D50.3`
  *
  * @param client Connected low-level client instance.
@@ -496,7 +495,7 @@ Error writeTyped(SlmpClient& client, const char* device, const char* dtype, cons
 Error writeTyped(SlmpClient& client, PlcProfile family, const char* device, const char* dtype, const Value& value);
 
 /**
- * @brief Write one logical value using one address string such as `D100`, `D200:F`, or `D50.3`.
+ * @brief Write one logical value using one address string such as `D100:U`, `D200:F`, or `D50.3`.
  *
  * This overload supports both direct bit devices and word-bit expressions.
  * When the address uses `.bit`, the helper performs a read-modify-write of the
@@ -588,7 +587,7 @@ Error writeBitInWord(SlmpClient& client, PlcProfile family, const char* device, 
  * be reused by @ref readNamed or @ref Poller.
  *
  * Batchable word and dword devices are deduplicated automatically, so
- * requesting `D100`, `D100:S`, and `D100.3` results in one word-device entry
+ * requesting `D100:U`, `D100:S`, and `D100.3` results in one word-device entry
  * in the compiled plan.
  *
  * @param addresses Caller-provided high-level addresses.
@@ -604,7 +603,7 @@ Error compileReadPlan(const std::vector<std::string>& addresses, PlcProfile fami
  * Example:
  * @code
  * slmp::highlevel::Snapshot snapshot;
- * slmp::highlevel::readNamed(plc, {"SM400", "D100", "D200:F", "D50.3"}, snapshot);
+ * slmp::highlevel::readNamed(plc, {"SM400:BIT", "D100:U", "D200:F", "D50.3"}, snapshot);
  * @endcode
  *
  * Where possible, the helper batches word and dword devices through the random

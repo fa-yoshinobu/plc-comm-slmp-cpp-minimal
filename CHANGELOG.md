@@ -15,7 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Tooling`: Developer/operator command-line tools and helper utilities.
 - `CI`: Release checks, workflow scripts, or automation-only changes.
 
-## [Unreleased]
+## [1.1.1] - 2026-06-29
+
+### Changed
+- Release: Bumped PlatformIO and Arduino library metadata to `1.1.1`.
+- Docs: Documented explicit address-string value-type requirements in user docs and public header comments.
+- Samples: Updated high-level examples to use explicit value-type suffixes.
 
 ## [1.1.0] - 2026-06-29
 

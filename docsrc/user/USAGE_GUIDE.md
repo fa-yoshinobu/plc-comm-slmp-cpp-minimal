@@ -59,12 +59,12 @@ void loop() {
 
 | Address form | Value type | Field to read |
 | --- | --- | --- |
-| `D100` or `D100:U` | `slmp::highlevel::ValueType::U16` | `value.u16` |
+| `D100:U` | `slmp::highlevel::ValueType::U16` | `value.u16` |
 | `D100:S` | `slmp::highlevel::ValueType::S16` | `value.s16` |
 | `D200:D` | `slmp::highlevel::ValueType::U32` | `value.u32` |
 | `D200:L` | `slmp::highlevel::ValueType::S32` | `value.s32` |
 | `D300:F` | `slmp::highlevel::ValueType::Float32` | `value.f32` |
-| `M1000` or `D50.3` | `slmp::highlevel::ValueType::Bit` | `value.bit` |
+| `M1000:BIT` or `D50.3` | `slmp::highlevel::ValueType::Bit` | `value.bit` |
 
 ```cpp
 #include <Arduino.h>
@@ -98,7 +98,7 @@ void setup() {
 
 void loop() {
     slmp::highlevel::Value value;
-    const slmp::Error err = slmp::highlevel::readTyped(plc, kProfile, "D100", value);
+    const slmp::Error err = slmp::highlevel::readTyped(plc, kProfile, "D100:U", value);
     if (err == slmp::Error::Ok) {
         Serial.printf("D100=%u\n", static_cast<unsigned>(value.u16));
     } else {
@@ -148,7 +148,7 @@ void loop() {
         const slmp::Error err = slmp::highlevel::writeTyped(
             plc,
             kProfile,
-            "D9000",
+            "D9000:U",
             slmp::highlevel::Value::u16Value(321U));
         Serial.printf("write D9000: %s\n", slmp::errorString(err));
         wroteOnce = (err == slmp::Error::Ok);
@@ -198,7 +198,7 @@ void setup() {
 void loop() {
     if (!wroteOnce) {
         slmp::highlevel::Snapshot updates = {
-            {"D9000", slmp::highlevel::Value::u16Value(100U)},
+            {"D9000:U", slmp::highlevel::Value::u16Value(100U)},
             {"D9002:S", slmp::highlevel::Value::s16Value(-10)},
             {"D9004:L", slmp::highlevel::Value::s32Value(-123456)},
             {"D9008:F", slmp::highlevel::Value::float32Value(12.5f)}
@@ -209,8 +209,8 @@ void loop() {
     }
 
     const std::vector<std::string> addresses = {
-        "SM400",
-        "D100",
+        "SM400:BIT",
+        "D100:U",
         "D101:S",
         "D200:F",
         "D50.3"
@@ -220,7 +220,7 @@ void loop() {
     const slmp::Error readErr = slmp::highlevel::readNamed(plc, kProfile, addresses, snapshot);
     if (readErr == slmp::Error::Ok && snapshot.size() == addresses.size()) {
         Serial.printf(
-            "SM400=%u D100=%u D101=%d D200:F=%.3f D50.3=%u\n",
+            "SM400:BIT=%u D100:U=%u D101:S=%d D200:F=%.3f D50.3=%u\n",
             snapshot[0].value.bit ? 1U : 0U,
             static_cast<unsigned>(snapshot[1].value.u16),
             static_cast<int>(snapshot[2].value.s16),
@@ -318,7 +318,7 @@ void setup() {
     }
     slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
     plc.connect(kPlcHost, kTcpPort);
-    poller.compile({"D100", "D101:S", "D200:F", "M1000"}, kProfile);
+    poller.compile({"D100:U", "D101:S", "D200:F", "M1000:BIT"}, kProfile);
 }
 
 void loop() {
@@ -399,10 +399,12 @@ void loop() {
 
 | Form | Meaning | Example |
 | --- | --- | --- |
-| Plain word | Default value type for the device group. | `D100` |
 | `:U` | Unsigned 16-bit word. | `D100:U` |
 | `:S` | Signed 16-bit word. | `D100:S` |
 | `:D` | Unsigned 32-bit value from two words. | `D200:D` |
 | `:L` | Signed 32-bit value from two words. | `D200:L` |
 | `:F` | IEEE-754 float32 from two words. | `D300:F` |
+| `:BIT` | Direct bit device value. | `M1000:BIT` |
 | `.n` | One bit inside a word device, where `n` is hexadecimal `0` through `F`. | `D50.3` |
+
+Named addresses used with `readTyped(address)`, `readNamed`, `writeNamed`, and `Poller` must include the intended type, for example `D100:U` or `M1000:BIT`.

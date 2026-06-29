@@ -16,8 +16,8 @@ constexpr PlcProfile kPlcProfile = PlcProfile::IqR;
 
 [[maybe_unused]] slmp::Error readBasicValues(slmp::SlmpClient& plc) {
     Value d100;
-    // Plain D100 defaults to a U16 logical value.
-    if (slmp::highlevel::readTyped(plc, kPlcProfile, "D100", d100) != slmp::Error::Ok) {
+    // Named high-level addresses include the logical type explicitly.
+    if (slmp::highlevel::readTyped(plc, kPlcProfile, "D100:U", d100) != slmp::Error::Ok) {
         return plc.lastError();
     }
 
@@ -33,8 +33,8 @@ constexpr PlcProfile kPlcProfile = PlcProfile::IqR;
 [[maybe_unused]] slmp::Error readMixedSnapshot(slmp::SlmpClient& plc, Snapshot& out) {
     // readNamed preserves caller order and batches compatible word/dword reads.
     const std::vector<std::string> addresses = {
-        "SM400",
-        "D100",
+        "SM400:BIT",
+        "D100:U",
         "D200:S",
         "D300:F",
         "D50.3",
@@ -45,7 +45,7 @@ constexpr PlcProfile kPlcProfile = PlcProfile::IqR;
 [[maybe_unused]] slmp::Error writeMixedValues(slmp::SlmpClient& plc) {
     Snapshot updates;
     // Each update is independent; use safe test addresses in real projects.
-    updates.push_back({"D100", Value::u16Value(1234U)});
+    updates.push_back({"D100:U", Value::u16Value(1234U)});
     updates.push_back({"D200:L", Value::s32Value(-123456)});
     updates.push_back({"D300:F", Value::float32Value(1.5f)});
     updates.push_back({"D50.3", Value::bitValue(true)});
@@ -55,10 +55,10 @@ constexpr PlcProfile kPlcProfile = PlcProfile::IqR;
 [[maybe_unused]] slmp::Error pollCompiledPlan(slmp::SlmpClient& plc, Snapshot& out) {
     Poller poller;
     const std::vector<std::string> addresses = {
-        "D100",
+        "D100:U",
         "D101:S",
         "D200:F",
-        "M1000",
+        "M1000:BIT",
     };
     slmp::Error err = poller.compile(addresses, kPlcProfile);
     if (err != slmp::Error::Ok) {

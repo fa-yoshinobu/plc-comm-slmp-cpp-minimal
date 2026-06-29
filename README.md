@@ -25,7 +25,7 @@ lib_deps =
 
 ## Quick example
 
-This Arduino sketch connects over TCP to `192.168.250.100:1025`, configures the iQ-R profile, and reads `D100`.
+This Arduino sketch connects over TCP to `192.168.250.100:1025`, configures the iQ-R profile, and reads `D100:U`.
 
 ```cpp
 #include <Arduino.h>
@@ -63,7 +63,7 @@ void setup() {
 
 void loop() {
     slmp::highlevel::Value value;
-    const slmp::Error err = slmp::highlevel::readTyped(plc, kProfile, "D100", value);
+    const slmp::Error err = slmp::highlevel::readTyped(plc, kProfile, "D100:U", value);
     if (err == slmp::Error::Ok) {
         Serial.printf("D100=%u\n", static_cast<unsigned>(value.u16));
     } else {

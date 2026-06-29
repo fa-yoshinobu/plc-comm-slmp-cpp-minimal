@@ -233,7 +233,7 @@ int main() {
 int main() {
     slmp::highlevel::AddressSpec spec{};
     const slmp::Error err = slmp::highlevel::parseAddressSpec(
-        "D100",
+        "D100:U",
         slmp::highlevel::PlcProfile::IqR,
         spec);
     return err == slmp::Error::Ok ? 0 : 1;
@@ -257,11 +257,11 @@ int main() {
 int main() {
     slmp::highlevel::AddressSpec spec{};
     const slmp::Error bad = slmp::highlevel::parseAddressSpec(
-        "D100",
+        "D100:U",
         slmp::highlevel::PlcProfile::Unspecified,
         spec);
     const slmp::Error good = slmp::highlevel::parseAddressSpec(
-        "D100",
+        "D100:U",
         slmp::highlevel::PlcProfile::IqR,
         spec);
     return (bad == slmp::Error::InvalidArgument && good == slmp::Error::Ok) ? 0 : 1;

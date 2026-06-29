@@ -61,8 +61,8 @@ bool ensurePlc() {
 
     if (!g_planReady) {
         const std::vector<std::string> addresses = {
-            "SM400",
-            "D100",
+            "SM400:BIT",
+            "D100:U",
             "D200:F",
             "D50.3",
         };
@@ -86,8 +86,8 @@ bool ensurePlc() {
 
 void readHighLevelValues() {
     slmp::highlevel::Value d100;
-    // D100 has no suffix, so the high-level facade decodes it as U16.
-    const auto typedErr = slmp::highlevel::readTyped(g_plc, kPlcProfile, "D100", d100);
+    // Named high-level addresses include the logical type explicitly.
+    const auto typedErr = slmp::highlevel::readTyped(g_plc, kPlcProfile, "D100:U", d100);
     if (typedErr != slmp::Error::Ok) {
         Serial.printf("readTyped failed: %u\n", static_cast<unsigned>(typedErr));
         return;
