@@ -42,7 +42,8 @@ Run the heavier PlatformIO sample gate only when you intentionally validate embe
 Manual publish step after validation:
 
 ```powershell
-& "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" pkg publish --owner <owner>
+$owner = "your-platformio-owner"
+& "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" pkg publish --owner $owner
 ```
 
 ## GitHub Repository Metadata
