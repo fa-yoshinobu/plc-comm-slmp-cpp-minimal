@@ -123,6 +123,7 @@ static const DeviceMeta kDeviceMetas[] = {
     {"F", DeviceCode::F, 10U, true, false},
     {"V", DeviceCode::V, 10U, true, false},
     {"B", DeviceCode::B, 16U, true, false},
+    {"S", DeviceCode::S, 10U, true, false},
     {"D", DeviceCode::D, 10U, false, true},
     {"W", DeviceCode::W, 16U, false, true},
     {"Z", DeviceCode::Z, 10U, false, true},
@@ -248,10 +249,10 @@ static bool getLongReadAccess(DeviceCode code, LongReadAccess& out) {
             out = {DeviceCode::LCN, LongReadRole::Current};
             return true;
         case DeviceCode::LCS:
-            out = {DeviceCode::LCN, LongReadRole::Contact};
+            out = {DeviceCode::LCS, LongReadRole::Contact};
             return true;
         case DeviceCode::LCC:
-            out = {DeviceCode::LCN, LongReadRole::Coil};
+            out = {DeviceCode::LCC, LongReadRole::Coil};
             return true;
         default:
             return false;

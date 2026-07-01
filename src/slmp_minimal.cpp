@@ -236,6 +236,10 @@ inline bool isUnsupportedDirectDevice(DeviceCode code) {
     }
 }
 
+inline bool isReadOnlyDevice(DeviceCode code) {
+    return code == DeviceCode::S;
+}
+
 inline bool isLongTimerStateReadOnlyDevice(DeviceCode code) {
     switch (code) {
         case DeviceCode::LTS:
@@ -311,6 +315,13 @@ inline Error validateDirectBitReadDevice(const DeviceAddress& device) {
     return Error::Ok;
 }
 
+inline Error validateDirectBitWriteDevice(const DeviceAddress& device) {
+    if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code) || isLongFamilyStateWriteDevice(device.code)) {
+        return Error::UnsupportedDevice;
+    }
+    return Error::Ok;
+}
+
 inline Error validateDirectDWordReadDevice(const DeviceAddress& device) {
     if (isUnsupportedDirectDevice(device.code) || isLongTimerCurrentBlockDevice(device.code) || isDwordOnlyDirectWordDevice(device.code)) {
         return Error::UnsupportedDevice;
@@ -319,14 +330,16 @@ inline Error validateDirectDWordReadDevice(const DeviceAddress& device) {
 }
 
 inline Error validateDirectWordWriteDevice(const DeviceAddress& device) {
-    if (isUnsupportedDirectDevice(device.code) || isLongTimerCurrentBlockDevice(device.code) || isDwordOnlyDirectWordDevice(device.code)) {
+    if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code) ||
+        isLongTimerCurrentBlockDevice(device.code) || isDwordOnlyDirectWordDevice(device.code)) {
         return Error::UnsupportedDevice;
     }
     return Error::Ok;
 }
 
 inline Error validateDirectDWordWriteDevice(const DeviceAddress& device) {
-    if (isUnsupportedDirectDevice(device.code) || isLongTimerCurrentBlockDevice(device.code) || isDwordOnlyDirectWordDevice(device.code)) {
+    if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code) ||
+        isLongTimerCurrentBlockDevice(device.code) || isDwordOnlyDirectWordDevice(device.code)) {
         return Error::UnsupportedDevice;
     }
     return Error::Ok;
@@ -411,7 +424,31 @@ inline Error validateExtRandomWriteWordDevices(const ExtDeviceSpec* word_devices
             return spec_error;
         }
         if (word_devices[i].kind == ExtDeviceSpec::Kind::LinkDirect &&
-            isLongCurrentOrDwordOnlyDevice(word_devices[i].link.code)) {
+            (isReadOnlyDevice(word_devices[i].link.code) || isLongCurrentOrDwordOnlyDevice(word_devices[i].link.code))) {
+            return Error::UnsupportedDevice;
+        }
+    }
+    return Error::Ok;
+}
+
+inline Error validateExtRandomBitWriteDevices(const ExtDeviceSpec* bit_devices, size_t bit_count) {
+    if (bit_count == 0) {
+        return Error::Ok;
+    }
+    if (bit_devices == nullptr) {
+        return Error::InvalidArgument;
+    }
+    for (size_t i = 0; i < bit_count; ++i) {
+        Error spec_error = validateExtDeviceSpec(bit_devices[i]);
+        if (spec_error != Error::Ok) {
+            return spec_error;
+        }
+        if (bit_devices[i].kind == ExtDeviceSpec::Kind::ModuleBuf) {
+            return Error::UnsupportedDevice;
+        }
+        if (bit_devices[i].kind == ExtDeviceSpec::Kind::LinkDirect &&
+            (isReadOnlyDevice(bit_devices[i].link.code) || bit_devices[i].link.code == DeviceCode::G ||
+             bit_devices[i].link.code == DeviceCode::HG)) {
             return Error::UnsupportedDevice;
         }
     }
@@ -486,6 +523,7 @@ inline Error summarizeBlockWriteList(const DeviceBlockWrite* blocks, size_t coun
             return Error::InvalidArgument;
         }
         if (isUnsupportedDirectDevice(blocks[i].device.code) ||
+            isReadOnlyDevice(blocks[i].device.code) ||
             isLongCounterContactDevice(blocks[i].device.code) ||
             isLongCurrentOrDwordOnlyDevice(blocks[i].device.code)) {
             return Error::UnsupportedDevice;
@@ -1634,8 +1672,9 @@ Error SlmpClient::beginWriteBits(
         setError(Error::InvalidArgument);
         return last_error_;
     }
-    if (isUnsupportedDirectDevice(device.code) || isLongFamilyStateWriteDevice(device.code)) {
-        setError(Error::UnsupportedDevice);
+    Error validate_error = validateDirectBitWriteDevice(device);
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
         return last_error_;
     }
 
@@ -2147,6 +2186,13 @@ Error SlmpClient::beginWriteWordsLinkDirect(uint8_t j_net, DeviceCode code, uint
         setError(Error::InvalidArgument);
         return last_error_;
     }
+    // Link-direct writes use the same device families as direct writes; keep
+    // them from bypassing read-only and qualified-only policy checks.
+    Error validate_error = validateDirectWordWriteDevice({code, dev_no});
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
+        return last_error_;
+    }
     size_t spec_size = encodeLinkDirectDeviceSpec(j_net, code, dev_no, tx_buffer_, tx_capacity_);
     if (spec_size == 0) {
         setError(Error::BufferTooSmall);
@@ -2197,6 +2243,13 @@ Error SlmpClient::readBitsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t de
 Error SlmpClient::beginWriteBitsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t dev_no, const bool* values, size_t count, uint32_t now_ms) {
     if (values == nullptr || validateDirectBitAccessPoints(count) != Error::Ok) {
         setError(Error::InvalidArgument);
+        return last_error_;
+    }
+    // Link-direct writes use the same device families as direct writes; keep
+    // them from bypassing read-only and qualified-only policy checks.
+    Error validate_error = validateDirectBitWriteDevice({code, dev_no});
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
         return last_error_;
     }
     size_t spec_size = encodeLinkDirectDeviceSpec(j_net, code, dev_no, tx_buffer_, tx_capacity_);
@@ -2769,7 +2822,7 @@ Error SlmpClient::beginWriteRandomWords(
         return last_error_;
     }
     for (size_t i = 0; i < word_count; ++i) {
-        if (isLongCurrentOrDwordOnlyDevice(word_devices[i].code)) {
+        if (isReadOnlyDevice(word_devices[i].code) || isLongCurrentOrDwordOnlyDevice(word_devices[i].code)) {
             setError(Error::UnsupportedDevice);
             return last_error_;
         }
@@ -2778,6 +2831,12 @@ Error SlmpClient::beginWriteRandomWords(
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
+    }
+    for (size_t i = 0; i < dword_count; ++i) {
+        if (isReadOnlyDevice(dword_devices[i].code)) {
+            setError(Error::UnsupportedDevice);
+            return last_error_;
+        }
     }
 
     size_t spec_size = (compatibility_mode_ == CompatibilityMode::Legacy) ? 4U : 6U;
@@ -2852,6 +2911,12 @@ Error SlmpClient::beginWriteRandomBits(
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
+    }
+    for (size_t i = 0; i < bit_count; ++i) {
+        if (isReadOnlyDevice(bit_devices[i].code)) {
+            setError(Error::UnsupportedDevice);
+            return last_error_;
+        }
     }
 
     size_t spec_size = (compatibility_mode_ == CompatibilityMode::Legacy) ? 4U : 6U;
@@ -3569,6 +3634,11 @@ Error SlmpClient::beginWriteRandomWordsExt(
             setError(validate_error);
             return last_error_;
         }
+        if (dword_devices[i].kind == ExtDeviceSpec::Kind::LinkDirect &&
+            isReadOnlyDevice(dword_devices[i].link.code)) {
+            setError(Error::UnsupportedDevice);
+            return last_error_;
+        }
     }
 
     tx_buffer_[0] = static_cast<uint8_t>(word_count);
@@ -3608,16 +3678,16 @@ Error SlmpClient::beginWriteRandomBitsExt(
         validateRandomBitWriteCount(bit_count, compatibility_mode_) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
+    Error validate_error = validateExtRandomBitWriteDevices(bit_devices, bit_count);
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
+        return last_error_;
+    }
 
     tx_buffer_[0] = static_cast<uint8_t>(bit_count);
     size_t offset = 1U;
     size_t val_size = (compatibility_mode_ == CompatibilityMode::Legacy) ? 1U : 2U;
     for (size_t i = 0; i < bit_count; ++i) {
-        Error validate_error = validateExtDeviceSpec(bit_devices[i]);
-        if (validate_error != Error::Ok) {
-            setError(validate_error);
-            return last_error_;
-        }
         size_t written = encodeExtDeviceSpec(bit_devices[i], compatibility_mode_, tx_buffer_ + offset, tx_capacity_ - offset);
         if (written == 0) { setError(Error::BufferTooSmall); return last_error_; }
         if (val_size == 1U) {

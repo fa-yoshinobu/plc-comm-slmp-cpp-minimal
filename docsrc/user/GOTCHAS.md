@@ -113,6 +113,14 @@ int main() {
 }
 ```
 
+## S write is rejected
+
+| Item | Detail |
+| --- | --- |
+| Symptom | `S10:BIT` can be parsed and read, but a write call returns `slmp::Error::UnsupportedDevice`. |
+| Root cause | Step relay `S` is treated as a read-only bit family. |
+| Fix | Keep `S` out of direct, random, block, and extended write requests. |
+
 ## G or HG address fails
 
 | Item | Detail |

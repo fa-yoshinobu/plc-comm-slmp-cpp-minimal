@@ -13,6 +13,7 @@ This page lists the public device families used by the low-level and high-level 
 | `L` | Latch relay | Decimal numbering. |
 | `F` | Annunciator | Low-level helper name is `slmp::dev::FDevice`. |
 | `V` | Edge relay | Decimal numbering. |
+| `S` | Step relay | Decimal numbering; reads are supported and writes are rejected as read-only. |
 | `B` | Link relay | Hexadecimal numbering. |
 | `TS` | Timer contact | Decimal numbering. |
 | `TC` | Timer coil | Decimal numbering. |
@@ -67,7 +68,7 @@ This page lists the public device families used by the low-level and high-level 
 | --- | --- |
 | Long families | `LTN`, `LSTN`, `LCN`, and `LZ` require `U32` or `S32`; 16-bit access yields wrong data. |
 | Module buffer memory | `G` and `HG` are not in the public high-level surface for normal direct device access. Use raw `slmp::SlmpClient` module-buffer APIs such as `readWordsModuleBuf`. |
-| Step relay | `S` is not exposed publicly by the current headers. |
+| Step relay | `S` is exposed as a read-only bit device. Direct, random, block, and extended writes return `slmp::Error::UnsupportedDevice`. |
 | Direct input/output | `DX` and `DY` are not valid for the iQ-F profile. |
 | `X` and `Y` strings | Use profile-aware overloads; iQ-F uses octal notation while other supported profiles use hexadecimal notation. |
 | Bit-in-word | Use `.n` with `n` from `0` to `F`, for example `D50.3`. |
