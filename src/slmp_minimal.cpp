@@ -315,6 +315,13 @@ inline Error validateDirectBitReadDevice(const DeviceAddress& device) {
     return Error::Ok;
 }
 
+inline Error validateDirectBitWriteDevice(const DeviceAddress& device) {
+    if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code) || isLongFamilyStateWriteDevice(device.code)) {
+        return Error::UnsupportedDevice;
+    }
+    return Error::Ok;
+}
+
 inline Error validateDirectDWordReadDevice(const DeviceAddress& device) {
     if (isUnsupportedDirectDevice(device.code) || isLongTimerCurrentBlockDevice(device.code) || isDwordOnlyDirectWordDevice(device.code)) {
         return Error::UnsupportedDevice;
@@ -1665,8 +1672,9 @@ Error SlmpClient::beginWriteBits(
         setError(Error::InvalidArgument);
         return last_error_;
     }
-    if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code) || isLongFamilyStateWriteDevice(device.code)) {
-        setError(Error::UnsupportedDevice);
+    Error validate_error = validateDirectBitWriteDevice(device);
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
         return last_error_;
     }
 
@@ -2178,6 +2186,13 @@ Error SlmpClient::beginWriteWordsLinkDirect(uint8_t j_net, DeviceCode code, uint
         setError(Error::InvalidArgument);
         return last_error_;
     }
+    // Link-direct writes use the same device families as direct writes; keep
+    // them from bypassing read-only and qualified-only policy checks.
+    Error validate_error = validateDirectWordWriteDevice({code, dev_no});
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
+        return last_error_;
+    }
     size_t spec_size = encodeLinkDirectDeviceSpec(j_net, code, dev_no, tx_buffer_, tx_capacity_);
     if (spec_size == 0) {
         setError(Error::BufferTooSmall);
@@ -2228,6 +2243,13 @@ Error SlmpClient::readBitsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t de
 Error SlmpClient::beginWriteBitsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t dev_no, const bool* values, size_t count, uint32_t now_ms) {
     if (values == nullptr || validateDirectBitAccessPoints(count) != Error::Ok) {
         setError(Error::InvalidArgument);
+        return last_error_;
+    }
+    // Link-direct writes use the same device families as direct writes; keep
+    // them from bypassing read-only and qualified-only policy checks.
+    Error validate_error = validateDirectBitWriteDevice({code, dev_no});
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
         return last_error_;
     }
     size_t spec_size = encodeLinkDirectDeviceSpec(j_net, code, dev_no, tx_buffer_, tx_capacity_);

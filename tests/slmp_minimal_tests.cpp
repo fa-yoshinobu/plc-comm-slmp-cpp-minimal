@@ -855,6 +855,31 @@ void testUnsupportedLongFamilyCommandGuards() {
     }
 }
 
+void testLinkDirectWriteDeviceGuards() {
+    MockTransport transport;
+    uint8_t tx_buffer[128] = {};
+    uint8_t rx_buffer[128] = {};
+    slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+    const uint16_t words[] = {1U};
+    const bool bits[] = {true};
+
+    assert(plc.beginWriteWordsLinkDirect(1, slmp::DeviceCode::S, 10, words, 1, 0) == slmp::Error::UnsupportedDevice);
+    assert(transport.lastWrite().empty());
+    assert(plc.beginWriteBitsLinkDirect(1, slmp::DeviceCode::S, 10, bits, 1, 0) == slmp::Error::UnsupportedDevice);
+    assert(transport.lastWrite().empty());
+
+    assert(plc.beginWriteWordsLinkDirect(1, slmp::DeviceCode::G, 10, words, 1, 0) == slmp::Error::UnsupportedDevice);
+    assert(transport.lastWrite().empty());
+    assert(plc.beginWriteBitsLinkDirect(1, slmp::DeviceCode::G, 10, bits, 1, 0) == slmp::Error::UnsupportedDevice);
+    assert(transport.lastWrite().empty());
+
+    assert(plc.beginWriteWordsLinkDirect(1, slmp::DeviceCode::HG, 10, words, 1, 0) == slmp::Error::UnsupportedDevice);
+    assert(transport.lastWrite().empty());
+    assert(plc.beginWriteBitsLinkDirect(1, slmp::DeviceCode::HG, 10, bits, 1, 0) == slmp::Error::UnsupportedDevice);
+    assert(transport.lastWrite().empty());
+}
+
 void testTargetAndMonitoringTimerHeaders() {
     MockTransport transport;
     uint8_t tx_buffer[128] = {};
@@ -2521,6 +2546,7 @@ int main() {
     testWriteDWordsAndRandomWords();
     testRandomAndBlock();
     testUnsupportedLongFamilyCommandGuards();
+    testLinkDirectWriteDeviceGuards();
     testTargetAndMonitoringTimerHeaders();
     testPlcErrorAndStrings();
     testPasswordAndWriteBlock();
