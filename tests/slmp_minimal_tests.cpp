@@ -2494,6 +2494,73 @@ void testHighLevelplcProfileDefaults() {
         slmp::highlevel::configureClientForPlcProfile(plc, slmp::highlevel::PlcProfile::IqF);
         assert(plc.frameType() == slmp::FrameType::Frame3E);
         assert(plc.compatibilityMode() == slmp::CompatibilityMode::Legacy);
+        assert(plc.blockAccessEnabled());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[64] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        const slmp::highlevel::PlcProfile q_profiles[] = {
+            slmp::highlevel::PlcProfile::QCpu,
+            slmp::highlevel::PlcProfile::QnU,
+            slmp::highlevel::PlcProfile::QnUDV,
+        };
+        for (size_t i = 0; i < sizeof(q_profiles) / sizeof(q_profiles[0]); ++i) {
+            slmp::highlevel::configureClientForPlcProfile(plc, q_profiles[i]);
+            assert(plc.frameType() == slmp::FrameType::Frame3E);
+            assert(plc.compatibilityMode() == slmp::CompatibilityMode::Legacy);
+            assert(!plc.blockAccessEnabled());
+        }
+    }
+}
+
+void testQSeriesBlockRouteGuard() {
+    const slmp::highlevel::PlcProfile q_profiles[] = {
+        slmp::highlevel::PlcProfile::QCpu,
+        slmp::highlevel::PlcProfile::QnU,
+        slmp::highlevel::PlcProfile::QnUDV,
+    };
+    for (size_t i = 0; i < sizeof(q_profiles) / sizeof(q_profiles[0]); ++i) {
+        {
+            MockTransport transport;
+            uint8_t tx_buffer[128] = {};
+            uint8_t rx_buffer[128] = {};
+            slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+            slmp::highlevel::configureClientForPlcProfile(plc, q_profiles[i]);
+
+            const slmp::DeviceBlockRead word_blocks[] = {
+                slmp::dev::blockRead(slmp::dev::D(slmp::dev::dec(100)), 1),
+            };
+            const slmp::DeviceBlockRead bit_blocks[] = {
+                slmp::dev::blockRead(slmp::dev::M(slmp::dev::dec(100)), 1),
+            };
+            uint16_t word_values[1] = {};
+            uint16_t bit_values[1] = {};
+            assert(plc.readBlock(word_blocks, 1, bit_blocks, 1, word_values, 1, bit_values, 1) ==
+                   slmp::Error::UnsupportedDevice);
+            assert(transport.lastWrite().empty());
+        }
+
+        {
+            MockTransport transport;
+            uint8_t tx_buffer[128] = {};
+            uint8_t rx_buffer[128] = {};
+            slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+            slmp::highlevel::configureClientForPlcProfile(plc, q_profiles[i]);
+
+            const uint16_t word_data[] = {1U};
+            const uint16_t bit_data[] = {1U};
+            const slmp::DeviceBlockWrite word_blocks[] = {
+                slmp::dev::blockWrite(slmp::dev::D(slmp::dev::dec(100)), word_data, 1),
+            };
+            const slmp::DeviceBlockWrite bit_blocks[] = {
+                slmp::dev::blockWrite(slmp::dev::M(slmp::dev::dec(100)), bit_data, 1),
+            };
+            assert(plc.writeBlock(word_blocks, 1, bit_blocks, 1) == slmp::Error::UnsupportedDevice);
+            assert(transport.lastWrite().empty());
+        }
     }
 }
 
@@ -2568,6 +2635,7 @@ int main() {
     testHighLevelNamedReadAndPoller();
     testHighLevelDeviceRangeCatalog();
     testHighLevelplcProfileDefaults();
+    testQSeriesBlockRouteGuard();
     testCpuOperationState();
     std::puts("slmp_minimal_tests: ok");
     return 0;

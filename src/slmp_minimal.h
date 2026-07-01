@@ -604,6 +604,11 @@ class SlmpClient {
     /** @brief Get current compatibility mode. */
     CompatibilityMode compatibilityMode() const;
 
+    /** @brief Enable or disable Read/Write Block commands for the selected target profile. */
+    void setBlockAccessEnabled(bool enabled);
+    /** @brief Return whether Read/Write Block commands are enabled. */
+    bool blockAccessEnabled() const;
+
     /** @brief Set SLMP monitoring timer (units of 250ms). How long the PLC should wait for internal processing. */
     void setMonitoringTimer(uint16_t monitoring_timer);
     /** @brief Get current monitoring timer value. */
@@ -1340,6 +1345,7 @@ class SlmpClient {
     TargetAddress target_;
     FrameType frame_type_;
     CompatibilityMode compatibility_mode_;
+    bool block_access_enabled_;
     uint16_t monitoring_timer_;
     uint32_t timeout_ms_;
     uint16_t serial_;

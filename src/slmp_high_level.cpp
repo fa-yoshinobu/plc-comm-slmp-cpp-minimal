@@ -1170,6 +1170,9 @@ void configureClientForPlcProfile(SlmpClient& client, PlcProfile family) {
     const PlcProfileDefaults defaults = plcProfileDefaultsImpl(family);
     client.setFrameType(defaults.frame_type);
     client.setCompatibilityMode(defaults.compatibility_mode);
+    client.setBlockAccessEnabled(family != PlcProfile::QCpu &&
+                                 family != PlcProfile::QnU &&
+                                 family != PlcProfile::QnUDV);
 }
 
 const char* deviceRangeProfileLabel(PlcProfile profile) {

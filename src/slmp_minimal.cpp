@@ -724,6 +724,7 @@ SlmpClient::SlmpClient(
       target_(),
       frame_type_(FrameType::Frame4E),
       compatibility_mode_(CompatibilityMode::iQR),
+      block_access_enabled_(true),
       monitoring_timer_(0x0010),
       timeout_ms_(3000),
       serial_(0),
@@ -784,6 +785,14 @@ void SlmpClient::setCompatibilityMode(CompatibilityMode mode) {
 
 CompatibilityMode SlmpClient::compatibilityMode() const {
     return compatibility_mode_;
+}
+
+void SlmpClient::setBlockAccessEnabled(bool enabled) {
+    block_access_enabled_ = enabled;
+}
+
+bool SlmpClient::blockAccessEnabled() const {
+    return block_access_enabled_;
 }
 
 void SlmpClient::setMonitoringTimer(uint16_t monitoring_timer) {
@@ -2968,6 +2977,10 @@ Error SlmpClient::beginReadBlock(
     size_t bit_value_capacity,
     uint32_t now_ms
 ) {
+    if (!block_access_enabled_) {
+        setError(Error::UnsupportedDevice);
+        return last_error_;
+    }
     if ((word_block_count == 0 && bit_block_count == 0) || word_block_count > 0xFFU || bit_block_count > 0xFFU) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -3076,6 +3089,10 @@ Error SlmpClient::beginWriteBlock(
     const BlockWriteOptions& options,
     uint32_t now_ms
 ) {
+    if (!block_access_enabled_) {
+        setError(Error::UnsupportedDevice);
+        return last_error_;
+    }
     const bool has_mixed_blocks = (word_block_count > 0U && bit_block_count > 0U);
 
     if (options.split_mixed_blocks && has_mixed_blocks) {
