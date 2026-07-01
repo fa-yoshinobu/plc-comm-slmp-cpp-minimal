@@ -247,6 +247,7 @@ const DirectFunctionCase kDirectFunctionCases[] = {
     {"F", slmp::DeviceCode::F, 100, true, true, true},
     {"V", slmp::DeviceCode::V, 100, true, true, true},
     {"B", slmp::DeviceCode::B, 0x100, true, true, true},
+    {"S", slmp::DeviceCode::S, 100, true, true, false},
     {"D", slmp::DeviceCode::D, 100, false, true, true},
     {"W", slmp::DeviceCode::W, 0x100, false, true, true},
     {"TS", slmp::DeviceCode::TS, 100, true, true, true},
@@ -358,6 +359,10 @@ void testAdditionalDeviceHelpers() {
     const slmp::DeviceAddress lsts = slmp::dev::LSTS(slmp::dev::dec(16));
     assert(lsts.code == slmp::DeviceCode::LSTS);
     assert(lsts.number == 16U);
+
+    const slmp::DeviceAddress s = slmp::dev::S(slmp::dev::dec(17));
+    assert(s.code == slmp::DeviceCode::S);
+    assert(s.number == 17U);
 }
 
 void testReadWordsAndFrames() {
@@ -713,9 +718,35 @@ void testUnsupportedLongFamilyCommandGuards() {
         uint8_t rx_buffer[128] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
 
+        const slmp::DeviceAddress bit_devices[] = {slmp::dev::S(slmp::dev::dec(10))};
+        const bool bit_values[] = {true};
+        assert(plc.writeRandomBits(bit_devices, bit_values, 1) == slmp::Error::UnsupportedDevice);
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
         const uint16_t values[] = {1U};
         const slmp::DeviceBlockWrite bit_blocks[] = {
             slmp::dev::blockWrite(slmp::dev::LCC(slmp::dev::dec(10)), values, 1),
+        };
+        assert(plc.writeBlock(nullptr, 0, bit_blocks, 1) == slmp::Error::UnsupportedDevice);
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        const uint16_t values[] = {1U};
+        const slmp::DeviceBlockWrite bit_blocks[] = {
+            slmp::dev::blockWrite(slmp::dev::S(slmp::dev::dec(10)), values, 1),
         };
         assert(plc.writeBlock(nullptr, 0, bit_blocks, 1) == slmp::Error::UnsupportedDevice);
         assert(transport.lastWrite().empty());
@@ -819,7 +850,8 @@ void testUnsupportedLongFamilyCommandGuards() {
             slmp::ExtDeviceSpec::moduleBuf(0x03E0, true, 0),
         };
         const bool bit_values[] = {true};
-        assert(plc.writeRandomBitsExt(valid_hg_devices, bit_values, 1) != slmp::Error::InvalidArgument);
+        assert(plc.writeRandomBitsExt(valid_hg_devices, bit_values, 1) == slmp::Error::UnsupportedDevice);
+        assert(transport.lastWrite().empty());
     }
 }
 
@@ -2019,6 +2051,13 @@ void testHighLevelAddressFormatting() {
         char formatted[32] = {};
         assert(slmp::highlevel::formatAddressSpec(spec, formatted, sizeof(formatted)) == slmp::Error::Ok);
         assert(std::string(formatted) == "RD100:D");
+    }
+
+    {
+        slmp::highlevel::AddressSpec spec{};
+        assert(slmp::highlevel::parseAddressSpec("S10:BIT", spec) == slmp::Error::Ok);
+        assert(spec.device.code == slmp::DeviceCode::S);
+        assert(spec.device.number == 10U);
     }
 
     {

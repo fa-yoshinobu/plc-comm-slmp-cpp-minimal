@@ -95,6 +95,7 @@ enum class DeviceCode : uint16_t {
     F = 0x0093,             ///< Annunciator
     V = 0x0094,             ///< Edge Relay
     B = 0x00A0,             ///< Link Relay
+    S = 0x0098,             ///< Step Relay
     D = 0x00A8,             ///< Data Register
     W = 0x00B4,             ///< Link Register
     TS = 0x00C1,            ///< Timer Contact
@@ -233,6 +234,7 @@ SLMP_DEC_DEVICE_HELPER(SM)
 SLMP_DEC_DEVICE_HELPER(SD)
 SLMP_DEC_DEVICE_HELPER(M)
 SLMP_DEC_DEVICE_HELPER(L)
+SLMP_DEC_DEVICE_HELPER(S)
 SLMP_DEC_DEVICE_HELPER(V)
 SLMP_DEC_DEVICE_HELPER(D)
 SLMP_DEC_DEVICE_HELPER(TS)

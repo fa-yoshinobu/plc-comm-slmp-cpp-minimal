@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Tooling`: Developer/operator command-line tools and helper utilities.
 - `CI`: Release checks, workflow scripts, or automation-only changes.
 
+## [Unreleased]
+
+### Changed
+- Library: Added SLMP `S` step relay device-code support for reads and rejected direct, random, block, and extended writes to `S` as read-only.
+- Library: Rejected `G/HG` extended random bit writes; callers should use U-qualified word access for buffer-memory devices.
+- Library: Aligned high-level long counter state metadata so `LCS/LCC` remain long-helper entries while using their direct bit-read route internally.
+- Docs: Documented `S` as a read-only bit device in supported-register, gotcha, and audit-reflection notes.
+- Docs: Fixed PowerShell placeholder text in maintainer publishing notes.
+- Tests: Added guard coverage for `S` read-only writes, high-level `S10:BIT` parsing, and `G/HG` random bit write rejection.
+
 ## [1.1.1] - 2026-06-29
 
 ### Changed
