@@ -3,7 +3,7 @@
  * @brief Ultra-lightweight SLMP (MC Protocol) Client for Embedded C++.
  * 
  * Provides a minimal, buffer-efficient implementation of the SLMP protocol
- * suitable for resource-constrained embedded systems like Arduino, ESP32, and RP2040.
+ * suitable for resource-constrained ESP32/RP2040-class embedded systems.
  *
  * Design intent:
  * - keep the core API deterministic and buffer-oriented
@@ -71,6 +71,23 @@ enum class FrameType : uint8_t {
 enum class CompatibilityMode : uint8_t {
     iQR,     ///< Use subcommands 0x0002/0x0003 (iQ-R series extensions). Supports larger address ranges.
     Legacy,  ///< Use subcommands 0x0000/0x0001 (Legacy Q/L series).
+};
+
+/**
+ * @enum PlcProfile
+ * @brief Canonical PLC profile used by the core client for profile-specific guards.
+ */
+enum class PlcProfile : uint8_t {
+    Unspecified = 0,
+    IqF = 1,
+    IqR = 2,
+    IqL = 3,
+    MxF = 4,
+    MxR = 5,
+    QCpu = 6,
+    LCpu = 7,
+    QnU = 8,
+    QnUDV = 9,
 };
 
 /** @} */ // end of SLMP_Core
@@ -498,7 +515,8 @@ struct CpuOperationState {
  * @brief Abstract interface for the underlying transport layer (TCP/UDP/Serial).
  * 
  * Implement this interface to support custom communication stacks.
- * For Arduino, see @ref ArduinoClientTransport or @ref ArduinoUdpTransport.
+ * For Arduino-compatible ESP32/RP2040 cores, see @ref ArduinoClientTransport
+ * or @ref ArduinoUdpTransport.
  */
 class ITransport {
   public:
@@ -604,9 +622,14 @@ class SlmpClient {
     /** @brief Get current compatibility mode. */
     CompatibilityMode compatibilityMode() const;
 
-    /** @brief Enable or disable Read/Write Block commands for the selected target profile. */
+    /** @brief Set a concrete PLC profile and apply its frame/compatibility defaults. */
+    void setPlcProfile(PlcProfile profile);
+    /** @brief Return the currently selected PLC profile, or Unspecified after manual low-level overrides. */
+    PlcProfile plcProfile() const;
+
+    /** @brief Enable or disable Read/Write Block commands when the selected PLC profile permits them. */
     void setBlockAccessEnabled(bool enabled);
-    /** @brief Return whether Read/Write Block commands are enabled. */
+    /** @brief Return whether Read/Write Block commands are effectively enabled after PLC-profile guards. */
     bool blockAccessEnabled() const;
 
     /** @brief Set SLMP monitoring timer (units of 250ms). How long the PLC should wait for internal processing. */
@@ -1343,6 +1366,7 @@ class SlmpClient {
     uint8_t* rx_buffer_;
     size_t rx_capacity_;
     TargetAddress target_;
+    PlcProfile plc_profile_;
     FrameType frame_type_;
     CompatibilityMode compatibility_mode_;
     bool block_access_enabled_;

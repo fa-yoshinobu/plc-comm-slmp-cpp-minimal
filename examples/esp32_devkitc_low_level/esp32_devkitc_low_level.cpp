@@ -41,9 +41,8 @@ bool ensurePlc() {
         return true;
     }
 
-    // Low-level users choose frame and compatibility mode directly.
-    g_plc.setFrameType(slmp::FrameType::Frame4E);
-    g_plc.setCompatibilityMode(slmp::CompatibilityMode::iQR);
+    // Keep low-level calls while still selecting a concrete PLC profile.
+    g_plc.setPlcProfile(slmp::PlcProfile::IqR);
     return g_plc.connect(kPlcHost, kPlcPort);
 }
 

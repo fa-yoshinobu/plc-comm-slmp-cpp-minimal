@@ -2,9 +2,9 @@
 [![PlatformIO Registry](https://badges.registry.platformio.org/packages/fa-yoshinobu/library/slmp-connect-cpp-minimal.svg)](https://registry.platformio.org/libraries/fa-yoshinobu/slmp-connect-cpp-minimal)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-# MELSEC SLMP for C++ / Arduino
+# MELSEC SLMP for C++ / ESP32 / RP2040
 
-C++ library for MELSEC SLMP (Binary 3E/4E) PLC communication on Arduino and PlatformIO.
+C++ library for MELSEC SLMP (Binary 3E/4E) PLC communication on ESP32/RP2040-class boards using Arduino-compatible cores or PlatformIO.
 
 ## Supported PLC profiles
 
@@ -25,7 +25,7 @@ lib_deps =
 
 ## Quick example
 
-This Arduino sketch connects over TCP to `192.168.250.100:1025`, configures the iQ-R profile, and reads `D100:U`.
+This ESP32 sketch connects over TCP to `192.168.250.100:1025`, configures the iQ-R profile, and reads `D100:U`.
 
 ```cpp
 #include <Arduino.h>

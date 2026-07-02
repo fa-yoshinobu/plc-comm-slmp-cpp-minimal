@@ -2,13 +2,13 @@
 
 ## Start here
 
-Use this page to make your first SLMP read and write from an Arduino-compatible board. The examples use TCP at `192.168.250.100:1025`; use UDP port `1035` when you build a UDP transport variant.
+Use this page to make your first SLMP read and write from an ESP32/RP2040-class board. The examples use TCP at `192.168.250.100:1025`; use UDP port `1035` when you build a UDP transport variant.
 
 ## Prerequisites
 
 | Need | Detail |
 | --- | --- |
-| Build system | PlatformIO or Arduino IDE. |
+| Build system | PlatformIO or Arduino IDE with ESP32/RP2040 board support. |
 | Network stack | A board or shield that provides a `WiFiClient` or `EthernetClient` compatible TCP client. |
 | PLC endpoint | Your PLC is reachable at `192.168.250.100`; TCP uses port `1025`, and UDP uses port `1035`. |
 | Register for testing | A safe word register such as `D100:U` for reads and a test-only word such as `D9000:U` for writes. |
@@ -28,13 +28,13 @@ lib_deps =
 | --- | --- |
 | `#include <slmp_minimal.h>` | Low-level `slmp::SlmpClient`, device helpers, fixed buffers, and direct protocol calls. |
 | `#include <slmp_high_level.h>` | Optional high-level helpers such as `slmp::highlevel::readTyped`, `slmp::highlevel::writeTyped`, and `slmp::highlevel::Poller`. |
-| `#include <slmp_arduino_transport.h>` | Arduino TCP and UDP transport adapters. |
+| `#include <slmp_arduino_transport.h>` | TCP and UDP transport adapters for Arduino-compatible ESP32/RP2040 cores. |
 
 The high-level layer is optional and is not included by `slmp_minimal.h` automatically.
 
 ## Choose your PLC profile
 
-Call `slmp::highlevel::configureClientForPlcProfile` before the first read or write. It applies the frame type and compatibility mode for the selected PLC profile; it does not auto-detect your PLC.
+Call `slmp::highlevel::configureClientForPlcProfile` before the first read or write. It applies the frame type, compatibility mode, and profile-specific guards for the selected PLC profile; it does not auto-detect your PLC.
 
 | Target | Profile to start with |
 | --- | --- |

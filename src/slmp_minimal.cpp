@@ -86,6 +86,50 @@ constexpr size_t kResponsePrefixSize4E = 13;
 constexpr size_t kRequestHeaderSize3E = 15;
 constexpr size_t kResponsePrefixSize3E = 9;
 
+inline bool isSpecifiedPlcProfile(PlcProfile profile) {
+    return profile != PlcProfile::Unspecified;
+}
+
+inline bool profileDisablesBlockAccess(PlcProfile profile) {
+    return profile == PlcProfile::QCpu || profile == PlcProfile::QnU || profile == PlcProfile::QnUDV;
+}
+
+inline FrameType frameTypeForPlcProfile(PlcProfile profile) {
+    switch (profile) {
+        case PlcProfile::IqR:
+        case PlcProfile::IqL:
+        case PlcProfile::MxF:
+        case PlcProfile::MxR:
+            return FrameType::Frame4E;
+        case PlcProfile::IqF:
+        case PlcProfile::QCpu:
+        case PlcProfile::LCpu:
+        case PlcProfile::QnU:
+        case PlcProfile::QnUDV:
+        case PlcProfile::Unspecified:
+        default:
+            return FrameType::Frame3E;
+    }
+}
+
+inline CompatibilityMode compatibilityModeForPlcProfile(PlcProfile profile) {
+    switch (profile) {
+        case PlcProfile::IqR:
+        case PlcProfile::IqL:
+        case PlcProfile::MxF:
+        case PlcProfile::MxR:
+            return CompatibilityMode::iQR;
+        case PlcProfile::IqF:
+        case PlcProfile::QCpu:
+        case PlcProfile::LCpu:
+        case PlcProfile::QnU:
+        case PlcProfile::QnUDV:
+        case PlcProfile::Unspecified:
+        default:
+            return CompatibilityMode::Legacy;
+    }
+}
+
 inline void writeLe16(uint8_t* out, uint16_t value) {
     out[0] = static_cast<uint8_t>(value & 0xFF);
     out[1] = static_cast<uint8_t>((value >> 8) & 0xFF);
@@ -722,6 +766,7 @@ SlmpClient::SlmpClient(
       rx_buffer_(rx_buffer),
       rx_capacity_(rx_capacity),
       target_(),
+      plc_profile_(PlcProfile::Unspecified),
       frame_type_(FrameType::Frame4E),
       compatibility_mode_(CompatibilityMode::iQR),
       block_access_enabled_(true),
@@ -773,6 +818,7 @@ const TargetAddress& SlmpClient::target() const {
 
 void SlmpClient::setFrameType(FrameType frame_type) {
     frame_type_ = frame_type;
+    plc_profile_ = PlcProfile::Unspecified;
 }
 
 FrameType SlmpClient::frameType() const {
@@ -781,10 +827,25 @@ FrameType SlmpClient::frameType() const {
 
 void SlmpClient::setCompatibilityMode(CompatibilityMode mode) {
     compatibility_mode_ = mode;
+    plc_profile_ = PlcProfile::Unspecified;
 }
 
 CompatibilityMode SlmpClient::compatibilityMode() const {
     return compatibility_mode_;
+}
+
+void SlmpClient::setPlcProfile(PlcProfile profile) {
+    plc_profile_ = profile;
+    if (!isSpecifiedPlcProfile(profile)) {
+        return;
+    }
+    frame_type_ = frameTypeForPlcProfile(profile);
+    compatibility_mode_ = compatibilityModeForPlcProfile(profile);
+    block_access_enabled_ = !profileDisablesBlockAccess(profile);
+}
+
+PlcProfile SlmpClient::plcProfile() const {
+    return plc_profile_;
 }
 
 void SlmpClient::setBlockAccessEnabled(bool enabled) {
@@ -792,7 +853,7 @@ void SlmpClient::setBlockAccessEnabled(bool enabled) {
 }
 
 bool SlmpClient::blockAccessEnabled() const {
-    return block_access_enabled_;
+    return block_access_enabled_ && !profileDisablesBlockAccess(plc_profile_);
 }
 
 void SlmpClient::setMonitoringTimer(uint16_t monitoring_timer) {
@@ -2977,7 +3038,7 @@ Error SlmpClient::beginReadBlock(
     size_t bit_value_capacity,
     uint32_t now_ms
 ) {
-    if (!block_access_enabled_) {
+    if (!blockAccessEnabled()) {
         setError(Error::UnsupportedDevice);
         return last_error_;
     }
@@ -3089,7 +3150,7 @@ Error SlmpClient::beginWriteBlock(
     const BlockWriteOptions& options,
     uint32_t now_ms
 ) {
-    if (!block_access_enabled_) {
+    if (!blockAccessEnabled()) {
         setError(Error::UnsupportedDevice);
         return last_error_;
     }

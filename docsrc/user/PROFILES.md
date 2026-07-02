@@ -1,12 +1,18 @@
 # PLC profiles
 
-The high-level API requires one explicit PLC profile. The selected profile controls frame type, low-level compatibility mode, string `X` and `Y` numbering rules, and device-range catalog selection.
+The high-level API requires one explicit PLC profile. The selected profile controls frame type, low-level compatibility mode, string `X` and `Y` numbering rules, device-range catalog selection, and target-specific command guards.
 
 Profile selection is intentionally not inferred from `ReadTypeName`, model
 text, or model code. Some PLCs and network paths cannot return reliable type
 name data, and a wrong inference can select the wrong address grammar or range
 catalog. Keep the final profile choice in the application, configuration UI, or
 operator workflow.
+
+Profile selection is the supported way to apply target-specific behavior. Use
+`slmp::highlevel::configureClientForPlcProfile` in normal applications. If an
+application uses only `slmp::SlmpClient` directly, call `setPlcProfile` instead
+of inferring a PLC from manual frame/compatibility settings. Manual frame and
+compatibility setters are raw protocol controls and do not imply a PLC model.
 
 ## Profiles table
 
@@ -17,10 +23,10 @@ operator workflow.
 | `melsec:iq-l` | MELSEC iQ-L | `slmp::highlevel::PlcProfile::IqL` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for MELSEC iQ-L targets. |
 | `melsec:mx-f` | MELSEC MX-F | `slmp::highlevel::PlcProfile::MxF` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for MELSEC MX-F targets. |
 | `melsec:mx-r` | MELSEC MX-R | `slmp::highlevel::PlcProfile::MxR` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for MELSEC MX-R targets. |
-| `melsec:qcpu` | MELSEC QCPU | `slmp::highlevel::PlcProfile::QCpu` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Legacy Q CPU profile. |
+| `melsec:qcpu` | MELSEC QCPU | `slmp::highlevel::PlcProfile::QCpu` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Legacy Q CPU profile. Read Block (`0x0406`) and Write Block (`0x1406`) are rejected by profile; use direct or random device commands. |
 | `melsec:lcpu` | MELSEC LCPU | `slmp::highlevel::PlcProfile::LCpu` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Legacy L CPU profile. |
-| `melsec:qnu` | MELSEC QnU | `slmp::highlevel::PlcProfile::QnU` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnU profile. |
-| `melsec:qnudv` | MELSEC QnUDV | `slmp::highlevel::PlcProfile::QnUDV` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnUDV profile. |
+| `melsec:qnu` | MELSEC QnU | `slmp::highlevel::PlcProfile::QnU` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnU profile. Read Block (`0x0406`) and Write Block (`0x1406`) are rejected by profile; use direct or random device commands. |
+| `melsec:qnudv` | MELSEC QnUDV | `slmp::highlevel::PlcProfile::QnUDV` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnUDV profile. Read Block (`0x0406`) and Write Block (`0x1406`) are rejected by profile; use direct or random device commands. |
 
 ## How to select
 
@@ -67,7 +73,7 @@ int main() {
 | `melsec:iq-l` | MELSEC iQ-L | Frame 4E with iQR compatibility mode. |
 | `melsec:mx-f` | MELSEC MX-F | Frame 4E with iQR compatibility mode. |
 | `melsec:mx-r` | MELSEC MX-R | Frame 4E with iQR compatibility mode. |
-| `melsec:qcpu` | MELSEC QCPU | Frame 3E with Legacy compatibility mode. |
+| `melsec:qcpu` | MELSEC QCPU | Frame 3E with Legacy compatibility mode. Block commands `0x0406` / `0x1406` are rejected by profile. |
 | `melsec:lcpu` | MELSEC LCPU | Frame 3E with Legacy compatibility mode. |
-| `melsec:qnu` | MELSEC QnU | Frame 3E with Legacy compatibility mode. |
-| `melsec:qnudv` | MELSEC QnUDV | Frame 3E with Legacy compatibility mode. |
+| `melsec:qnu` | MELSEC QnU | Frame 3E with Legacy compatibility mode. Block commands `0x0406` / `0x1406` are rejected by profile. |
+| `melsec:qnudv` | MELSEC QnUDV | Frame 3E with Legacy compatibility mode. Block commands `0x0406` / `0x1406` are rejected by profile. |

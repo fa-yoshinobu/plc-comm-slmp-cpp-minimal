@@ -2138,17 +2138,41 @@ void testHighLevelAddressFormatting() {
 }
 
 void testHighLevelNamedReadAndPoller() {
+    {
+        slmp::highlevel::ReadPlan plan;
+        const std::vector<std::string> addresses = {
+            "M100:BIT",
+            "SM17:BIT",
+            "SB1F:BIT",
+            "TS10:BIT",
+            "DX10:BIT",
+        };
+        assert(slmp::highlevel::compileReadPlan(addresses, plan) == slmp::Error::Ok);
+        assert(plan.word_devices.size() == 3U);
+        assert(plan.word_devices[0].code == slmp::DeviceCode::M);
+        assert(plan.word_devices[0].number == 96U);
+        assert(plan.word_devices[1].code == slmp::DeviceCode::SM);
+        assert(plan.word_devices[1].number == 16U);
+        assert(plan.word_devices[2].code == slmp::DeviceCode::SB);
+        assert(plan.word_devices[2].number == 0x10U);
+        assert(plan.entries[0].kind == slmp::highlevel::BatchKind::BitInWord);
+        assert(plan.entries[0].spec.bit_index == 4);
+        assert(plan.entries[1].kind == slmp::highlevel::BatchKind::BitInWord);
+        assert(plan.entries[1].spec.bit_index == 1);
+        assert(plan.entries[2].kind == slmp::highlevel::BatchKind::BitInWord);
+        assert(plan.entries[2].spec.bit_index == 15);
+        assert(plan.entries[3].kind == slmp::highlevel::BatchKind::None);
+        assert(plan.entries[4].kind == slmp::highlevel::BatchKind::None);
+    }
+
     MockTransport transport;
     uint8_t tx_buffer[256] = {};
     uint8_t rx_buffer[256] = {};
     slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
 
-    std::vector<uint8_t> random_payload = {0x34, 0x12, 0xFE, 0xFF, 0x08, 0x00};
+    std::vector<uint8_t> random_payload = {0x34, 0x12, 0xFE, 0xFF, 0x08, 0x00, 0x10, 0x00};
     appendLe32(random_payload, 0x3FC00000UL);
     transport.queueResponse(makeResponse(makeGenericRequest(0x0403, 0x0002), 0x0000, random_payload));
-    std::vector<uint8_t> bit_request = makeGenericRequest(0x0401, 0x0003);
-    bit_request[2] = 0x01;
-    transport.queueResponse(makeResponse(bit_request, 0x0000, {0x10}));
 
     const std::vector<std::string> addresses = {
         "D100:U",
@@ -2169,19 +2193,16 @@ void testHighLevelNamedReadAndPoller() {
     assert(float_bits == 0x3FC00000UL);
     assert(snapshot[3].value.bit);
     assert(snapshot[4].value.bit);
-    assert(readLe16(transport.lastWrite().data() + 15) == 0x0401U);
+    assert(readLe16(transport.lastWrite().data() + 15) == 0x0403U);
 
     slmp::highlevel::Poller poller;
     assert(poller.compile(addresses) == slmp::Error::Ok);
 
-    random_payload = {0x78, 0x56, 0xFD, 0xFF, 0x00, 0x00};
+    random_payload = {0x78, 0x56, 0xFD, 0xFF, 0x00, 0x00, 0x00, 0x00};
     appendLe32(random_payload, 0x40000000UL);
     std::vector<uint8_t> random_request_second = makeGenericRequest(0x0403, 0x0002);
-    random_request_second[2] = 0x02;
+    random_request_second[2] = 0x01;
     transport.queueResponse(makeResponse(random_request_second, 0x0000, random_payload));
-    std::vector<uint8_t> bit_request_second = makeGenericRequest(0x0401, 0x0003);
-    bit_request_second[2] = 0x03;
-    transport.queueResponse(makeResponse(bit_request_second, 0x0000, {0x00}));
 
     snapshot.clear();
     assert(poller.readOnce(plc, snapshot) == slmp::Error::Ok);
@@ -2492,6 +2513,7 @@ void testHighLevelplcProfileDefaults() {
         uint8_t rx_buffer[64] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
         slmp::highlevel::configureClientForPlcProfile(plc, slmp::highlevel::PlcProfile::IqF);
+        assert(plc.plcProfile() == slmp::PlcProfile::IqF);
         assert(plc.frameType() == slmp::FrameType::Frame3E);
         assert(plc.compatibilityMode() == slmp::CompatibilityMode::Legacy);
         assert(plc.blockAccessEnabled());
@@ -2509,10 +2531,41 @@ void testHighLevelplcProfileDefaults() {
         };
         for (size_t i = 0; i < sizeof(q_profiles) / sizeof(q_profiles[0]); ++i) {
             slmp::highlevel::configureClientForPlcProfile(plc, q_profiles[i]);
+            assert(plc.plcProfile() == q_profiles[i]);
             assert(plc.frameType() == slmp::FrameType::Frame3E);
             assert(plc.compatibilityMode() == slmp::CompatibilityMode::Legacy);
             assert(!plc.blockAccessEnabled());
+            plc.setBlockAccessEnabled(true);
+            assert(!plc.blockAccessEnabled());
         }
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[64] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::QnUDV);
+        assert(plc.frameType() == slmp::FrameType::Frame3E);
+        assert(plc.compatibilityMode() == slmp::CompatibilityMode::Legacy);
+        assert(!plc.blockAccessEnabled());
+
+        plc.setFrameType(slmp::FrameType::Frame4E);
+        assert(plc.plcProfile() == slmp::PlcProfile::Unspecified);
+        plc.setBlockAccessEnabled(true);
+        assert(plc.blockAccessEnabled());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[64] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::QCpu);
+        plc.setCompatibilityMode(slmp::CompatibilityMode::Legacy);
+        assert(plc.plcProfile() == slmp::PlcProfile::Unspecified);
+        plc.setBlockAccessEnabled(true);
+        assert(plc.blockAccessEnabled());
     }
 }
 

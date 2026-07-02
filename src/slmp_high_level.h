@@ -196,25 +196,7 @@ struct NamedValue {
  */
 using Snapshot = std::vector<NamedValue>;
 
-/**
- * @enum PlcProfile
- * @brief Canonical PLC profile for high-level defaults and string-address parsing.
- *
- * The high-level facade uses one explicit PLC profile to derive frame type,
- * compatibility mode, string `X/Y` interpretation, and device-range rules.
- */
-enum class PlcProfile : uint8_t {
-    Unspecified = 0,
-    IqF = 1,
-    IqR = 2,
-    IqL = 3,
-    MxF = 4,
-    MxR = 5,
-    QCpu = 6,
-    LCpu = 7,
-    QnU = 8,
-    QnUDV = 9,
-};
+using PlcProfile = ::slmp::PlcProfile;
 
 /**
  * @struct PlcProfileDefaults

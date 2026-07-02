@@ -157,6 +157,26 @@ static uint64_t deviceKey(const DeviceAddress& device) {
            static_cast<uint64_t>(device.number);
 }
 
+static bool isPlainBitWordBatchable(DeviceCode code) {
+    return code == DeviceCode::SM ||
+           code == DeviceCode::X ||
+           code == DeviceCode::Y ||
+           code == DeviceCode::M ||
+           code == DeviceCode::L ||
+           code == DeviceCode::F ||
+           code == DeviceCode::V ||
+           code == DeviceCode::B ||
+           code == DeviceCode::SB;
+}
+
+static bool plainBitWordRead(DeviceAddress device, DeviceAddress& word_device, int& bit_index) {
+    if (!isPlainBitWordBatchable(device.code)) return false;
+    bit_index = static_cast<int>(device.number % 16U);
+    word_device = device;
+    word_device.number -= static_cast<uint32_t>(bit_index);
+    return true;
+}
+
 static bool parseUnsignedNumber(const std::string& text, uint8_t radix, uint32_t& out) {
     if (text.empty()) return false;
     uint32_t value = 0U;
@@ -1167,12 +1187,7 @@ PlcProfileDefaults plcProfileDefaults(PlcProfile family) {
 
 void configureClientForPlcProfile(SlmpClient& client, PlcProfile family) {
     if (!isSpecifiedPlcProfile(family)) return;
-    const PlcProfileDefaults defaults = plcProfileDefaultsImpl(family);
-    client.setFrameType(defaults.frame_type);
-    client.setCompatibilityMode(defaults.compatibility_mode);
-    client.setBlockAccessEnabled(family != PlcProfile::QCpu &&
-                                 family != PlcProfile::QnU &&
-                                 family != PlcProfile::QnUDV);
+    client.setPlcProfile(family);
 }
 
 const char* deviceRangeProfileLabel(PlcProfile profile) {
@@ -1689,6 +1704,7 @@ static Error compileReadPlanImpl(const std::vector<std::string>& addresses, cons
         if (err != Error::Ok) return err;
 
         BatchKind kind = BatchKind::None;
+        AddressSpec plan_spec = spec;
         LongReadAccess long_read{};
         if (spec.bit_index >= 0) {
             if (meta->batchable_word) {
@@ -1697,6 +1713,15 @@ static Error compileReadPlanImpl(const std::vector<std::string>& addresses, cons
             }
         } else if (getLongReadAccess(spec.device.code, long_read)) {
             kind = BatchKind::LongTimer;
+        } else if (meta->bit_unit && spec.type == ValueType::Bit) {
+            DeviceAddress word_device{};
+            int bit_index = -1;
+            if (plainBitWordRead(spec.device, word_device, bit_index)) {
+                kind = BatchKind::BitInWord;
+                plan_spec.device = word_device;
+                plan_spec.bit_index = bit_index;
+                if (!containsDevice(out.word_devices, word_device)) out.word_devices.push_back(word_device);
+            }
         } else if (!meta->bit_unit && meta->batchable_word) {
             if (valueTypeUsesDword(spec.type)) {
                 kind = BatchKind::Dword;
@@ -1709,7 +1734,7 @@ static Error compileReadPlanImpl(const std::vector<std::string>& addresses, cons
 
         ReadPlanEntry entry;
         entry.address = addresses[i];
-        entry.spec = spec;
+        entry.spec = plan_spec;
         entry.kind = kind;
         out.entries.push_back(entry);
     }

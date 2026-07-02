@@ -81,10 +81,19 @@ int main() {
 | Root cause | SLMP command `0x1406` does not accept word and bit blocks in one request on the target PLC path. |
 | Fix | Send word writes and bit writes as separate calls. |
 
+## Q-series profiles reject block commands
+
+| Item | Detail |
+| --- | --- |
+| Symptom | `readBlock()` or `writeBlock()` returns `slmp::Error::UnsupportedDevice` when the client is configured for `melsec:qcpu`, `melsec:qnu`, or `melsec:qnudv`. |
+| Root cause | These Q-series PLC profiles reject SLMP Read Block (`0x0406`) and Write Block (`0x1406`) before transport. |
+| Fix | Use direct or random device commands for those profiles. |
+
 ```cpp
 #include <cstddef>
 #include <cstdint>
 
+#include <slmp_high_level.h>
 #include <slmp_minimal.h>
 
 class NoopTransport final : public slmp::ITransport {
@@ -104,12 +113,18 @@ int main() {
     uint8_t tx[128] = {};
     uint8_t rx[128] = {};
     slmp::SlmpClient plc(transport, tx, sizeof(tx), rx, sizeof(rx));
-    plc.setFrameType(slmp::FrameType::Frame4E);
-    plc.setCompatibilityMode(slmp::CompatibilityMode::iQR);
+    slmp::highlevel::configureClientForPlcProfile(
+        plc,
+        slmp::highlevel::PlcProfile::QnUDV);
 
-    const slmp::Error wordErr = plc.writeOneWord(slmp::dev::D(slmp::dev::dec(9000)), 1234U);
-    const slmp::Error bitErr = plc.writeOneBit(slmp::dev::M(slmp::dev::dec(9000)), true);
-    return (wordErr == slmp::Error::NotConnected && bitErr == slmp::Error::NotConnected) ? 0 : 1;
+    slmp::DeviceBlockRead block{};
+    block.device = slmp::dev::D(slmp::dev::dec(0));
+    block.points = 1U;
+    uint16_t word = 0U;
+
+    const slmp::Error blockErr = plc.readBlock(&block, 1U, nullptr, 0U, &word, 1U, nullptr, 0U);
+    const slmp::Error directErr = plc.readWords(slmp::dev::D(slmp::dev::dec(0)), 1U, &word, 1U);
+    return (blockErr == slmp::Error::UnsupportedDevice && directErr == slmp::Error::NotConnected) ? 0 : 1;
 }
 ```
 
@@ -152,8 +167,7 @@ int main() {
     uint8_t tx[128] = {};
     uint8_t rx[128] = {};
     slmp::SlmpClient plc(transport, tx, sizeof(tx), rx, sizeof(rx));
-    plc.setFrameType(slmp::FrameType::Frame4E);
-    plc.setCompatibilityMode(slmp::CompatibilityMode::iQR);
+    plc.setPlcProfile(slmp::PlcProfile::IqR);
 
     uint16_t words[4] = {};
     const slmp::Error err = plc.readWordsModuleBuf(3, false, 100, 4, words, 4);

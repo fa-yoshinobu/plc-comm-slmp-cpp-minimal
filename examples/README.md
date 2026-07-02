@@ -23,8 +23,8 @@ pio run -e esp32-devkitc-high-level-no-udp
 
 | Folder | What it demonstrates |
 | --- | --- |
-| `esp32_devkitc_low_level` | Arduino `WiFiClient` transport setup, fixed buffers, explicit `slmp::FrameType::Frame4E`, `slmp::CompatibilityMode::iQR`, `slmp::SlmpClient::readOneWord`, and `slmp::SlmpClient::readOneBit`. |
-| `esp32_devkitc_high_level` | Arduino `WiFiClient` transport setup, explicit `slmp::highlevel::PlcProfile::IqR`, `slmp::highlevel::configureClientForPlcProfile`, `slmp::highlevel::readTyped`, and `slmp::highlevel::Poller`. |
+| `esp32_devkitc_low_level` | ESP32 `WiFiClient` transport setup, fixed buffers, explicit `slmp::PlcProfile::IqR`, `slmp::SlmpClient::readOneWord`, and `slmp::SlmpClient::readOneBit`. |
+| `esp32_devkitc_high_level` | ESP32 `WiFiClient` transport setup, explicit `slmp::highlevel::PlcProfile::IqR`, `slmp::highlevel::configureClientForPlcProfile`, `slmp::highlevel::readTyped`, and `slmp::highlevel::Poller`. |
 | `high_level_snapshot` | Host-side examples of `slmp::highlevel::readTyped`, `slmp::highlevel::readNamed`, `slmp::highlevel::writeNamed`, and `slmp::highlevel::Poller` without requiring a board. |
 
 ## Related pages
