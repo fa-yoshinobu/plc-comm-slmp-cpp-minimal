@@ -22,9 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Rejected `G/HG` extended random bit writes; callers should use U-qualified word access for buffer-memory devices.
 - Library: Aligned high-level long counter state metadata so `LCS/LCC` remain long-helper entries while using their direct bit-read route internally.
 - Library: Applied the same read-only and qualified-only device guards to low-level link-direct writes.
+- Library: Disabled Read Block (`0x0406`) and Write Block (`0x1406`) for `melsec:qcpu`, `melsec:qnu`, and `melsec:qnudv` profile defaults; callers should use direct or random device commands for those profiles.
 - Docs: Documented `S` as a read-only bit device in supported-register, gotcha, and audit-reflection notes.
 - Docs: Fixed PowerShell placeholder text in maintainer publishing notes.
 - Tests: Added guard coverage for `S` read-only writes, high-level `S10:BIT` parsing, `G/HG` random bit write rejection, and low-level link-direct write rejection.
+- Tests: Added guard coverage that Q-series profile defaults reject block read/write before transport.
 
 ## [1.1.1] - 2026-06-29
 
