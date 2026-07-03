@@ -475,6 +475,24 @@ void testAllDirectDeviceFamilies() {
     }
 }
 
+void testDirectAccessDoesNotUseDeviceRangeUpperBoundsAsSendGuard() {
+    MockTransport transport;
+    uint8_t tx_buffer[128] = {};
+    uint8_t rx_buffer[128] = {};
+    slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    const slmp::DeviceAddress device = slmp::dev::D(slmp::dev::dec(999999));
+
+    transport.queueResponse(makeResponse(makeGenericRequest(0x0401, 0x0002), 0x0000, {0x34, 0x12}));
+    uint16_t value = 0;
+    assert(plc.readWords(device, 1, &value, 1) == slmp::Error::Ok);
+    assert(value == 0x1234U);
+
+    transport.queueResponse(makeResponse(makeGenericRequestWithSerial(1, 0x1401, 0x0002), 0x0000, {}));
+    uint16_t write_value = 0x5678U;
+    assert(plc.writeWords(device, &write_value, 1) == slmp::Error::Ok);
+    assert(transport.writeHistory().size() == 2U);
+}
+
 void testDWordAndOneShotHelpers() {
     MockTransport transport;
     uint8_t tx_buffer[128] = {};
@@ -2906,6 +2924,7 @@ int main() {
     testAsyncFloat32Api();
     testFrame3E();
     testAllDirectDeviceFamilies();
+    testDirectAccessDoesNotUseDeviceRangeUpperBoundsAsSendGuard();
     testDWordAndOneShotHelpers();
     testFloat32Helpers();
     testWriteDWordsAndRandomWords();
