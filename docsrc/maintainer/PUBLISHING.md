@@ -1,6 +1,6 @@
 # Publishing Notes
 
-Audience: library maintainers and release follow-up work.
+Audience: library maintainers and release work.
 
 ## Arduino Library Manager
 

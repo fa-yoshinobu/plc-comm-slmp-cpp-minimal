@@ -1,6 +1,6 @@
 # Python Comparison Checklist
 
-Audience: library maintainers and validation follow-up work.
+Audience: library maintainers and validation comparison work.
 
 This file consolidates the earlier root-level `PYTHON_COMPARISON_CHECKLIST.md` and `slmp_connect_python_comparison_checklist.md` into one developer-facing note.
 

@@ -1,7 +1,7 @@
 # Latest communication verification
 
 Live-device verification for `plc-comm-slmp-cpp-minimal` is summarized here.
-Detailed board evidence, command logs, historical notes, and follow-up items are
+Detailed board evidence, command logs, and historical notes are
 maintained in the maintainer validation archive.
 
 ## Latest Verified Set
@@ -19,4 +19,3 @@ Use the maintainer validation archive for:
 - board package versions and network setup notes
 - frame dumps and end-code observations
 - older validation records that are kept as historical evidence
-- follow-up notes for future real-board validation
