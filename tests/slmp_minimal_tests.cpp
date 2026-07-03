@@ -2332,7 +2332,8 @@ void testHighLevelNamedReadAndPoller() {
             "TS10:BIT",
             "DX10:BIT",
         };
-        assert(slmp::highlevel::compileReadPlan(addresses, plan) == slmp::Error::Ok);
+        assert(slmp::highlevel::compileReadPlan(addresses, slmp::highlevel::PlcProfile::IqR, plan) ==
+               slmp::Error::Ok);
         assert(plan.word_devices.size() == 3U);
         assert(plan.word_devices[0].code == slmp::DeviceCode::M);
         assert(plan.word_devices[0].number == 96U);
@@ -2382,7 +2383,8 @@ void testHighLevelNamedReadAndPoller() {
     assert(readLe16(transport.lastWrite().data() + 15) == 0x0403U);
 
     slmp::highlevel::Poller poller;
-    assert(poller.compile(addresses) == slmp::Error::Ok);
+    assert(poller.compile(addresses) == slmp::Error::InvalidArgument);
+    assert(poller.compile(addresses, slmp::highlevel::PlcProfile::IqR) == slmp::Error::Ok);
 
     random_payload = {0x78, 0x56, 0xFD, 0xFF, 0x00, 0x00, 0x00, 0x00};
     appendLe32(random_payload, 0x40000000UL);
@@ -2733,6 +2735,16 @@ void testHighLevelplcProfileDefaults() {
     }
 
     {
+        const slmp::highlevel::PlcProfile invalid_profile =
+            static_cast<slmp::highlevel::PlcProfile>(0x7FU);
+        const slmp::highlevel::PlcProfileDefaults defaults =
+            slmp::highlevel::plcProfileDefaults(invalid_profile);
+        assert(defaults.address_profile == slmp::highlevel::PlcProfile::Unspecified);
+        assert(defaults.range_profile == slmp::highlevel::PlcProfile::Unspecified);
+        assert(std::string(slmp::highlevel::plcProfileLabel(invalid_profile)).empty());
+    }
+
+    {
         MockTransport transport;
         uint8_t tx_buffer[64] = {};
         uint8_t rx_buffer[64] = {};
@@ -2743,6 +2755,20 @@ void testHighLevelplcProfileDefaults() {
         assert(plc.frameType() == slmp::FrameType::Frame3E);
         assert(plc.compatibilityMode() == slmp::CompatibilityMode::Legacy);
         assert(plc.blockAccessEnabled());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[64] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::IqR);
+        slmp::highlevel::configureClientForPlcProfile(
+            plc,
+            static_cast<slmp::highlevel::PlcProfile>(0x7FU));
+        assert(plc.plcProfile() == slmp::PlcProfile::IqR);
+        assert(plc.frameType() == slmp::FrameType::Frame4E);
+        assert(plc.compatibilityMode() == slmp::CompatibilityMode::iQR);
     }
 
     {
@@ -2914,6 +2940,44 @@ void testUnspecifiedProfileDoesNotSend() {
         plc.setFrameType(slmp::FrameType::Frame3E);
 
         transport.queueResponse(makeResponse3E(makeGenericRequest3E(0x0401U, 0x0002U), 0x0000U, {0x34, 0x12}));
+        uint16_t value = 0U;
+        assert(plc.plcProfile() == slmp::PlcProfile::Unspecified);
+        assert(plc.readOneWord(slmp::dev::D(slmp::dev::dec(100)), value) == slmp::Error::InvalidArgument);
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0002U), 0x0000U, {0x34, 0x12}));
+        slmp::highlevel::Value value{};
+        assert(slmp::highlevel::readTyped(plc, "D100:U", value) == slmp::Error::InvalidArgument);
+        assert(slmp::highlevel::writeTyped(plc, "D100:U", slmp::highlevel::Value::u16Value(0x1234U)) ==
+               slmp::Error::InvalidArgument);
+
+        const std::vector<std::string> addresses = {"D100:U"};
+        slmp::highlevel::Snapshot snapshot;
+        assert(slmp::highlevel::readNamed(plc, addresses, snapshot) == slmp::Error::InvalidArgument);
+        assert(slmp::highlevel::writeNamed(plc, snapshot) == slmp::Error::InvalidArgument);
+
+        slmp::highlevel::ReadPlan plan;
+        assert(slmp::highlevel::compileReadPlan(addresses, plan) == slmp::Error::InvalidArgument);
+        slmp::highlevel::Poller poller;
+        assert(poller.compile(addresses) == slmp::Error::InvalidArgument);
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(static_cast<slmp::PlcProfile>(0x7FU));
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0002U), 0x0000U, {0x34, 0x12}));
         uint16_t value = 0U;
         assert(plc.plcProfile() == slmp::PlcProfile::Unspecified);
         assert(plc.readOneWord(slmp::dev::D(slmp::dev::dec(100)), value) == slmp::Error::InvalidArgument);

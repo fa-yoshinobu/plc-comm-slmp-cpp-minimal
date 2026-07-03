@@ -88,7 +88,21 @@ constexpr size_t kRequestHeaderSize3E = 15;
 constexpr size_t kResponsePrefixSize3E = 9;
 
 inline bool isSpecifiedPlcProfile(PlcProfile profile) {
-    return profile != PlcProfile::Unspecified;
+    switch (profile) {
+        case PlcProfile::IqF:
+        case PlcProfile::IqR:
+        case PlcProfile::IqL:
+        case PlcProfile::MxF:
+        case PlcProfile::MxR:
+        case PlcProfile::QCpu:
+        case PlcProfile::LCpu:
+        case PlcProfile::QnU:
+        case PlcProfile::QnUDV:
+            return true;
+        case PlcProfile::Unspecified:
+            return false;
+    }
+    return false;
 }
 
 inline bool profileDisablesBlockAccess(PlcProfile profile) {
@@ -301,9 +315,9 @@ static const char* profileLabel(PlcProfile profile) {
         case PlcProfile::QnU: return "melsec:qnu";
         case PlcProfile::QnUDV: return "melsec:qnudv";
         case PlcProfile::Unspecified:
-        default:
             return "";
     }
+    return "";
 }
 
 static const char* featureKeyName(ProfileFeatureKey key) {
@@ -383,9 +397,9 @@ inline FrameType frameTypeForPlcProfile(PlcProfile profile) {
         case PlcProfile::QnU:
         case PlcProfile::QnUDV:
         case PlcProfile::Unspecified:
-        default:
             return FrameType::Frame3E;
     }
+    return FrameType::Frame3E;
 }
 
 inline CompatibilityMode compatibilityModeForPlcProfile(PlcProfile profile) {
@@ -401,9 +415,9 @@ inline CompatibilityMode compatibilityModeForPlcProfile(PlcProfile profile) {
         case PlcProfile::QnU:
         case PlcProfile::QnUDV:
         case PlcProfile::Unspecified:
-        default:
             return CompatibilityMode::Legacy;
     }
+    return CompatibilityMode::Legacy;
 }
 
 inline void writeLe16(uint8_t* out, uint16_t value) {
@@ -1182,10 +1196,11 @@ CompatibilityMode SlmpClient::compatibilityMode() const {
 }
 
 void SlmpClient::setPlcProfile(PlcProfile profile) {
-    plc_profile_ = profile;
     if (!isSpecifiedPlcProfile(profile)) {
+        plc_profile_ = PlcProfile::Unspecified;
         return;
     }
+    plc_profile_ = profile;
     frame_type_ = frameTypeForPlcProfile(profile);
     compatibility_mode_ = compatibilityModeForPlcProfile(profile);
     block_access_enabled_ = !profileDisablesBlockAccess(profile);

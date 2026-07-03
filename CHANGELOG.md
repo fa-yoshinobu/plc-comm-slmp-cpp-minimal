@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Applied the same read-only and qualified-only device guards to low-level link-direct writes.
 - Library: Moved PLC profile selection into the core `SlmpClient` and moved Q/L profile block rejection to strict profile feature guards for all canonical Q/L profiles.
 - Library: Rejected all transport sends when `SlmpClient` remains on `PlcProfile::Unspecified`; callers must select a canonical PLC profile before communication.
+- Library: Made high-level communication overloads without an explicit profile use `client.plcProfile()` and reject unspecified clients before address parsing.
+- Library: Made profile-less high-level read-plan compile overloads return `Error::InvalidArgument`; callers must compile plans with an explicit PLC profile.
+- Library: Treat invalid `PlcProfile` enum values as unspecified instead of falling back to QnUDV defaults.
 - Library: Batched named plain-bit reads through random word-read only for `SM/X/Y/M/L/F/V/B/SB`; `TS/TC/STS/STC/CS/CC/DX/DY` stay on direct bit reads.
 - Docs: Documented profile-specific `S` write policy in supported-register, gotcha, and audit-reflection notes.
 - Docs: Documented strict profile behavior, applied feature keys, and APIs intentionally outside the capability-feature guard.
@@ -45,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tests: Added guard coverage for `S` read-only writes, high-level `S10:BIT` parsing, `G/HG` random bit write rejection, and low-level link-direct write rejection.
 - Tests: Updated low-level C++ tests and socket integration tests to use canonical PLC profiles instead of manual frame/compatibility send paths.
 - Tests: Added canonical capability fixture snapshot and capability profile guard coverage for block, type-name, monitor, link-direct, HG CPU-buffer, point-limit, and write-policy behavior.
+- Tests: Added high-level unspecified-profile regression coverage for typed read/write, named read/write, and poller compile paths.
+- Tests: Added invalid profile enum regression coverage for low-level sends and high-level defaults/configuration.
 - Tests: Added named-read planning coverage for random-word-safe plain bit families versus the direct-bit-only families seen on R-series hardware.
 
 ## [1.1.1] - 2026-06-29

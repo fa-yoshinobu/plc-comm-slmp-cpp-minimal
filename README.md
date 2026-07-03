@@ -10,13 +10,9 @@ C++ library for MELSEC SLMP (Binary 3E/4E) PLC communication on ESP32/RP2040-cla
 
 The maintained profile table is in [PLC profiles](docsrc/user/PROFILES.md). Choose one exact canonical PLC profile from that table.
 
-## Strict profile capability guard
+## Strict profile
 
-`SlmpClient` enables strict profile guards by default. Call `setStrictProfile(false)` only when you intentionally want to send a measured-blocked or unverified feature and inspect the PLC response yourself.
-
-The built-in table is imported from `plc-comm-slmp-profiles` `v1.0.0`. Applied feature keys are `type_name`, `direct`, `random`, `block`, `monitor`, `ext_module_access`, `ext_link_direct`, `hg_cpu_buffer`, `long_device_path`, and `lz_32bit_path`.
-
-Generic `readExtendUnit*` / `writeExtendUnit*`, memory, label, remote-control, password, self-test, and clear-error APIs are not capability-feature guarded. Point limits and write policy remain enforced even when strict profile is disabled.
+`SlmpClient` enables strict profile guards by default. With a selected profile, operations known to be unavailable for that PLC are rejected before sending. Call `setStrictProfile(false)` only for deliberate verification where you want the PLC to answer directly. Point limits and write policy remain enforced.
 
 ## Supported device types
 

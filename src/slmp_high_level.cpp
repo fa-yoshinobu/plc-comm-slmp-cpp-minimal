@@ -49,13 +49,32 @@ static PlcProfileDefaults plcProfileDefaultsImpl(PlcProfile family) {
         case PlcProfile::QnU:
             return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::QnU, PlcProfile::QnU};
         case PlcProfile::QnUDV:
-        default:
             return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::QnUDV, PlcProfile::QnUDV};
     }
+    return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::Unspecified, PlcProfile::Unspecified};
 }
 
 static bool isSpecifiedPlcProfile(PlcProfile family) {
-    return family != PlcProfile::Unspecified;
+    switch (family) {
+        case PlcProfile::IqF:
+        case PlcProfile::IqR:
+        case PlcProfile::IqL:
+        case PlcProfile::MxF:
+        case PlcProfile::MxR:
+        case PlcProfile::QCpu:
+        case PlcProfile::LCpu:
+        case PlcProfile::QnU:
+        case PlcProfile::QnUDV:
+            return true;
+        case PlcProfile::Unspecified:
+            return false;
+    }
+    return false;
+}
+
+static Error clientPlcProfile(const SlmpClient& client, PlcProfile& family) {
+    family = client.plcProfile();
+    return isSpecifiedPlcProfile(family) ? Error::Ok : Error::InvalidArgument;
 }
 
 static bool requiresExplicitPlcProfile(const DeviceMeta& meta) {
@@ -1220,8 +1239,8 @@ const char* plcProfileLabel(PlcProfile family) {
         case PlcProfile::LCpu: return "melsec:lcpu";
         case PlcProfile::QnU: return "melsec:qnu";
         case PlcProfile::QnUDV: return "melsec:qnudv";
-        default: return "";
     }
+    return "";
 }
 
 PlcProfileDefaults plcProfileDefaults(PlcProfile family) {
@@ -1460,7 +1479,10 @@ Error normalizeAddress(const char* address, PlcProfile family, char* out, size_t
 }
 
 Error readTyped(SlmpClient& client, const char* device, const char* dtype, Value& out) {
-    return readTypedImpl(client, nullptr, device, dtype, out);
+    PlcProfile family = PlcProfile::Unspecified;
+    const Error err = clientPlcProfile(client, family);
+    if (err != Error::Ok) return err;
+    return readTypedImpl(client, &family, device, dtype, out);
 }
 
 static Error readAddressSpecValue(SlmpClient& client, const AddressSpec& spec, Value& out) {
@@ -1541,7 +1563,10 @@ Error readTyped(SlmpClient& client, PlcProfile family, const char* device, const
 }
 
 Error readTyped(SlmpClient& client, const char* address, Value& out) {
-    return readTypedImpl(client, nullptr, address, out);
+    PlcProfile family = PlcProfile::Unspecified;
+    const Error err = clientPlcProfile(client, family);
+    if (err != Error::Ok) return err;
+    return readTypedImpl(client, &family, address, out);
 }
 
 static Error readTypedImpl(SlmpClient& client, const PlcProfile* family, const char* address, Value& out) {
@@ -1558,7 +1583,10 @@ Error readTyped(SlmpClient& client, PlcProfile family, const char* address, Valu
 }
 
 Error writeBitInWord(SlmpClient& client, const char* device, int bit_index, bool value) {
-    return writeBitInWordImpl(client, nullptr, device, bit_index, value);
+    PlcProfile family = PlcProfile::Unspecified;
+    const Error err = clientPlcProfile(client, family);
+    if (err != Error::Ok) return err;
+    return writeBitInWordImpl(client, &family, device, bit_index, value);
 }
 
 static Error writeBitInWordImpl(SlmpClient& client, const PlcProfile* family, const char* device, int bit_index, bool value) {
@@ -1583,7 +1611,10 @@ Error writeBitInWord(SlmpClient& client, PlcProfile family, const char* device, 
 }
 
 Error writeTyped(SlmpClient& client, const char* device, const char* dtype, const Value& value) {
-    return writeTypedImpl(client, nullptr, device, dtype, value);
+    PlcProfile family = PlcProfile::Unspecified;
+    const Error err = clientPlcProfile(client, family);
+    if (err != Error::Ok) return err;
+    return writeTypedImpl(client, &family, device, dtype, value);
 }
 
 static Error writeTypedImpl(SlmpClient& client, const PlcProfile* family, const char* device, const char* dtype, const Value& value) {
@@ -1620,7 +1651,10 @@ Error writeTyped(SlmpClient& client, PlcProfile family, const char* device, cons
 }
 
 Error writeTyped(SlmpClient& client, const char* address, const Value& value) {
-    return writeTypedImpl(client, nullptr, address, value);
+    PlcProfile family = PlcProfile::Unspecified;
+    const Error err = clientPlcProfile(client, family);
+    if (err != Error::Ok) return err;
+    return writeTypedImpl(client, &family, address, value);
 }
 
 static Error writeTypedImpl(SlmpClient& client, const PlcProfile* family, const char* address, const Value& value) {
@@ -1666,9 +1700,12 @@ Error readWordsChunked(
     bool allow_split
 ) {
     if (start == nullptr || count == 0U || max_per_request == 0U) return Error::InvalidArgument;
+    PlcProfile family = PlcProfile::Unspecified;
+    Error err = clientPlcProfile(client, family);
+    if (err != Error::Ok) return err;
     DeviceAddress device{};
     const DeviceMeta* meta = nullptr;
-    Error err = parseDeviceOnly(start, device, &meta);
+    err = parseDeviceOnly(start, device, &meta, &family);
     if (err != Error::Ok || meta->bit_unit) return Error::InvalidArgument;
     if (count > max_per_request && !allow_split) return Error::InvalidArgument;
 
@@ -1699,9 +1736,12 @@ Error readDWordsChunked(
     bool allow_split
 ) {
     if (start == nullptr || count == 0U || max_dwords_per_request == 0U) return Error::InvalidArgument;
+    PlcProfile family = PlcProfile::Unspecified;
+    Error err = clientPlcProfile(client, family);
+    if (err != Error::Ok) return err;
     DeviceAddress device{};
     const DeviceMeta* meta = nullptr;
-    Error err = parseDeviceOnly(start, device, &meta);
+    err = parseDeviceOnly(start, device, &meta, &family);
     if (err != Error::Ok || meta->bit_unit) return Error::InvalidArgument;
     if (count > max_dwords_per_request && !allow_split) return Error::InvalidArgument;
 
@@ -1785,7 +1825,11 @@ static Error compileReadPlanImpl(const std::vector<std::string>& addresses, cons
 }
 
 Error compileReadPlan(const std::vector<std::string>& addresses, ReadPlan& out) {
-    return compileReadPlanImpl(addresses, nullptr, out);
+    (void)addresses;
+    out.entries.clear();
+    out.word_devices.clear();
+    out.dword_devices.clear();
+    return Error::InvalidArgument;
 }
 
 Error compileReadPlan(const std::vector<std::string>& addresses, PlcProfile family, ReadPlan& out) {
@@ -1794,8 +1838,11 @@ Error compileReadPlan(const std::vector<std::string>& addresses, PlcProfile fami
 }
 
 Error readNamed(SlmpClient& client, const std::vector<std::string>& addresses, Snapshot& out) {
+    PlcProfile family = PlcProfile::Unspecified;
+    Error err = clientPlcProfile(client, family);
+    if (err != Error::Ok) return err;
     ReadPlan plan;
-    Error err = compileReadPlanImpl(addresses, nullptr, plan);
+    err = compileReadPlanImpl(addresses, &family, plan);
     if (err != Error::Ok) return err;
     return readNamed(client, plan, out);
 }
@@ -1809,6 +1856,10 @@ Error readNamed(SlmpClient& client, PlcProfile family, const std::vector<std::st
 }
 
 Error readNamed(SlmpClient& client, const ReadPlan& plan, Snapshot& out) {
+    PlcProfile family = PlcProfile::Unspecified;
+    const Error profile_error = clientPlcProfile(client, family);
+    if (profile_error != Error::Ok) return profile_error;
+
     out.clear();
     out.reserve(plan.entries.size());
 
@@ -1899,8 +1950,11 @@ Error readNamed(SlmpClient& client, const ReadPlan& plan, Snapshot& out) {
 }
 
 Error writeNamed(SlmpClient& client, const Snapshot& updates) {
+    PlcProfile family = PlcProfile::Unspecified;
+    const Error profile_error = clientPlcProfile(client, family);
+    if (profile_error != Error::Ok) return profile_error;
     for (size_t i = 0; i < updates.size(); ++i) {
-        const Error err = writeTypedImpl(client, nullptr, updates[i].address.c_str(), updates[i].value);
+        const Error err = writeTypedImpl(client, &family, updates[i].address.c_str(), updates[i].value);
         if (err != Error::Ok) return err;
     }
     return Error::Ok;
@@ -1916,7 +1970,11 @@ Error writeNamed(SlmpClient& client, PlcProfile family, const Snapshot& updates)
 }
 
 Error Poller::compile(const std::vector<std::string>& addresses) {
-    return compileReadPlanImpl(addresses, nullptr, plan_);
+    (void)addresses;
+    plan_.entries.clear();
+    plan_.word_devices.clear();
+    plan_.dword_devices.clear();
+    return Error::InvalidArgument;
 }
 
 Error Poller::compile(const std::vector<std::string>& addresses, PlcProfile family) {

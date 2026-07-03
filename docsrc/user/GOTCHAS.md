@@ -78,7 +78,7 @@ int main() {
 | Item | Detail |
 | --- | --- |
 | Symptom | A block write that mixes word devices and bit devices fails. |
-| Root cause | SLMP command `0x1406` does not accept word and bit blocks in one request on the target PLC path. |
+| Root cause | Some PLC paths reject mixed word and bit block writes. |
 | Fix | Send word writes and bit writes as separate calls. |
 
 ## Some legacy profiles reject block commands before transport
@@ -86,8 +86,8 @@ int main() {
 | Item | Detail |
 | --- | --- |
 | Symptom | `readBlock()` or `writeBlock()` fails before a request is sent. |
-| Root cause | The selected Q/L profile marks the block route as unavailable; strict profile returns `slmp::Error::ProfileFeatureBlocked` before transport. |
-| Fix | Use direct or random device commands for normal applications. For deliberate verification only, call `setStrictProfile(false)` on `melsec:lcpu` or `melsec:qnudv` and inspect the PLC response. |
+| Root cause | These profiles do not use block access for normal high-level flows. |
+| Fix | Use direct or random device commands for normal applications. Disable Strict profile only for deliberate verification. |
 
 ```cpp
 #include <cstddef>
@@ -134,7 +134,7 @@ int main() {
 | --- | --- |
 | Symptom | `S10:BIT` can be parsed and read, but a write call returns `slmp::Error::UnsupportedDevice`. |
 | Root cause | The selected profile marks step relay `S` as read-only. iQ-F profiles allow `S` writes. |
-| Fix | Keep `S` out of direct, random, block, and extended write requests. |
+| Fix | Follow the selected profile's write policy. |
 
 ## G or HG address fails
 
