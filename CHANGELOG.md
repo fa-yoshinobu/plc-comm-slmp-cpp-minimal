@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Added `Error::ProfileFeatureBlocked`, `setStrictProfile()`, `strictProfile()`, `hasLastProfileFeatureErrorInfo()`, and `lastProfileFeatureErrorInfo()` for profile guard diagnostics without using PLC end-code errors.
 - Library: Enforced documented point limits before transport: iQ-F direct bit access is limited to 3584 points, and 008x extended random/monitor routes use the 96-point / weighted-960 / 94-bit limits.
 - Library: Replaced series-only direct/random/monitor point limits with profile capability limits where available; limits remain enforced when strict profile is disabled.
+- Library: Added canonical weighted random-word write limits for `melsec:iq-l` and `melsec:iq-f`, so mixed word/dword random writes are guarded before transport.
 - Library: Added SLMP `S` step relay device-code support for reads and profile-specific write policy enforcement.
 - Library: Enforced capability write policies independently of strict profile; `S` is read-only on iQ-R/iQ-L/MX/Q/L profiles and read-write on iQ-F.
 - Library: Rejected profile-unsupported device families before transport while leaving device address upper-bound checks to application/live-probe code.
@@ -31,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Aligned high-level long counter state metadata so `LCS/LCC` remain long-helper entries while using their direct bit-read route internally.
 - Library: Applied the same read-only and qualified-only device guards to low-level link-direct writes.
 - Library: Moved PLC profile selection into the core `SlmpClient` and moved Q/L profile block rejection to strict profile feature guards for all canonical Q/L profiles.
+- Library: Rejected all transport sends when `SlmpClient` remains on `PlcProfile::Unspecified`; callers must select a canonical PLC profile before communication.
 - Library: Batched named plain-bit reads through random word-read only for `SM/X/Y/M/L/F/V/B/SB`; `TS/TC/STS/STC/CS/CC/DX/DY` stay on direct bit reads.
 - Docs: Documented profile-specific `S` write policy in supported-register, gotcha, and audit-reflection notes.
 - Docs: Documented strict profile behavior, applied feature keys, and APIs intentionally outside the capability-feature guard.
@@ -39,7 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: Cleaned up maintainer notes and normalized the root TODO.
 - Samples: Updated the low-level ESP32 sample to select `slmp::PlcProfile::IqR` instead of manually pairing frame type and compatibility mode.
 - Tooling: Removed local absolute fallback tool paths from `run_ci.bat`.
+- Tooling: Changed the canonical profile update script default ref from `main` to fixed tag `v1.0.0`; `SLMP_PROFILES_REF` can still override it.
 - Tests: Added guard coverage for `S` read-only writes, high-level `S10:BIT` parsing, `G/HG` random bit write rejection, and low-level link-direct write rejection.
+- Tests: Updated low-level C++ tests and socket integration tests to use canonical PLC profiles instead of manual frame/compatibility send paths.
 - Tests: Added canonical capability fixture snapshot and capability profile guard coverage for block, type-name, monitor, link-direct, HG CPU-buffer, point-limit, and write-policy behavior.
 - Tests: Added named-read planning coverage for random-word-safe plain bit families versus the direct-bit-only families seen on R-series hardware.
 

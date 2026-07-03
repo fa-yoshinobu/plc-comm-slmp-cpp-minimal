@@ -291,6 +291,7 @@ void testSocketRoundTrip(const char* host, uint16_t port, const char* password) 
     uint8_t tx_buffer[256] = {};
     uint8_t rx_buffer[256] = {};
     slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    plc.setPlcProfile(slmp::PlcProfile::IqR);
     plc.setTimeoutMs(1000);
 
     assert(plc.connect(host, port));
@@ -413,6 +414,7 @@ void testInjectedPlcError(const char* host, uint16_t port) {
     uint8_t tx_buffer[128] = {};
     uint8_t rx_buffer[128] = {};
     slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    plc.setPlcProfile(slmp::PlcProfile::IqR);
     plc.setTimeoutMs(1000);
 
     require(plc.connect(host, port));
@@ -432,6 +434,7 @@ void testDisconnectDuringResponse(const char* host, uint16_t port) {
     uint8_t tx_buffer[128] = {};
     uint8_t rx_buffer[128] = {};
     slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    plc.setPlcProfile(slmp::PlcProfile::IqR);
     plc.setTimeoutMs(1000);
 
     require(plc.connect(host, port));
@@ -450,6 +453,7 @@ void testDelayedTimeout(const char* host, uint16_t port) {
     uint8_t tx_buffer[128] = {};
     uint8_t rx_buffer[128] = {};
     slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    plc.setPlcProfile(slmp::PlcProfile::IqR);
     plc.setTimeoutMs(100);
 
     require(plc.connect(host, port));
@@ -465,6 +469,7 @@ void testMalformedResponse(const char* host, uint16_t port) {
     uint8_t tx_buffer[128] = {};
     uint8_t rx_buffer[128] = {};
     slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    plc.setPlcProfile(slmp::PlcProfile::IqR);
     plc.setTimeoutMs(1000);
 
     require(plc.connect(host, port));

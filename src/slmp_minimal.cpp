@@ -244,7 +244,7 @@ static const LimitEntry kIqLLimits[] = {
     SLMP_LIMIT(DirectBitRead, 7168U),
     SLMP_LIMIT(DirectBitWrite, 7168U),
     SLMP_LIMIT(RandomReadWord, 96U),
-    SLMP_LIMIT(RandomWriteWord, 80U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWord, 80U, 960U),
     SLMP_LIMIT(RandomWriteBit, 94U),
     SLMP_LIMIT(MonitorRegisterWord, 96U),
 };
@@ -255,7 +255,7 @@ static const LimitEntry kIqFLimits[] = {
     SLMP_LIMIT(DirectBitRead, 3584U),
     SLMP_LIMIT(DirectBitWrite, 3584U),
     SLMP_LIMIT(RandomReadWord, 192U),
-    SLMP_LIMIT(RandomWriteWord, 160U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWord, 160U, 1920U),
     SLMP_LIMIT(RandomWriteBit, 188U),
 };
 
@@ -1276,6 +1276,10 @@ Error SlmpClient::startAsync(AsyncContext::Type type, size_t payload_length, uin
     }
     if (!transport_.connected()) {
         setError(Error::NotConnected);
+        return last_error_;
+    }
+    if (!isSpecifiedPlcProfile(plc_profile_)) {
+        setError(Error::InvalidArgument);
         return last_error_;
     }
 
