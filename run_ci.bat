@@ -54,8 +54,16 @@ echo ===================================================
 goto finish
 
 :prepend_common_tool_paths
-if exist "C:\msys64\ucrt64\bin" set "PATH=C:\msys64\ucrt64\bin;%PATH%"
-if exist "C:\msys64\mingw64\bin" set "PATH=C:\msys64\mingw64\bin;%PATH%"
+call :prepend_optional_tool_path SLMP_MSYS2_UCRT64_BIN
+call :prepend_optional_tool_path SLMP_MSYS2_MINGW64_BIN
+call :prepend_optional_tool_path MSYS2_UCRT64_BIN
+call :prepend_optional_tool_path MSYS2_MINGW64_BIN
+exit /b 0
+
+:prepend_optional_tool_path
+set "TOOL_PATH="
+call set "TOOL_PATH=%%%~1%%"
+if not "%TOOL_PATH%"=="" if exist "%TOOL_PATH%" set "PATH=%TOOL_PATH%;%PATH%"
 exit /b 0
 
 :find_tool
