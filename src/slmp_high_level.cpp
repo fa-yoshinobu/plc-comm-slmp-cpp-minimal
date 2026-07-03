@@ -791,7 +791,7 @@ const DeviceRangeRuleSpec kIqFRangeRules[] = {
     {"F", rangeDWord(270U, "SD270-SD271 (32-bit)")},
     {"V", rangeUnsupported("Not supported on iQ-F.")},
     {"L", rangeDWord(274U, "SD274-SD275 (32-bit)")},
-    {"S", rangeUnsupported("Not supported on iQ-F.")},
+    {"S", rangeDWord(276U, "SD276-SD277 (32-bit)")},
     {"D", rangeDWord(280U, "SD280-SD281 (32-bit)")},
     {"W", rangeDWord(282U, "SD282-SD283 (32-bit)")},
     {"SW", rangeDWord(284U, "SD284-SD285 (32-bit)")},

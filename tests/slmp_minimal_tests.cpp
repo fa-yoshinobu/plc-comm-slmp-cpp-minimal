@@ -259,7 +259,7 @@ const DirectFunctionCase kDirectFunctionCases[] = {
     {"F", slmp::DeviceCode::F, 100, true, true, true},
     {"V", slmp::DeviceCode::V, 100, true, true, true},
     {"B", slmp::DeviceCode::B, 0x100, true, true, true},
-    {"S", slmp::DeviceCode::S, 100, true, true, false},
+    {"S", slmp::DeviceCode::S, 100, true, true, true},
     {"D", slmp::DeviceCode::D, 100, false, true, true},
     {"W", slmp::DeviceCode::W, 0x100, false, true, true},
     {"TS", slmp::DeviceCode::TS, 100, true, true, true},
@@ -729,6 +729,7 @@ void testUnsupportedLongFamilyCommandGuards() {
         uint8_t tx_buffer[128] = {};
         uint8_t rx_buffer[128] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::IqR);
 
         const slmp::DeviceAddress bit_devices[] = {slmp::dev::S(slmp::dev::dec(10))};
         const bool bit_values[] = {true};
@@ -755,6 +756,7 @@ void testUnsupportedLongFamilyCommandGuards() {
         uint8_t tx_buffer[128] = {};
         uint8_t rx_buffer[128] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::IqR);
 
         const uint16_t values[] = {1U};
         const slmp::DeviceBlockWrite bit_blocks[] = {
@@ -2292,6 +2294,7 @@ void testHighLevelDeviceRangeCatalog() {
         registers[8] = 512U;    // SD268
         registers[10] = 128U;   // SD270
         registers[14] = 7680U;  // SD274
+        registers[16] = 256U;   // SD276
         registers[20] = 8000U;  // SD280
         registers[22] = 512U;   // SD282
         registers[24] = 512U;   // SD284
@@ -2336,6 +2339,15 @@ void testHighLevelDeviceRangeCatalog() {
         assert(y->point_count == 1024U);
         assert(y->notation == slmp::highlevel::DeviceRangeNotation::Base8);
         assert(y->address_range == "Y0000-Y1777");
+
+        const slmp::highlevel::DeviceRangeEntry* s = findDeviceRangeEntry(catalog, "S");
+        assert(s != nullptr);
+        assert(s->supported);
+        assert(s->has_point_count);
+        assert(s->point_count == 256U);
+        assert(s->has_upper_bound);
+        assert(s->upper_bound == 255U);
+        assert(s->address_range == "S0-S255");
 
         const slmp::highlevel::DeviceRangeEntry* r = findDeviceRangeEntry(catalog, "R");
         assert(r != nullptr);
@@ -2835,6 +2847,18 @@ void testCapabilityProfileGuards() {
         bool bits[1] = {true};
         assert(plc.writeBits(slmp::dev::S(slmp::dev::dec(0)), bits, 1) == slmp::Error::UnsupportedDevice);
         assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::IqF);
+        transport.queueResponse(makeResponse3E(makeGenericRequest(0x1401U, 0x0001U), 0x0000U, {}));
+        bool bits[1] = {true};
+        assert(plc.writeBits(slmp::dev::S(slmp::dev::dec(0)), bits, 1) == slmp::Error::Ok);
+        assert(!transport.lastWrite().empty());
     }
 }
 

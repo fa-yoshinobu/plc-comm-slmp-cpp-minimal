@@ -606,7 +606,7 @@ inline bool isUnsupportedDirectDevice(DeviceCode code) {
 }
 
 inline bool isReadOnlyDevice(DeviceCode code, PlcProfile profile = PlcProfile::Unspecified) {
-    return code == DeviceCode::S || isProfileReadOnlyDevice(profile, code);
+    return isProfileReadOnlyDevice(profile, code);
 }
 
 inline bool isLongTimerStateReadOnlyDevice(DeviceCode code) {
@@ -740,6 +740,15 @@ inline Error validateExtDeviceSpec(const ExtDeviceSpec& spec) {
     return Error::Ok;
 }
 
+inline bool isLinkDirectDeviceCode(DeviceCode code) {
+    return code == DeviceCode::X ||
+           code == DeviceCode::Y ||
+           code == DeviceCode::B ||
+           code == DeviceCode::SB ||
+           code == DeviceCode::W ||
+           code == DeviceCode::SW;
+}
+
 inline Error validateExtRandomReadDevices(
     const ExtDeviceSpec* word_devices,
     size_t word_count,
@@ -758,6 +767,9 @@ inline Error validateExtRandomReadDevices(
             continue;
         }
         DeviceCode code = word_devices[i].link.code;
+        if (!isLinkDirectDeviceCode(code)) {
+            return Error::UnsupportedDevice;
+        }
         if (isLongTimerStateReadOnlyDevice(code) ||
             isLongCounterContactDevice(code) ||
             isLongCurrentOrDwordOnlyDevice(code)) {
@@ -773,6 +785,9 @@ inline Error validateExtRandomReadDevices(
             continue;
         }
         DeviceCode code = dword_devices[i].link.code;
+        if (!isLinkDirectDeviceCode(code)) {
+            return Error::UnsupportedDevice;
+        }
         if (isLongTimerStateReadOnlyDevice(code) || isLongCounterContactDevice(code)) {
             return Error::UnsupportedDevice;
         }
@@ -793,7 +808,9 @@ inline Error validateExtRandomWriteWordDevices(const ExtDeviceSpec* word_devices
             return spec_error;
         }
         if (word_devices[i].kind == ExtDeviceSpec::Kind::LinkDirect &&
-            (isReadOnlyDevice(word_devices[i].link.code, profile) || isLongCurrentOrDwordOnlyDevice(word_devices[i].link.code))) {
+            (!isLinkDirectDeviceCode(word_devices[i].link.code) ||
+             isReadOnlyDevice(word_devices[i].link.code, profile) ||
+             isLongCurrentOrDwordOnlyDevice(word_devices[i].link.code))) {
             return Error::UnsupportedDevice;
         }
     }
@@ -816,7 +833,9 @@ inline Error validateExtRandomBitWriteDevices(const ExtDeviceSpec* bit_devices, 
             return Error::UnsupportedDevice;
         }
         if (bit_devices[i].kind == ExtDeviceSpec::Kind::LinkDirect &&
-            (isReadOnlyDevice(bit_devices[i].link.code, profile) || bit_devices[i].link.code == DeviceCode::G ||
+            (!isLinkDirectDeviceCode(bit_devices[i].link.code) ||
+             isReadOnlyDevice(bit_devices[i].link.code, profile) ||
+             bit_devices[i].link.code == DeviceCode::G ||
              bit_devices[i].link.code == DeviceCode::HG)) {
             return Error::UnsupportedDevice;
         }
@@ -2623,6 +2642,10 @@ Error SlmpClient::beginReadWordsLinkDirect(uint8_t j_net, DeviceCode code, uint3
         setError(Error::InvalidArgument);
         return last_error_;
     }
+    if (!isLinkDirectDeviceCode(code)) {
+        setError(Error::UnsupportedDevice);
+        return last_error_;
+    }
     size_t written = encodeLinkDirectDeviceSpec(j_net, code, dev_no, tx_buffer_, tx_capacity_);
     if (written == 0) {
         setError(Error::BufferTooSmall);
@@ -2646,6 +2669,10 @@ Error SlmpClient::beginWriteWordsLinkDirect(uint8_t j_net, DeviceCode code, uint
     if (guard_error != Error::Ok) return guard_error;
     if (values == nullptr || validateDirectWordAccessPoints(count, plc_profile_, true) != Error::Ok) {
         setError(Error::InvalidArgument);
+        return last_error_;
+    }
+    if (!isLinkDirectDeviceCode(code)) {
+        setError(Error::UnsupportedDevice);
         return last_error_;
     }
     // Link-direct writes use the same device families as direct writes; keep
@@ -2686,6 +2713,10 @@ Error SlmpClient::beginReadBitsLinkDirect(uint8_t j_net, DeviceCode code, uint32
         setError(Error::InvalidArgument);
         return last_error_;
     }
+    if (!isLinkDirectDeviceCode(code)) {
+        setError(Error::UnsupportedDevice);
+        return last_error_;
+    }
     size_t written = encodeLinkDirectDeviceSpec(j_net, code, dev_no, tx_buffer_, tx_capacity_);
     if (written == 0) {
         setError(Error::BufferTooSmall);
@@ -2709,6 +2740,10 @@ Error SlmpClient::beginWriteBitsLinkDirect(uint8_t j_net, DeviceCode code, uint3
     if (guard_error != Error::Ok) return guard_error;
     if (values == nullptr || validateDirectBitAccessPoints(count, plc_profile_, true) != Error::Ok) {
         setError(Error::InvalidArgument);
+        return last_error_;
+    }
+    if (!isLinkDirectDeviceCode(code)) {
+        setError(Error::UnsupportedDevice);
         return last_error_;
     }
     // Link-direct writes use the same device families as direct writes; keep
