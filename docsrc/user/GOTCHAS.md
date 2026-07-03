@@ -86,7 +86,7 @@ int main() {
 | Item | Detail |
 | --- | --- |
 | Symptom | `readBlock()` or `writeBlock()` fails before a request is sent. |
-| Root cause | `melsec:qcpu` and `melsec:qnu` use the legacy block guard and return `slmp::Error::UnsupportedDevice`. `melsec:lcpu` and `melsec:qnudv` are in the built-in capability table; their measured block routes return `slmp::Error::ProfileFeatureBlocked` while strict profile is enabled. |
+| Root cause | The selected Q/L profile marks the block route as unavailable; strict profile returns `slmp::Error::ProfileFeatureBlocked` before transport. |
 | Fix | Use direct or random device commands for normal applications. For deliberate verification only, call `setStrictProfile(false)` on `melsec:lcpu` or `melsec:qnudv` and inspect the PLC response. |
 
 ```cpp
@@ -133,7 +133,7 @@ int main() {
 | Item | Detail |
 | --- | --- |
 | Symptom | `S10:BIT` can be parsed and read, but a write call returns `slmp::Error::UnsupportedDevice`. |
-| Root cause | Step relay `S` is treated as a read-only bit family. |
+| Root cause | The selected profile marks step relay `S` as read-only. iQ-F profiles allow `S` writes. |
 | Fix | Keep `S` out of direct, random, block, and extended write requests. |
 
 ## G or HG address fails

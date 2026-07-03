@@ -35,13 +35,20 @@ echo ===================================================
 echo [RELEASE] SLMP minimal C++ release check
 echo ===================================================
 
-echo [1/3] Checking manifest versions...
+echo [1/4] Updating canonical SLMP profile JSON...
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\update_slmp_profile_jsons.ps1 -FailIfChanged
+if %errorlevel% neq 0 (
+    echo [ERROR] Canonical SLMP profile JSON check failed.
+    exit /b %errorlevel%
+)
+
+echo [2/4] Checking manifest versions...
 if not "%VERSION%"=="%JSON_VERSION%" (
     echo [ERROR] library.properties version %VERSION% does not match library.json version %JSON_VERSION%.
     exit /b 1
 )
 
-echo [2/3] Running host CI gate...
+echo [3/4] Running host CI gate...
 call run_ci.bat
 if %errorlevel% neq 0 (
     echo [ERROR] CI failed.
@@ -63,7 +70,7 @@ if "%RUN_PLATFORMIO%"=="1" (
     )
 )
 
-echo [3/3] Building tracked release archive...
+echo [4/4] Building tracked release archive...
 if not exist release-artifacts mkdir release-artifacts
 git archive --format=zip --output "release-artifacts\slmp-connect-cpp-minimal-v%VERSION%.zip" HEAD
 if %errorlevel% neq 0 (

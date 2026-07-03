@@ -92,7 +92,8 @@ inline bool isSpecifiedPlcProfile(PlcProfile profile) {
 }
 
 inline bool profileDisablesBlockAccess(PlcProfile profile) {
-    return profile == PlcProfile::QCpu || profile == PlcProfile::QnU;
+    (void)profile;
+    return false;
 }
 
 enum class ProfileLimitKey : uint8_t {
@@ -185,7 +186,7 @@ static const FeatureEntry kIqFFeatures[] = {
     SLMP_FEATURE_SUPPORTED(Block),
     SLMP_FEATURE_BLOCKED(Monitor, "C059 even for D10 single registration"),
     SLMP_FEATURE_CONFIG(ExtModuleAccess),
-    SLMP_FEATURE_UNVERIFIED(ExtLinkDirect, "Not live-verified; guarded when strict"),
+    SLMP_FEATURE_BLOCKED(ExtLinkDirect, "J1 link-direct access returned a PLC error"),
     SLMP_FEATURE_BLOCKED(HgCpuBuffer, "iQ-R only route; not defined for iQ-F"),
     SLMP_FEATURE_SUPPORTED(LongDevicePath),
     SLMP_FEATURE_SUPPORTED(Lz32BitPath),
@@ -198,7 +199,7 @@ static const FeatureEntry kLCpuFeatures[] = {
     SLMP_FEATURE_BLOCKED(Block, "Raw send returned C059"),
     SLMP_FEATURE_SUPPORTED(Monitor),
     SLMP_FEATURE_BLOCKED(ExtModuleAccess, "U0\\G10 / U2\\G1000 returned C070"),
-    SLMP_FEATURE_UNVERIFIED(ExtLinkDirect, "Not live-verified; guarded when strict"),
+    SLMP_FEATURE_BLOCKED(ExtLinkDirect, "Link-direct access is not available on the tested built-in CPU port"),
     SLMP_FEATURE_BLOCKED(HgCpuBuffer, "iQ-R only route; not defined for LCPU"),
     SLMP_FEATURE_DELEGATED(LongDevicePath),
     SLMP_FEATURE_DELEGATED(Lz32BitPath),
@@ -211,7 +212,7 @@ static const FeatureEntry kQnUDVFeatures[] = {
     SLMP_FEATURE_BLOCKED(Block, "Raw send returned C059; high-level API guards before transport"),
     SLMP_FEATURE_SUPPORTED(Monitor),
     SLMP_FEATURE_BLOCKED(ExtModuleAccess, "U0\\G10 / U2\\G1000 returned C070"),
-    SLMP_FEATURE_UNVERIFIED(ExtLinkDirect, "Not live-verified; guarded when strict"),
+    SLMP_FEATURE_BLOCKED(ExtLinkDirect, "Link-direct access is not available on the tested built-in CPU port"),
     SLMP_FEATURE_BLOCKED(HgCpuBuffer, "iQ-R only route; not defined for QnUDV"),
     SLMP_FEATURE_DELEGATED(LongDevicePath),
     SLMP_FEATURE_DELEGATED(Lz32BitPath),
@@ -272,23 +273,20 @@ static const LimitEntry kQLMeasuredLimits[] = {
 #undef SLMP_LIMIT
 #undef SLMP_LIMIT_WEIGHTED
 
-static const WritePolicyEntry kSAndLcsWritePolicy[] = {
+static const WritePolicyEntry kSWritePolicy[] = {
     {DeviceCode::S},
-    {DeviceCode::LCS},
-};
-
-static const WritePolicyEntry kXWritePolicy[] = {
-    {DeviceCode::X},
 };
 
 static const CapabilityProfile kCapabilityProfiles[] = {
-    {PlcProfile::IqR, kIqRFeatures, sizeof(kIqRFeatures) / sizeof(kIqRFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSAndLcsWritePolicy, sizeof(kSAndLcsWritePolicy) / sizeof(kSAndLcsWritePolicy[0])},
-    {PlcProfile::IqL, kIqLFeatures, sizeof(kIqLFeatures) / sizeof(kIqLFeatures[0]), kIqLLimits, sizeof(kIqLLimits) / sizeof(kIqLLimits[0]), kSAndLcsWritePolicy, sizeof(kSAndLcsWritePolicy) / sizeof(kSAndLcsWritePolicy[0])},
-    {PlcProfile::MxR, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSAndLcsWritePolicy, sizeof(kSAndLcsWritePolicy) / sizeof(kSAndLcsWritePolicy[0])},
-    {PlcProfile::MxF, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSAndLcsWritePolicy, sizeof(kSAndLcsWritePolicy) / sizeof(kSAndLcsWritePolicy[0])},
-    {PlcProfile::IqF, kIqFFeatures, sizeof(kIqFFeatures) / sizeof(kIqFFeatures[0]), kIqFLimits, sizeof(kIqFLimits) / sizeof(kIqFLimits[0]), kXWritePolicy, sizeof(kXWritePolicy) / sizeof(kXWritePolicy[0])},
-    {PlcProfile::LCpu, kLCpuFeatures, sizeof(kLCpuFeatures) / sizeof(kLCpuFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), nullptr, 0U},
-    {PlcProfile::QnUDV, kQnUDVFeatures, sizeof(kQnUDVFeatures) / sizeof(kQnUDVFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), nullptr, 0U},
+    {PlcProfile::IqR, kIqRFeatures, sizeof(kIqRFeatures) / sizeof(kIqRFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::IqL, kIqLFeatures, sizeof(kIqLFeatures) / sizeof(kIqLFeatures[0]), kIqLLimits, sizeof(kIqLLimits) / sizeof(kIqLLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::MxR, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::MxF, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::IqF, kIqFFeatures, sizeof(kIqFFeatures) / sizeof(kIqFFeatures[0]), kIqFLimits, sizeof(kIqFLimits) / sizeof(kIqFLimits[0]), nullptr, 0U},
+    {PlcProfile::QCpu, kQnUDVFeatures, sizeof(kQnUDVFeatures) / sizeof(kQnUDVFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::LCpu, kLCpuFeatures, sizeof(kLCpuFeatures) / sizeof(kLCpuFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::QnU, kQnUDVFeatures, sizeof(kQnUDVFeatures) / sizeof(kQnUDVFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::QnUDV, kQnUDVFeatures, sizeof(kQnUDVFeatures) / sizeof(kQnUDVFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
 };
 
 static const char* profileLabel(PlcProfile profile) {

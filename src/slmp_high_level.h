@@ -241,7 +241,7 @@ enum class DeviceRangeCategory : uint8_t {
     Word,
     TimerCounter,
     Index,
-    FileRefresh,
+    FileRegister,
 };
 
 /**

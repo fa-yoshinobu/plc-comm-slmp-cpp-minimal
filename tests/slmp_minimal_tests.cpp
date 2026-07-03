@@ -2655,8 +2655,9 @@ void testQSeriesBlockRouteGuard() {
             uint16_t word_values[1] = {};
             uint16_t bit_values[1] = {};
             assert(plc.readBlock(word_blocks, 1, bit_blocks, 1, word_values, 1, bit_values, 1) ==
-                   slmp::Error::UnsupportedDevice);
-            assert(!plc.hasLastProfileFeatureErrorInfo());
+                   slmp::Error::ProfileFeatureBlocked);
+            assert(plc.hasLastProfileFeatureErrorInfo());
+            assert(std::string(plc.lastProfileFeatureErrorInfo().feature_key) == "block");
             assert(transport.lastWrite().empty());
         }
 
@@ -2675,8 +2676,9 @@ void testQSeriesBlockRouteGuard() {
             const slmp::DeviceBlockWrite bit_blocks[] = {
                 slmp::dev::blockWrite(slmp::dev::M(slmp::dev::dec(100)), bit_data, 1),
             };
-            assert(plc.writeBlock(word_blocks, 1, bit_blocks, 1) == slmp::Error::UnsupportedDevice);
-            assert(!plc.hasLastProfileFeatureErrorInfo());
+            assert(plc.writeBlock(word_blocks, 1, bit_blocks, 1) == slmp::Error::ProfileFeatureBlocked);
+            assert(plc.hasLastProfileFeatureErrorInfo());
+            assert(std::string(plc.lastProfileFeatureErrorInfo().feature_key) == "block");
             assert(transport.lastWrite().empty());
         }
     }
@@ -2694,7 +2696,9 @@ void testCapabilityProfileFixtureSnapshot() {
         "\"melsec:mx-r\"",
         "\"melsec:mx-f\"",
         "\"melsec:iq-f\"",
+        "\"melsec:qcpu\"",
         "\"melsec:lcpu\"",
+        "\"melsec:qnu\"",
         "\"melsec:qnudv\"",
     };
     for (size_t i = 0; i < sizeof(profiles) / sizeof(profiles[0]); ++i) {
@@ -2717,13 +2721,14 @@ void testCapabilityProfileFixtureSnapshot() {
     assertContains(json, "\"random_write_word\"");
     assertContains(json, "\"weighted_max\": 1920");
     assertContains(json, "\"S\": \"read-only\"");
-    assertContains(json, "\"LCS\": \"read-only\"");
-    assertContains(json, "\"X\": \"read-only\"");
+    assertContains(json, "\"S\": \"read-write\"");
 }
 
 void testCapabilityProfileGuards() {
     const slmp::PlcProfile measured_blocked_profiles[] = {
+        slmp::PlcProfile::QCpu,
         slmp::PlcProfile::LCpu,
+        slmp::PlcProfile::QnU,
         slmp::PlcProfile::QnUDV,
     };
     for (size_t i = 0; i < sizeof(measured_blocked_profiles) / sizeof(measured_blocked_profiles[0]); ++i) {
@@ -2826,9 +2831,9 @@ void testCapabilityProfileGuards() {
         uint8_t tx_buffer[128] = {};
         uint8_t rx_buffer[128] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-        plc.setPlcProfile(slmp::PlcProfile::IqF);
+        plc.setPlcProfile(slmp::PlcProfile::IqR);
         bool bits[1] = {true};
-        assert(plc.writeBits(slmp::dev::X(slmp::dev::hex(0)), bits, 1) == slmp::Error::UnsupportedDevice);
+        assert(plc.writeBits(slmp::dev::S(slmp::dev::dec(0)), bits, 1) == slmp::Error::UnsupportedDevice);
         assert(transport.lastWrite().empty());
     }
 }

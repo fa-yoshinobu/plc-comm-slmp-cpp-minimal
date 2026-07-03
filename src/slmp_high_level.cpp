@@ -664,8 +664,8 @@ const DeviceRangeRowSpec kDeviceRangeRows[] = {
     {"LC", DeviceRangeCategory::TimerCounter, kLCDevices, countOf(kLCDevices), DeviceRangeNotation::Base10},
     {"Z", DeviceRangeCategory::Index, kZDevice, countOf(kZDevice), DeviceRangeNotation::Base10},
     {"LZ", DeviceRangeCategory::Index, kLZDevice, countOf(kLZDevice), DeviceRangeNotation::Base10},
-    {"ZR", DeviceRangeCategory::FileRefresh, kZRDevice, countOf(kZRDevice), DeviceRangeNotation::Base10},
-    {"RD", DeviceRangeCategory::FileRefresh, kRDDevice, countOf(kRDDevice), DeviceRangeNotation::Base10},
+    {"ZR", DeviceRangeCategory::FileRegister, kZRDevice, countOf(kZRDevice), DeviceRangeNotation::Base10},
+    {"RD", DeviceRangeCategory::FileRegister, kRDDevice, countOf(kRDDevice), DeviceRangeNotation::Base10},
     {"SM", DeviceRangeCategory::Bit, kSMDevice, countOf(kSMDevice), DeviceRangeNotation::Base10},
     {"SD", DeviceRangeCategory::Word, kSDDevice, countOf(kSDDevice), DeviceRangeNotation::Base10},
 };

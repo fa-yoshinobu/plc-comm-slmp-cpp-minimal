@@ -24,14 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Added `Error::ProfileFeatureBlocked`, `setStrictProfile()`, `strictProfile()`, `hasLastProfileFeatureErrorInfo()`, and `lastProfileFeatureErrorInfo()` for profile guard diagnostics without using PLC end-code errors.
 - Library: Enforced documented point limits before transport: iQ-F direct bit access is limited to 3584 points, and 008x extended random/monitor routes use the 96-point / weighted-960 / 94-bit limits.
 - Library: Replaced series-only direct/random/monitor point limits with profile capability limits where available; limits remain enforced when strict profile is disabled.
-- Library: Added SLMP `S` step relay device-code support for reads and rejected direct, random, block, and extended writes to `S` as read-only.
-- Library: Enforced profile write policy for read-only families such as iQ-F `X` and iQ-R/iQ-L/MX `LCS`.
+- Library: Added SLMP `S` step relay device-code support for reads and profile-specific write policy enforcement.
+- Library: Enforced capability write policies independently of strict profile; `S` is read-only on iQ-R/iQ-L/MX/Q/L profiles and read-write on iQ-F.
 - Library: Rejected `G/HG` extended random bit writes; callers should use U-qualified word access for buffer-memory devices.
 - Library: Aligned high-level long counter state metadata so `LCS/LCC` remain long-helper entries while using their direct bit-read route internally.
 - Library: Applied the same read-only and qualified-only device guards to low-level link-direct writes.
-- Library: Moved PLC profile selection into the core `SlmpClient`, kept legacy block rejection for capability-undefined `melsec:qcpu` and `melsec:qnu`, and moved measured `melsec:lcpu` / `melsec:qnudv` block rejection to strict profile feature guards.
+- Library: Moved PLC profile selection into the core `SlmpClient` and moved Q/L profile block rejection to strict profile feature guards for all canonical Q/L profiles.
 - Library: Batched named plain-bit reads through random word-read only for `SM/X/Y/M/L/F/V/B/SB`; `TS/TC/STS/STC/CS/CC/DX/DY` stay on direct bit reads.
-- Docs: Documented `S` as a read-only bit device in supported-register, gotcha, and audit-reflection notes.
+- Docs: Documented profile-specific `S` write policy in supported-register, gotcha, and audit-reflection notes.
 - Docs: Documented strict profile behavior, applied feature keys, and APIs intentionally outside the capability-feature guard.
 - Docs: Clarified the ESP32/RP2040-class target focus while retaining Arduino-compatible transport naming for those cores.
 - Docs: Fixed PowerShell placeholder text in maintainer publishing notes.
