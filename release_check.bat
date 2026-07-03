@@ -42,13 +42,20 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-echo [2/4] Checking manifest versions...
+echo [2/5] Checking C++ device range catalog parity...
+python scripts\check_device_range_catalog_parity.py
+if %errorlevel% neq 0 (
+    echo [ERROR] Device range catalog parity check failed.
+    exit /b %errorlevel%
+)
+
+echo [3/5] Checking manifest versions...
 if not "%VERSION%"=="%JSON_VERSION%" (
     echo [ERROR] library.properties version %VERSION% does not match library.json version %JSON_VERSION%.
     exit /b 1
 )
 
-echo [3/4] Running host CI gate...
+echo [4/5] Running host CI gate...
 call run_ci.bat
 if %errorlevel% neq 0 (
     echo [ERROR] CI failed.
@@ -70,7 +77,7 @@ if "%RUN_PLATFORMIO%"=="1" (
     )
 )
 
-echo [4/4] Building tracked release archive...
+echo [5/5] Building tracked release archive...
 if not exist release-artifacts mkdir release-artifacts
 git archive --format=zip --output "release-artifacts\slmp-connect-cpp-minimal-v%VERSION%.zip" HEAD
 if %errorlevel% neq 0 (
