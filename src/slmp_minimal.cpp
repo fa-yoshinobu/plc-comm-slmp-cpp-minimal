@@ -77,6 +77,7 @@ constexpr uint16_t kSubcommandBit = 0x0003;
 
 constexpr size_t kDirectWordPointLimit = 960U;
 constexpr size_t kDirectBitPointLimit = 7168U;
+constexpr size_t kDirectIqFBitPointLimit = 3584U;
 constexpr size_t kMemoryWordLimit = 480U;
 constexpr size_t kExtendUnitByteLimit = 1920U;
 
@@ -167,16 +168,16 @@ inline size_t packedBitBytes(size_t bit_count) {
     return (bit_count + 1U) / 2U;
 }
 
-inline size_t randomReadLikeLimit(CompatibilityMode mode) {
-    return (mode == CompatibilityMode::iQR) ? 96U : 192U;
+inline size_t randomReadLikeLimit(CompatibilityMode mode, bool extended = false) {
+    return (extended || mode == CompatibilityMode::iQR) ? 96U : 192U;
 }
 
-inline size_t randomBitWriteLimit(CompatibilityMode mode) {
-    return (mode == CompatibilityMode::iQR) ? 94U : 188U;
+inline size_t randomBitWriteLimit(CompatibilityMode mode, bool extended = false) {
+    return (extended || mode == CompatibilityMode::iQR) ? 94U : 188U;
 }
 
-inline size_t randomWriteWordWeightLimit(CompatibilityMode mode) {
-    return (mode == CompatibilityMode::iQR) ? 960U : 1920U;
+inline size_t randomWriteWordWeightLimit(CompatibilityMode mode, bool extended = false) {
+    return (extended || mode == CompatibilityMode::iQR) ? 960U : 1920U;
 }
 
 inline size_t blockCountLimit(CompatibilityMode mode) {
@@ -187,6 +188,10 @@ inline size_t blockWriteOverheadPerBlock(CompatibilityMode mode) {
     return (mode == CompatibilityMode::iQR) ? 9U : 4U;
 }
 
+inline size_t directBitPointLimit(PlcProfile profile) {
+    return (profile == PlcProfile::IqF) ? kDirectIqFBitPointLimit : kDirectBitPointLimit;
+}
+
 inline Error validateDirectWordAccessPoints(size_t points) {
     return (points >= 1U && points <= kDirectWordPointLimit) ? Error::Ok : Error::InvalidArgument;
 }
@@ -195,20 +200,25 @@ inline Error validateDirectDWordAccessPoints(size_t points) {
     return (points >= 1U && points <= (kDirectWordPointLimit / 2U)) ? Error::Ok : Error::InvalidArgument;
 }
 
-inline Error validateDirectBitAccessPoints(size_t points) {
-    return (points >= 1U && points <= kDirectBitPointLimit) ? Error::Ok : Error::InvalidArgument;
+inline Error validateDirectBitAccessPoints(size_t points, PlcProfile profile) {
+    const size_t limit = directBitPointLimit(profile);
+    return (points >= 1U && points <= limit) ? Error::Ok : Error::InvalidArgument;
 }
 
-inline Error validateRandomReadLikeCounts(size_t word_count, size_t dword_count, CompatibilityMode mode) {
+inline Error validateRandomReadLikeCounts(
+    size_t word_count, size_t dword_count, CompatibilityMode mode, bool extended = false
+) {
     if (word_count > 0xFFU || dword_count > 0xFFU) {
         return Error::InvalidArgument;
     }
     const size_t total = word_count + dword_count;
-    const size_t limit = randomReadLikeLimit(mode);
+    const size_t limit = randomReadLikeLimit(mode, extended);
     return (total >= 1U && total <= limit) ? Error::Ok : Error::InvalidArgument;
 }
 
-inline Error validateRandomWriteWordCounts(size_t word_count, size_t dword_count, CompatibilityMode mode) {
+inline Error validateRandomWriteWordCounts(
+    size_t word_count, size_t dword_count, CompatibilityMode mode, bool extended = false
+) {
     if (word_count > 0xFFU || dword_count > 0xFFU) {
         return Error::InvalidArgument;
     }
@@ -216,11 +226,11 @@ inline Error validateRandomWriteWordCounts(size_t word_count, size_t dword_count
         return Error::InvalidArgument;
     }
     const size_t weighted = (word_count * 12U) + (dword_count * 14U);
-    return (weighted <= randomWriteWordWeightLimit(mode)) ? Error::Ok : Error::InvalidArgument;
+    return (weighted <= randomWriteWordWeightLimit(mode, extended)) ? Error::Ok : Error::InvalidArgument;
 }
 
-inline Error validateRandomBitWriteCount(size_t bit_count, CompatibilityMode mode) {
-    const size_t limit = randomBitWriteLimit(mode);
+inline Error validateRandomBitWriteCount(size_t bit_count, CompatibilityMode mode, bool extended = false) {
+    const size_t limit = randomBitWriteLimit(mode, extended);
     return (bit_count >= 1U && bit_count <= limit) ? Error::Ok : Error::InvalidArgument;
 }
 
@@ -775,6 +785,7 @@ SlmpClient::SlmpClient(
       serial_(0),
       last_error_(Error::Ok),
       last_end_code_(0),
+      last_error_info_(),
       last_request_length_(0),
       last_response_length_(0),
       state_(State::Idle),
@@ -878,6 +889,14 @@ Error SlmpClient::lastError() const {
 
 uint16_t SlmpClient::lastEndCode() const {
     return last_end_code_;
+}
+
+bool SlmpClient::hasLastErrorInfo() const {
+    return last_error_info_.present;
+}
+
+const SlmpErrorInfo& SlmpClient::lastErrorInfo() const {
+    return last_error_info_;
 }
 
 const uint8_t* SlmpClient::lastRequestFrame() const {
@@ -1228,7 +1247,9 @@ void SlmpClient::completeAsync() {
         const size_t bit_block_count = async_ctx_.data.writeBlock.bit_block_count;
 
         if (end_code != 0) {
-            setError(Error::PlcError, end_code);
+            const uint8_t* error_data = rx_buffer_ + response_prefix_size + 2U;
+            const size_t error_length = last_response_length_ - (response_prefix_size + 2U);
+            setPlcError(end_code, error_data, error_length);
             return;
         }
 
@@ -1250,7 +1271,9 @@ void SlmpClient::completeAsync() {
             return;
         }
     } else if (end_code != 0) {
-        setError(Error::PlcError, end_code);
+        const uint8_t* error_data = rx_buffer_ + response_prefix_size + 2U;
+        const size_t error_length = last_response_length_ - (response_prefix_size + 2U);
+        setPlcError(end_code, error_data, error_length);
         return;
     }
 
@@ -1697,7 +1720,7 @@ Error SlmpClient::beginReadBits(
     size_t value_capacity,
     uint32_t now_ms
 ) {
-    if (values == nullptr || value_capacity < points || validateDirectBitAccessPoints(points) != Error::Ok) {
+    if (values == nullptr || value_capacity < points || validateDirectBitAccessPoints(points, plc_profile_) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -1738,7 +1761,7 @@ Error SlmpClient::beginWriteBits(
     size_t count,
     uint32_t now_ms
 ) {
-    if (values == nullptr || validateDirectBitAccessPoints(count) != Error::Ok) {
+    if (values == nullptr || validateDirectBitAccessPoints(count, plc_profile_) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -2161,7 +2184,7 @@ Error SlmpClient::writeWordsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_n
 }
 
 Error SlmpClient::beginReadBitsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no, uint16_t points, bool* out, size_t capacity, uint32_t now_ms) {
-    if (out == nullptr || capacity < points || validateDirectBitAccessPoints(points) != Error::Ok) {
+    if (out == nullptr || capacity < points || validateDirectBitAccessPoints(points, plc_profile_) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -2188,7 +2211,7 @@ Error SlmpClient::readBitsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no,
 }
 
 Error SlmpClient::beginWriteBitsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no, const bool* values, size_t count, uint32_t now_ms) {
-    if (values == nullptr || validateDirectBitAccessPoints(count) != Error::Ok) {
+    if (values == nullptr || validateDirectBitAccessPoints(count, plc_profile_) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -2288,7 +2311,7 @@ Error SlmpClient::writeWordsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t 
 }
 
 Error SlmpClient::beginReadBitsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t dev_no, uint16_t points, bool* out, size_t capacity, uint32_t now_ms) {
-    if (out == nullptr || capacity < points || validateDirectBitAccessPoints(points) != Error::Ok) {
+    if (out == nullptr || capacity < points || validateDirectBitAccessPoints(points, plc_profile_) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -2311,7 +2334,7 @@ Error SlmpClient::readBitsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t de
 }
 
 Error SlmpClient::beginWriteBitsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t dev_no, const bool* values, size_t count, uint32_t now_ms) {
-    if (values == nullptr || validateDirectBitAccessPoints(count) != Error::Ok) {
+    if (values == nullptr || validateDirectBitAccessPoints(count, plc_profile_) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -3564,6 +3587,22 @@ Error SlmpClient::remotePasswordLock(const char* password) {
 void SlmpClient::setError(Error error, uint16_t end_code) {
     last_error_ = error;
     last_end_code_ = end_code;
+    last_error_info_ = SlmpErrorInfo{};
+}
+
+void SlmpClient::setPlcError(uint16_t end_code, const uint8_t* response_data, size_t response_length) {
+    setError(Error::PlcError, end_code);
+    if (response_data == nullptr || response_length < 9U) {
+        return;
+    }
+    last_error_info_.present = true;
+    last_error_info_.network = response_data[0];
+    last_error_info_.station = response_data[1];
+    last_error_info_.module_io = readLe16(response_data + 2U);
+    last_error_info_.multidrop = response_data[4];
+    last_error_info_.command = readLe16(response_data + 5U);
+    last_error_info_.subcommand = readLe16(response_data + 7U);
+    memcpy(last_error_info_.raw, response_data, 9U);
 }
 
 const char* errorString(Error error) {
@@ -3641,7 +3680,7 @@ Error SlmpClient::beginReadRandomExt(
     uint32_t* dword_values, size_t dword_value_capacity,
     uint32_t now_ms
 ) {
-    if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_) != Error::Ok) {
+    if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_, true) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
     if ((word_count > 0 && (word_devices == nullptr || word_values == nullptr || word_value_capacity < word_count)) ||
@@ -3694,7 +3733,7 @@ Error SlmpClient::beginWriteRandomWordsExt(
     const ExtDeviceSpec* dword_devices, const uint32_t* dword_values, size_t dword_count,
     uint32_t now_ms
 ) {
-    if (validateRandomWriteWordCounts(word_count, dword_count, compatibility_mode_) != Error::Ok) {
+    if (validateRandomWriteWordCounts(word_count, dword_count, compatibility_mode_, true) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
     if ((word_count > 0 && (word_devices == nullptr || word_values == nullptr)) ||
@@ -3753,7 +3792,7 @@ Error SlmpClient::beginWriteRandomBitsExt(
     uint32_t now_ms
 ) {
     if (bit_devices == nullptr || bit_values == nullptr ||
-        validateRandomBitWriteCount(bit_count, compatibility_mode_) != Error::Ok) {
+        validateRandomBitWriteCount(bit_count, compatibility_mode_, true) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
     Error validate_error = validateExtRandomBitWriteDevices(bit_devices, bit_count);
@@ -3852,7 +3891,7 @@ Error SlmpClient::beginRegisterMonitorDevicesExt(
     const ExtDeviceSpec* dword_devices, size_t dword_count,
     uint32_t now_ms
 ) {
-    if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_) != Error::Ok) {
+    if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_, true) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
     Error validate_error = validateExtMonitorDevices(word_devices, word_count, dword_devices, dword_count);

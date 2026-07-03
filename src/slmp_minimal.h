@@ -54,6 +54,20 @@ enum class Error : uint8_t {
 };
 
 /**
+ * @brief Structured SLMP error information returned after a non-zero end code.
+ */
+struct SlmpErrorInfo {
+    bool present = false;       ///< True when the PLC response contained the 9-byte error information block.
+    uint8_t network = 0U;       ///< Network number reported by the PLC.
+    uint8_t station = 0U;       ///< Station number reported by the PLC.
+    uint16_t module_io = 0U;    ///< Module I/O number reported by the PLC.
+    uint8_t multidrop = 0U;     ///< Multidrop station number reported by the PLC.
+    uint16_t command = 0U;      ///< Command code associated with the PLC error.
+    uint16_t subcommand = 0U;   ///< Subcommand code associated with the PLC error.
+    uint8_t raw[9] = {};        ///< Raw 9-byte error information block.
+};
+
+/**
  * @enum FrameType
  * @brief SLMP frame formats supported by the library.
  */
@@ -646,6 +660,10 @@ class SlmpClient {
     Error lastError() const;
     /** @brief Get the PLC-specific end code from the last operation. Valid if lastError() is @ref Error::PlcError. */
     uint16_t lastEndCode() const;
+    /** @brief Return true when the last PLC error included a structured 9-byte error information block. */
+    bool hasLastErrorInfo() const;
+    /** @brief Get structured error information from the last PLC error response. */
+    const SlmpErrorInfo& lastErrorInfo() const;
     
     /** @brief Get pointer to the raw request frame buffer. */
     const uint8_t* lastRequestFrame() const;
@@ -1359,6 +1377,7 @@ class SlmpClient {
     );
 
     void setError(Error error, uint16_t end_code = 0);
+    void setPlcError(uint16_t end_code, const uint8_t* response_data, size_t response_length);
 
     ITransport& transport_;
     uint8_t* tx_buffer_;
@@ -1375,6 +1394,7 @@ class SlmpClient {
     uint16_t serial_;
     Error last_error_;
     uint16_t last_end_code_;
+    SlmpErrorInfo last_error_info_;
     size_t last_request_length_;
     size_t last_response_length_;
 

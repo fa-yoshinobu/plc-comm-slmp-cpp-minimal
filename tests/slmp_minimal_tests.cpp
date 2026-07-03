@@ -925,13 +925,22 @@ void testPlcErrorAndStrings() {
         0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x0E, 0x00, 0x10, 0x00,
         0x01, 0x04, 0x02, 0x00, 0x64, 0x00, 0x00, 0x00, 0xA8, 0x00, 0x01, 0x00
     };
-    transport.queueResponse(makeResponse(provisional_request, 0x4031, {}));
+    const std::vector<uint8_t> error_info_data = {0x00, 0xFF, 0xFF, 0x03, 0x00, 0x01, 0x04, 0x01, 0x00};
+    transport.queueResponse(makeResponse(provisional_request, 0xC051, error_info_data));
 
     uint16_t value = 0;
     assert(plc.readOneWord(slmp::dev::D(slmp::dev::dec(100)), value) == slmp::Error::PlcError);
-    assert(plc.lastEndCode() == 0x4031U);
+    assert(plc.lastEndCode() == 0xC051U);
+    assert(plc.hasLastErrorInfo());
+    assert(plc.lastErrorInfo().network == 0x00U);
+    assert(plc.lastErrorInfo().station == 0xFFU);
+    assert(plc.lastErrorInfo().module_io == 0x03FFU);
+    assert(plc.lastErrorInfo().multidrop == 0x00U);
+    assert(plc.lastErrorInfo().command == 0x0401U);
+    assert(plc.lastErrorInfo().subcommand == 0x0001U);
+    assert(std::memcmp(plc.lastErrorInfo().raw, error_info_data.data(), error_info_data.size()) == 0);
     assert(std::string(slmp::errorString(plc.lastError())) == "plc_error");
-    assert(std::string(slmp::endCodeString(plc.lastEndCode())) == "slmp_end_code_4031");
+    assert(std::string(slmp::endCodeString(plc.lastEndCode())) == "slmp_end_code_c051");
     assert(std::string(slmp::endCodeString(0x414AU)) == "slmp_end_code_414a");
     assert(std::string(slmp::endCodeString(0xC051U)) == "slmp_end_code_c051");
     assert(std::string(slmp::endCodeString(0xC056U)) == "slmp_end_code_c056");
@@ -1417,6 +1426,46 @@ void testValidationAndBoundaryFailures() {
         assert(plc.writeExtendUnitBytes(0, 0x03E0, bytes.data(), bytes.size()) == slmp::Error::InvalidArgument);
         assert(plc.readExtendUnitWords(0, 961, 0x03E0, words.data(), words.size()) == slmp::Error::InvalidArgument);
         assert(plc.writeExtendUnitWords(0, 0x03E0, words.data(), words.size()) == slmp::Error::InvalidArgument);
+        assert(transport.writeHistory().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::IqF);
+
+        bool bits[3585] = {};
+        assert(plc.readBits(slmp::dev::M(slmp::dev::dec(0)), 3585, bits, 3585U) == slmp::Error::InvalidArgument);
+        assert(plc.writeBits(slmp::dev::M(slmp::dev::dec(0)), bits, 3585U) == slmp::Error::InvalidArgument);
+        assert(transport.writeHistory().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[1024] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setCompatibilityMode(slmp::CompatibilityMode::Legacy);
+
+        std::vector<slmp::DeviceAddress> random_word_devices(97U, slmp::dev::D(slmp::dev::dec(0)));
+        std::vector<uint16_t> words(97U, 0U);
+        assert(plc.beginReadRandom(random_word_devices.data(), random_word_devices.size(), words.data(), words.size(),
+                                   nullptr, 0, nullptr, 0, 1000U) == slmp::Error::Ok);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[1024] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setCompatibilityMode(slmp::CompatibilityMode::Legacy);
+
+        std::vector<slmp::ExtDeviceSpec> ext_word_devices(97U, slmp::ExtDeviceSpec::moduleBuf(0x0000, false, 0));
+        std::vector<uint16_t> words(97U, 0U);
+        assert(plc.beginReadRandomExt(ext_word_devices.data(), ext_word_devices.size(), words.data(), words.size(),
+                                      nullptr, 0, nullptr, 0, 1000U) == slmp::Error::InvalidArgument);
         assert(transport.writeHistory().empty());
     }
 }
