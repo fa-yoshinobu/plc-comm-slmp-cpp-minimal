@@ -68,9 +68,52 @@ static uint8_t effectiveDeviceRadix(const DeviceMeta& meta, const PlcProfile* fa
     return meta.radix;
 }
 
+static bool isDeviceUnsupportedForPlcProfile(DeviceCode code, PlcProfile family) {
+    switch (plcProfileDefaultsImpl(family).address_profile) {
+        case PlcProfile::IqF:
+            switch (code) {
+                case DeviceCode::DX:
+                case DeviceCode::DY:
+                case DeviceCode::V:
+                case DeviceCode::LTS:
+                case DeviceCode::LTC:
+                case DeviceCode::LTN:
+                case DeviceCode::LSTS:
+                case DeviceCode::LSTC:
+                case DeviceCode::LSTN:
+                case DeviceCode::ZR:
+                case DeviceCode::RD:
+                    return true;
+                default:
+                    return false;
+            }
+        case PlcProfile::QCpu:
+        case PlcProfile::LCpu:
+        case PlcProfile::QnU:
+        case PlcProfile::QnUDV:
+            switch (code) {
+                case DeviceCode::LTS:
+                case DeviceCode::LTC:
+                case DeviceCode::LTN:
+                case DeviceCode::LSTS:
+                case DeviceCode::LSTC:
+                case DeviceCode::LSTN:
+                case DeviceCode::LCS:
+                case DeviceCode::LCC:
+                case DeviceCode::LCN:
+                case DeviceCode::LZ:
+                case DeviceCode::RD:
+                    return true;
+                default:
+                    return false;
+            }
+        default:
+            return false;
+    }
+}
+
 static bool isDeviceSupportedForPlcProfile(const DeviceMeta& meta, const PlcProfile* family) {
-    if (family != nullptr && plcProfileDefaultsImpl(*family).address_profile == PlcProfile::IqF &&
-        (meta.code == DeviceCode::DX || meta.code == DeviceCode::DY)) {
+    if (family != nullptr && isDeviceUnsupportedForPlcProfile(meta.code, *family)) {
         return false;
     }
     return true;

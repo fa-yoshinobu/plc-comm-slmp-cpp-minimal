@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Replaced series-only direct/random/monitor point limits with profile capability limits where available; limits remain enforced when strict profile is disabled.
 - Library: Added SLMP `S` step relay device-code support for reads and profile-specific write policy enforcement.
 - Library: Enforced capability write policies independently of strict profile; `S` is read-only on iQ-R/iQ-L/MX/Q/L profiles and read-write on iQ-F.
+- Library: Rejected profile-unsupported device families before transport while leaving device address upper-bound checks to application/live-probe code.
 - Library: Rejected `G/HG` extended random bit writes; callers should use U-qualified word access for buffer-memory devices.
 - Library: Aligned high-level long counter state metadata so `LCS/LCC` remain long-helper entries while using their direct bit-read route internally.
 - Library: Applied the same read-only and qualified-only device guards to low-level link-direct writes.

@@ -2180,7 +2180,19 @@ void testHighLevelAddressFormatting() {
         slmp::highlevel::AddressSpec spec{};
         assert(slmp::highlevel::parseAddressSpec("DX10:BIT", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::UnsupportedDevice);
         assert(slmp::highlevel::parseAddressSpec("DY10:BIT", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("V10:BIT", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("LTS10:BIT", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("ZR10:U", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("RD10:U", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::UnsupportedDevice);
         assert(slmp::highlevel::parseAddressSpec("DX10:BIT", slmp::highlevel::PlcProfile::IqR, spec) == slmp::Error::Ok);
+    }
+
+    {
+        slmp::highlevel::AddressSpec spec{};
+        assert(slmp::highlevel::parseAddressSpec("LCS10:BIT", slmp::highlevel::PlcProfile::QnUDV, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("LZ0:D", slmp::highlevel::PlcProfile::QnU, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("RD0:U", slmp::highlevel::PlcProfile::LCpu, spec) == slmp::Error::UnsupportedDevice);
+        assert(slmp::highlevel::parseAddressSpec("LTN0:D", slmp::highlevel::PlcProfile::QCpu, spec) == slmp::Error::UnsupportedDevice);
     }
 
     {
