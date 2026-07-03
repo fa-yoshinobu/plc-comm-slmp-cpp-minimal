@@ -2862,8 +2862,21 @@ void testCapabilityProfileGuards() {
         uint8_t rx_buffer[128] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
         plc.setPlcProfile(slmp::PlcProfile::IqR);
+        plc.setStrictProfile(false);
         bool bits[1] = {true};
         assert(plc.writeBits(slmp::dev::S(slmp::dev::dec(0)), bits, 1) == slmp::Error::UnsupportedDevice);
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[4096] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::IqR);
+        plc.setStrictProfile(false);
+        std::vector<uint16_t> words(961U, 0U);
+        assert(plc.writeWords(slmp::dev::D(slmp::dev::dec(0)), words.data(), words.size()) == slmp::Error::InvalidArgument);
         assert(transport.lastWrite().empty());
     }
 
