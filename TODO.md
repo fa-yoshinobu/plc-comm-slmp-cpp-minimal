@@ -1,7 +1,7 @@
-# TODO: SLMP C++ Minimal
+# TODO
 
-No active TODOs are currently tracked for the SLMP C++ Minimal library.
+Current active TODOs only.
 
-## Known Limitations
+## Current Status
 
-- None in the current public scope.
+No active TODOs are currently tracked.

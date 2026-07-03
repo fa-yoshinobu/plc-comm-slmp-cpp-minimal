@@ -70,13 +70,6 @@ Resolved `1406` layout investigation:
 - QnUDV built-in Ethernet still returns `0xC059` for block commands. That is a
   target/path command-support limitation, not a mixed-layout issue.
 
-Manual references used for this rule:
-
-- English manual, PDF pages 76-78,
-  `Write Block (command: 1406)`.
-- Japanese manual, PDF pages 75-77,
-  `Write Block(コマンド: 1406)`.
-
 Remote command note:
 
 - `remoteReset(subcommand, expect_response)` sends `1006/0000` with fixed reset data `01 00` and defaults to no-response mode
