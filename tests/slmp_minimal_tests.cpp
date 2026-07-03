@@ -2437,6 +2437,33 @@ void testHighLevelDeviceRangeCatalog() {
         assert(x->point_count == 4096U);
     }
 
+    for (slmp::highlevel::PlcProfile profile : {slmp::highlevel::PlcProfile::MxF, slmp::highlevel::PlcProfile::MxR}) {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        slmp::highlevel::configureClientForPlcProfile(plc, profile);
+
+        std::vector<uint16_t> registers(50U, 0U);
+        registers[16] = 123U;  // SD276 low
+        registers[17] = 0U;    // SD277 high
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0002U), 0x0000U, makeWordPayload(registers)));
+
+        slmp::highlevel::DeviceRangeCatalog catalog;
+        assert(slmp::highlevel::readDeviceRangeCatalogForPlcProfile(plc, profile, catalog) == slmp::Error::Ok);
+
+        const slmp::highlevel::DeviceRangeEntry* s = findDeviceRangeEntry(catalog, "S");
+        assert(s != nullptr);
+        assert(s->supported);
+        assert(s->has_point_count);
+        assert(s->point_count == 123U);
+        assert(s->has_upper_bound);
+        assert(s->upper_bound == 122U);
+        assert(s->source == "SD276-SD277 (32-bit)");
+        assert(s->address_range == "S0-S122");
+    }
+
     {
         MockTransport transport;
         uint8_t tx_buffer[256] = {};
