@@ -355,6 +355,7 @@ void loop() {
 ## Device range catalog
 
 `slmp::highlevel::readDeviceRangeCatalogForPlcProfile` reads live device range bounds for one explicit profile. It requires your selected PLC profile and does not auto-discover the PLC profile.
+The catalog is for diagnostics and application-layer validation. Normal read/write helpers do not use it to reject addresses by configured upper bound before sending a request.
 
 ```cpp
 #include <Arduino.h>
