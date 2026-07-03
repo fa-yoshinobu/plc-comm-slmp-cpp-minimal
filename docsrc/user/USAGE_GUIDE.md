@@ -53,6 +53,29 @@ void loop() {
 }
 ```
 
+## Strict profile capability guard
+
+`SlmpClient` enables strict built-in Ethernet profile guards by default. The guard is separate from PLC end-code handling: when an implemented high-level route is marked `blocked` or `unverified` for the selected profile, the call returns `slmp::Error::ProfileFeatureBlocked` before transport and no PLC response is consumed.
+
+Use `hasLastProfileFeatureErrorInfo()` and `lastProfileFeatureErrorInfo()` to inspect the profile, feature key, state, evidence, and bypass hint. Call `setStrictProfile(false)` only for deliberate probe traffic where you want the PLC to answer directly. Point limits and write policy are still enforced while strict profile is disabled.
+
+```cpp
+slmp::highlevel::configureClientForPlcProfile(
+    plc,
+    slmp::highlevel::PlcProfile::QnUDV);
+
+slmp::DeviceBlockRead block{};
+block.device = slmp::dev::D(slmp::dev::dec(0));
+block.points = 1U;
+uint16_t word = 0U;
+
+const slmp::Error err = plc.readBlock(&block, 1U, nullptr, 0U, &word, 1U, nullptr, 0U);
+if (err == slmp::Error::ProfileFeatureBlocked && plc.hasLastProfileFeatureErrorInfo()) {
+    const slmp::ProfileFeatureErrorInfo& info = plc.lastProfileFeatureErrorInfo();
+    Serial.printf("%s %s %s\n", info.profile_id, info.feature_key, info.state);
+}
+```
+
 ## Read a single value
 
 `slmp::highlevel::readTyped` reads one logical value from one address.

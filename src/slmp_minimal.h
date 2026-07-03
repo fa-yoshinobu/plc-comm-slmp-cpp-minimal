@@ -50,6 +50,7 @@ enum class Error : uint8_t {
     TransportError,         ///< Error occurred in the transport layer (e.g., TCP timeout, UDP loss).
     ProtocolError,          ///< Malformed packet or protocol violation detected.
     PlcError,               ///< PLC returned a non-zero end code (use @ref SlmpClient::lastEndCode to get details).
+    ProfileFeatureBlocked,  ///< Strict PLC profile guard blocked a feature before transport.
     Busy,                   ///< An asynchronous operation is already in progress.
 };
 
@@ -65,6 +66,23 @@ struct SlmpErrorInfo {
     uint16_t command = 0U;      ///< Command code associated with the PLC error.
     uint16_t subcommand = 0U;   ///< Subcommand code associated with the PLC error.
     uint8_t raw[9] = {};        ///< Raw 9-byte error information block.
+};
+
+/**
+ * @enum ProfileFeatureKey
+ * @brief Capability feature keys used by the built-in Ethernet profile guard.
+ */
+enum class ProfileFeatureKey : uint8_t {
+    TypeName,
+    Direct,
+    Random,
+    Block,
+    Monitor,
+    ExtModuleAccess,
+    ExtLinkDirect,
+    HgCpuBuffer,
+    LongDevicePath,
+    Lz32BitPath,
 };
 
 /**
@@ -102,6 +120,19 @@ enum class PlcProfile : uint8_t {
     LCpu = 7,
     QnU = 8,
     QnUDV = 9,
+};
+
+/**
+ * @brief Structured information for @ref Error::ProfileFeatureBlocked.
+ */
+struct ProfileFeatureErrorInfo {
+    bool present = false;               ///< True when the last error was produced by the profile guard.
+    PlcProfile profile = PlcProfile::Unspecified; ///< Selected PLC profile.
+    const char* profile_id = nullptr;   ///< Canonical profile ID such as `melsec:qnudv`.
+    const char* feature_key = nullptr;  ///< Capability feature key such as `block`.
+    const char* state = nullptr;        ///< Capability state, `blocked` or `unverified`.
+    const char* evidence = nullptr;     ///< Evidence or policy note from the embedded table.
+    const char* disable_hint = nullptr; ///< How to intentionally bypass the feature guard.
 };
 
 /** @} */ // end of SLMP_Core
@@ -641,6 +672,11 @@ class SlmpClient {
     /** @brief Return the currently selected PLC profile, or Unspecified after manual low-level overrides. */
     PlcProfile plcProfile() const;
 
+    /** @brief Enable or disable strict built-in Ethernet profile feature guards. Default is enabled. */
+    void setStrictProfile(bool enabled);
+    /** @brief Return whether strict built-in Ethernet profile feature guards are enabled. */
+    bool strictProfile() const;
+
     /** @brief Enable or disable Read/Write Block commands when the selected PLC profile permits them. */
     void setBlockAccessEnabled(bool enabled);
     /** @brief Return whether Read/Write Block commands are effectively enabled after PLC-profile guards. */
@@ -664,6 +700,10 @@ class SlmpClient {
     bool hasLastErrorInfo() const;
     /** @brief Get structured error information from the last PLC error response. */
     const SlmpErrorInfo& lastErrorInfo() const;
+    /** @brief Return true when the last error was a strict profile feature guard. */
+    bool hasLastProfileFeatureErrorInfo() const;
+    /** @brief Get structured information from the last strict profile guard error. */
+    const ProfileFeatureErrorInfo& lastProfileFeatureErrorInfo() const;
     
     /** @brief Get pointer to the raw request frame buffer. */
     const uint8_t* lastRequestFrame() const;
@@ -1378,6 +1418,9 @@ class SlmpClient {
 
     void setError(Error error, uint16_t end_code = 0);
     void setPlcError(uint16_t end_code, const uint8_t* response_data, size_t response_length);
+    void setProfileFeatureError(ProfileFeatureKey feature_key, const char* state, const char* evidence);
+    Error ensureProfileFeatureAllowed(ProfileFeatureKey feature_key);
+    Error ensureExtProfileFeatureAllowed(const ExtDeviceSpec& spec);
 
     ITransport& transport_;
     uint8_t* tx_buffer_;
@@ -1389,12 +1432,14 @@ class SlmpClient {
     FrameType frame_type_;
     CompatibilityMode compatibility_mode_;
     bool block_access_enabled_;
+    bool strict_profile_;
     uint16_t monitoring_timer_;
     uint32_t timeout_ms_;
     uint16_t serial_;
     Error last_error_;
     uint16_t last_end_code_;
     SlmpErrorInfo last_error_info_;
+    ProfileFeatureErrorInfo last_profile_feature_error_info_;
     size_t last_request_length_;
     size_t last_response_length_;
 

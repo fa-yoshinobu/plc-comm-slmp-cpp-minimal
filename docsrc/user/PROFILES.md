@@ -23,10 +23,10 @@ compatibility setters are raw protocol controls and do not imply a PLC model.
 | `melsec:iq-l` | MELSEC iQ-L | `slmp::highlevel::PlcProfile::IqL` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for MELSEC iQ-L targets. |
 | `melsec:mx-f` | MELSEC MX-F | `slmp::highlevel::PlcProfile::MxF` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for MELSEC MX-F targets. |
 | `melsec:mx-r` | MELSEC MX-R | `slmp::highlevel::PlcProfile::MxR` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for MELSEC MX-R targets. |
-| `melsec:qcpu` | MELSEC QCPU | `slmp::highlevel::PlcProfile::QCpu` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Legacy Q CPU profile. Read Block (`0x0406`) and Write Block (`0x1406`) are rejected by profile; use direct or random device commands. |
+| `melsec:qcpu` | MELSEC QCPU | `slmp::highlevel::PlcProfile::QCpu` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Legacy Q CPU profile. Read Block (`0x0406`) and Write Block (`0x1406`) are rejected by the legacy block guard because this profile is not in the built-in capability table. |
 | `melsec:lcpu` | MELSEC LCPU | `slmp::highlevel::PlcProfile::LCpu` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Legacy L CPU profile. |
-| `melsec:qnu` | MELSEC QnU | `slmp::highlevel::PlcProfile::QnU` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnU profile. Read Block (`0x0406`) and Write Block (`0x1406`) are rejected by profile; use direct or random device commands. |
-| `melsec:qnudv` | MELSEC QnUDV | `slmp::highlevel::PlcProfile::QnUDV` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnUDV profile. Read Block (`0x0406`) and Write Block (`0x1406`) are rejected by profile; use direct or random device commands. |
+| `melsec:qnu` | MELSEC QnU | `slmp::highlevel::PlcProfile::QnU` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnU profile. Read Block (`0x0406`) and Write Block (`0x1406`) are rejected by the legacy block guard because this profile is not in the built-in capability table. |
+| `melsec:qnudv` | MELSEC QnUDV | `slmp::highlevel::PlcProfile::QnUDV` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnUDV profile. Built-in capability data marks Read Block (`0x0406`) and Write Block (`0x1406`) as blocked on the measured built-in Ethernet route. |
 
 ## How to select
 
@@ -64,6 +64,16 @@ int main() {
 }
 ```
 
+## Strict profile capability guard
+
+`SlmpClient` enables strict profile guards by default. When the selected profile has built-in capability data and a high-level route is marked `blocked` or `unverified`, the request returns `slmp::Error::ProfileFeatureBlocked` before transport. Use `lastProfileFeatureErrorInfo()` to inspect the profile, feature key, state, evidence, and bypass hint.
+
+Call `setStrictProfile(false)` only when you intentionally want to send the request and inspect the PLC response yourself. Point limits and write policy still apply when strict profile is disabled.
+
+The guard covers the implemented high-level feature keys `type_name`, `direct`, `random`, `block`, `monitor`, `ext_module_access`, `ext_link_direct`, `hg_cpu_buffer`, `long_device_path`, and `lz_32bit_path`. Generic `readExtendUnit*` / `writeExtendUnit*`, memory, label, remote-control, password, self-test, and clear-error APIs are raw protocol routes and are not capability-feature guarded.
+
+`melsec:qcpu` and `melsec:qnu` are not in the built-in capability table. Their block-command rejection is kept as a legacy guard and returns `slmp::Error::UnsupportedDevice`. `melsec:lcpu` and `melsec:qnudv` are in the capability table, so their measured block-command rejection returns `slmp::Error::ProfileFeatureBlocked` while strict profile is enabled.
+
 ## Profile-specific cautions
 
 | Canonical profile | Human label | Caution |
@@ -73,7 +83,7 @@ int main() {
 | `melsec:iq-l` | MELSEC iQ-L | Frame 4E with iQR compatibility mode. |
 | `melsec:mx-f` | MELSEC MX-F | Frame 4E with iQR compatibility mode. |
 | `melsec:mx-r` | MELSEC MX-R | Frame 4E with iQR compatibility mode. |
-| `melsec:qcpu` | MELSEC QCPU | Frame 3E with Legacy compatibility mode. Block commands `0x0406` / `0x1406` are rejected by profile. |
-| `melsec:lcpu` | MELSEC LCPU | Frame 3E with Legacy compatibility mode. |
-| `melsec:qnu` | MELSEC QnU | Frame 3E with Legacy compatibility mode. Block commands `0x0406` / `0x1406` are rejected by profile. |
-| `melsec:qnudv` | MELSEC QnUDV | Frame 3E with Legacy compatibility mode. Block commands `0x0406` / `0x1406` are rejected by profile. |
+| `melsec:qcpu` | MELSEC QCPU | Frame 3E with Legacy compatibility mode. Block commands `0x0406` / `0x1406` return `slmp::Error::UnsupportedDevice` from the legacy guard. |
+| `melsec:lcpu` | MELSEC LCPU | Frame 3E with Legacy compatibility mode. Built-in capability data marks type-name and block routes as blocked on the measured built-in Ethernet route. |
+| `melsec:qnu` | MELSEC QnU | Frame 3E with Legacy compatibility mode. Block commands `0x0406` / `0x1406` return `slmp::Error::UnsupportedDevice` from the legacy guard. |
+| `melsec:qnudv` | MELSEC QnUDV | Frame 3E with Legacy compatibility mode. Built-in capability data marks type-name and block routes as blocked on the measured built-in Ethernet route. |

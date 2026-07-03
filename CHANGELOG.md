@@ -20,22 +20,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Library: Added non-breaking SLMP specification-audit updates for point-limit guards and PLC error diagnostics.
 - Library: Exposed structured PLC error information through `hasLastErrorInfo()` and `lastErrorInfo()` when a non-zero end-code response carries the 9-byte error information block.
+- Library: Embedded the `plc-comm-slmp-profiles` `v1.0.0` built-in Ethernet capability table as static arrays and added strict profile guards to implemented high-level feature routes.
+- Library: Added `Error::ProfileFeatureBlocked`, `setStrictProfile()`, `strictProfile()`, `hasLastProfileFeatureErrorInfo()`, and `lastProfileFeatureErrorInfo()` for profile guard diagnostics without using PLC end-code errors.
 - Library: Enforced documented point limits before transport: iQ-F direct bit access is limited to 3584 points, and 008x extended random/monitor routes use the 96-point / weighted-960 / 94-bit limits.
+- Library: Replaced series-only direct/random/monitor point limits with profile capability limits where available; limits remain enforced when strict profile is disabled.
 - Library: Added SLMP `S` step relay device-code support for reads and rejected direct, random, block, and extended writes to `S` as read-only.
+- Library: Enforced profile write policy for read-only families such as iQ-F `X` and iQ-R/iQ-L/MX `LCS`.
 - Library: Rejected `G/HG` extended random bit writes; callers should use U-qualified word access for buffer-memory devices.
 - Library: Aligned high-level long counter state metadata so `LCS/LCC` remain long-helper entries while using their direct bit-read route internally.
 - Library: Applied the same read-only and qualified-only device guards to low-level link-direct writes.
-- Library: Moved PLC profile selection into the core `SlmpClient` and rejected Read Block (`0x0406`) and Write Block (`0x1406`) for `melsec:qcpu`, `melsec:qnu`, and `melsec:qnudv` profiles even if block access is manually re-enabled.
+- Library: Moved PLC profile selection into the core `SlmpClient`, kept legacy block rejection for capability-undefined `melsec:qcpu` and `melsec:qnu`, and moved measured `melsec:lcpu` / `melsec:qnudv` block rejection to strict profile feature guards.
 - Library: Batched named plain-bit reads through random word-read only for `SM/X/Y/M/L/F/V/B/SB`; `TS/TC/STS/STC/CS/CC/DX/DY` stay on direct bit reads.
 - Docs: Documented `S` as a read-only bit device in supported-register, gotcha, and audit-reflection notes.
-- Docs: Documented the Q-series Read Block (`0x0406`) and Write Block (`0x1406`) profile guard in user profiles and gotchas.
+- Docs: Documented strict profile behavior, applied feature keys, and APIs intentionally outside the capability-feature guard.
 - Docs: Clarified the ESP32/RP2040-class target focus while retaining Arduino-compatible transport naming for those cores.
 - Docs: Fixed PowerShell placeholder text in maintainer publishing notes.
 - Docs: Cleaned up maintainer notes and normalized the root TODO.
 - Samples: Updated the low-level ESP32 sample to select `slmp::PlcProfile::IqR` instead of manually pairing frame type and compatibility mode.
 - Tooling: Removed local absolute fallback tool paths from `run_ci.bat`.
 - Tests: Added guard coverage for `S` read-only writes, high-level `S10:BIT` parsing, `G/HG` random bit write rejection, and low-level link-direct write rejection.
-- Tests: Added guard coverage that Q-series PLC profiles reject block read/write before transport and cannot be re-enabled through the block-access flag.
+- Tests: Added canonical capability fixture snapshot and capability profile guard coverage for block, type-name, monitor, link-direct, HG CPU-buffer, point-limit, and write-policy behavior.
 - Tests: Added named-read planning coverage for random-word-safe plain bit families versus the direct-bit-only families seen on R-series hardware.
 
 ## [1.1.1] - 2026-06-29

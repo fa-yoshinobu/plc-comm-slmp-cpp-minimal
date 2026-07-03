@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstring>
 #include <deque>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -30,6 +32,16 @@ uint32_t readLe32(const uint8_t* data) {
            (static_cast<uint32_t>(data[1]) << 8) |
            (static_cast<uint32_t>(data[2]) << 16) |
            (static_cast<uint32_t>(data[3]) << 24);
+}
+
+std::string readTextFile(const char* path) {
+    std::ifstream in(path, std::ios::binary);
+    assert(in.good());
+    return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
+
+void assertContains(const std::string& text, const char* needle) {
+    assert(text.find(needle) != std::string::npos);
 }
 
 void appendLe16(std::vector<uint8_t>& out, uint16_t value) {
@@ -2576,7 +2588,6 @@ void testHighLevelplcProfileDefaults() {
         const slmp::highlevel::PlcProfile q_profiles[] = {
             slmp::highlevel::PlcProfile::QCpu,
             slmp::highlevel::PlcProfile::QnU,
-            slmp::highlevel::PlcProfile::QnUDV,
         };
         for (size_t i = 0; i < sizeof(q_profiles) / sizeof(q_profiles[0]); ++i) {
             slmp::highlevel::configureClientForPlcProfile(plc, q_profiles[i]);
@@ -2597,6 +2608,10 @@ void testHighLevelplcProfileDefaults() {
         plc.setPlcProfile(slmp::PlcProfile::QnUDV);
         assert(plc.frameType() == slmp::FrameType::Frame3E);
         assert(plc.compatibilityMode() == slmp::CompatibilityMode::Legacy);
+        assert(!plc.blockAccessEnabled());
+        plc.setStrictProfile(false);
+        assert(plc.blockAccessEnabled());
+        plc.setStrictProfile(true);
         assert(!plc.blockAccessEnabled());
 
         plc.setFrameType(slmp::FrameType::Frame4E);
@@ -2622,7 +2637,6 @@ void testQSeriesBlockRouteGuard() {
     const slmp::highlevel::PlcProfile q_profiles[] = {
         slmp::highlevel::PlcProfile::QCpu,
         slmp::highlevel::PlcProfile::QnU,
-        slmp::highlevel::PlcProfile::QnUDV,
     };
     for (size_t i = 0; i < sizeof(q_profiles) / sizeof(q_profiles[0]); ++i) {
         {
@@ -2642,6 +2656,7 @@ void testQSeriesBlockRouteGuard() {
             uint16_t bit_values[1] = {};
             assert(plc.readBlock(word_blocks, 1, bit_blocks, 1, word_values, 1, bit_values, 1) ==
                    slmp::Error::UnsupportedDevice);
+            assert(!plc.hasLastProfileFeatureErrorInfo());
             assert(transport.lastWrite().empty());
         }
 
@@ -2661,8 +2676,160 @@ void testQSeriesBlockRouteGuard() {
                 slmp::dev::blockWrite(slmp::dev::M(slmp::dev::dec(100)), bit_data, 1),
             };
             assert(plc.writeBlock(word_blocks, 1, bit_blocks, 1) == slmp::Error::UnsupportedDevice);
+            assert(!plc.hasLastProfileFeatureErrorInfo());
             assert(transport.lastWrite().empty());
         }
+    }
+}
+
+void testCapabilityProfileFixtureSnapshot() {
+    const std::string json = readTextFile("tests/fixtures/slmp_builtin_ethernet_profiles.json");
+    assertContains(json, "\"schema_version\": 1");
+    assertContains(json, "\"scope\": \"builtin-ethernet-port\"");
+    assertContains(json, "\"default_strict\": true");
+
+    const char* profiles[] = {
+        "\"melsec:iq-r\"",
+        "\"melsec:iq-l\"",
+        "\"melsec:mx-r\"",
+        "\"melsec:mx-f\"",
+        "\"melsec:iq-f\"",
+        "\"melsec:lcpu\"",
+        "\"melsec:qnudv\"",
+    };
+    for (size_t i = 0; i < sizeof(profiles) / sizeof(profiles[0]); ++i) {
+        assertContains(json, profiles[i]);
+    }
+
+    assertContains(json, "\"type_name\"");
+    assertContains(json, "\"ext_module_access\"");
+    assertContains(json, "\"ext_link_direct\"");
+    assertContains(json, "\"hg_cpu_buffer\"");
+    assertContains(json, "\"long_device_path\"");
+    assertContains(json, "\"lz_32bit_path\"");
+    assertContains(json, "\"blocked\"");
+    assertContains(json, "\"unverified\"");
+    assertContains(json, "\"config-dependent\"");
+    assertContains(json, "\"delegated\"");
+
+    assertContains(json, "\"direct_bit_read\"");
+    assertContains(json, "\"max\": 3584");
+    assertContains(json, "\"random_write_word\"");
+    assertContains(json, "\"weighted_max\": 1920");
+    assertContains(json, "\"S\": \"read-only\"");
+    assertContains(json, "\"LCS\": \"read-only\"");
+    assertContains(json, "\"X\": \"read-only\"");
+}
+
+void testCapabilityProfileGuards() {
+    const slmp::PlcProfile measured_blocked_profiles[] = {
+        slmp::PlcProfile::LCpu,
+        slmp::PlcProfile::QnUDV,
+    };
+    for (size_t i = 0; i < sizeof(measured_blocked_profiles) / sizeof(measured_blocked_profiles[0]); ++i) {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(measured_blocked_profiles[i]);
+
+        const slmp::DeviceBlockRead word_blocks[] = {
+            slmp::dev::blockRead(slmp::dev::D(slmp::dev::dec(100)), 1),
+        };
+        uint16_t word_values[1] = {};
+        assert(plc.readBlock(word_blocks, 1, nullptr, 0, word_values, 1, nullptr, 0) ==
+               slmp::Error::ProfileFeatureBlocked);
+        assert(plc.hasLastProfileFeatureErrorInfo());
+        assert(std::string(plc.lastProfileFeatureErrorInfo().feature_key) == "block");
+        assert(std::string(plc.lastProfileFeatureErrorInfo().state) == "blocked");
+        assert(std::string(plc.lastProfileFeatureErrorInfo().disable_hint).find("strictProfile=false") != std::string::npos);
+        assert(transport.lastWrite().empty());
+
+        plc.setStrictProfile(false);
+        std::vector<uint8_t> dummy_request = {0x50, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00};
+        transport.queueResponse(makeResponse3E(dummy_request, 0x0000U, {0x34, 0x12}));
+        assert(plc.readBlock(word_blocks, 1, nullptr, 0, word_values, 1, nullptr, 0) == slmp::Error::Ok);
+        assert(!transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[64] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::QnUDV);
+        slmp::TypeNameInfo type_name{};
+        assert(plc.readTypeName(type_name) == slmp::Error::ProfileFeatureBlocked);
+        assert(std::string(plc.lastProfileFeatureErrorInfo().feature_key) == "type_name");
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::IqF);
+        const slmp::DeviceAddress monitor_devices[] = {slmp::dev::D(slmp::dev::dec(10))};
+        assert(plc.registerMonitorDevices(monitor_devices, 1, nullptr, 0) == slmp::Error::ProfileFeatureBlocked);
+        assert(std::string(plc.lastProfileFeatureErrorInfo().feature_key) == "monitor");
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::IqF);
+        uint16_t value = 0;
+        assert(plc.readWordsLinkDirect(1, slmp::DeviceCode::D, 0, 1, &value, 1) == slmp::Error::ProfileFeatureBlocked);
+        assert(std::string(plc.lastProfileFeatureErrorInfo().feature_key) == "ext_link_direct");
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::IqL);
+        uint16_t value = 0;
+        assert(plc.readWordsModuleBuf(0x03E0, true, 10, 1, &value, 1) == slmp::Error::ProfileFeatureBlocked);
+        assert(std::string(plc.lastProfileFeatureErrorInfo().feature_key) == "hg_cpu_buffer");
+        assert(transport.lastWrite().empty());
+    }
+
+    {
+        std::vector<slmp::DeviceAddress> dword_devices(69U, slmp::dev::D(slmp::dev::dec(2000)));
+        std::vector<uint32_t> values(69U, 0U);
+
+        MockTransport iqr_transport;
+        uint8_t iqr_tx[2048] = {};
+        uint8_t iqr_rx[64] = {};
+        slmp::SlmpClient iqr(iqr_transport, iqr_tx, sizeof(iqr_tx), iqr_rx, sizeof(iqr_rx));
+        iqr.setPlcProfile(slmp::PlcProfile::IqR);
+        assert(iqr.beginWriteRandomWords(nullptr, nullptr, 0, dword_devices.data(), values.data(), dword_devices.size(), 1000U) ==
+               slmp::Error::InvalidArgument);
+
+        MockTransport iql_transport;
+        uint8_t iql_tx[2048] = {};
+        uint8_t iql_rx[64] = {};
+        slmp::SlmpClient iql(iql_transport, iql_tx, sizeof(iql_tx), iql_rx, sizeof(iql_rx));
+        iql.setPlcProfile(slmp::PlcProfile::IqL);
+        assert(iql.beginWriteRandomWords(nullptr, nullptr, 0, dword_devices.data(), values.data(), dword_devices.size(), 1000U) ==
+               slmp::Error::Ok);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::IqF);
+        bool bits[1] = {true};
+        assert(plc.writeBits(slmp::dev::X(slmp::dev::hex(0)), bits, 1) == slmp::Error::UnsupportedDevice);
+        assert(transport.lastWrite().empty());
     }
 }
 
@@ -2738,6 +2905,8 @@ int main() {
     testHighLevelDeviceRangeCatalog();
     testHighLevelplcProfileDefaults();
     testQSeriesBlockRouteGuard();
+    testCapabilityProfileFixtureSnapshot();
+    testCapabilityProfileGuards();
     testCpuOperationState();
     std::puts("slmp_minimal_tests: ok");
     return 0;

@@ -45,6 +45,8 @@ Call `slmp::highlevel::configureClientForPlcProfile` before the first read or wr
 
 The complete sketches below show where the profile configuration belongs.
 
+Strict built-in Ethernet capability guards are enabled by default. If a selected profile has measured or policy data that marks an implemented high-level route as `blocked` or `unverified`, the call returns `slmp::Error::ProfileFeatureBlocked` before transport. Leave this guard enabled for normal applications; use `plc.setStrictProfile(false)` only when you deliberately want to send the request and inspect the PLC response yourself.
+
 ## First read
 
 This complete sketch connects to `192.168.250.100:1025` and reads `D100:U` once per second.
@@ -180,6 +182,7 @@ void loop() {
 | `connect()` fails | Your board must provide a `WiFiClient` or `EthernetClient` compatible transport, and the PLC must listen on TCP port `1025`. |
 | High-level helpers are undefined | Add `#include <slmp_high_level.h>`; it is not included automatically. |
 | Address parsing fails | Check that your `slmp::highlevel::PlcProfile` matches your actual hardware. |
+| `profile_feature_blocked` is returned | The selected profile marks that high-level route as blocked or unverified. Inspect `plc.lastProfileFeatureErrorInfo()`, or intentionally call `plc.setStrictProfile(false)` before sending a probe request. |
 | `X` or `Y` looks wrong | Use the profile-aware overloads of `slmp::highlevel::readTyped` and `slmp::highlevel::writeTyped`. |
 
 ## Next pages

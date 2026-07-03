@@ -92,7 +92,284 @@ inline bool isSpecifiedPlcProfile(PlcProfile profile) {
 }
 
 inline bool profileDisablesBlockAccess(PlcProfile profile) {
-    return profile == PlcProfile::QCpu || profile == PlcProfile::QnU || profile == PlcProfile::QnUDV;
+    return profile == PlcProfile::QCpu || profile == PlcProfile::QnU;
+}
+
+enum class ProfileLimitKey : uint8_t {
+    DirectWordRead,
+    DirectWordWrite,
+    DirectBitRead,
+    DirectBitWrite,
+    RandomReadWord,
+    RandomWriteWord,
+    RandomWriteBit,
+    MonitorRegisterWord,
+};
+
+struct FeatureEntry {
+    ProfileFeatureKey key;
+    const char* state;
+    const char* evidence;
+};
+
+struct LimitEntry {
+    ProfileLimitKey key;
+    size_t max;
+    size_t weighted_max;
+    bool has_weighted_max;
+};
+
+struct WritePolicyEntry {
+    DeviceCode code;
+};
+
+struct CapabilityProfile {
+    PlcProfile profile;
+    const FeatureEntry* features;
+    size_t feature_count;
+    const LimitEntry* limits;
+    size_t limit_count;
+    const WritePolicyEntry* write_policy;
+    size_t write_policy_count;
+};
+
+#define SLMP_FEATURE_SUPPORTED(key) {ProfileFeatureKey::key, "supported", nullptr}
+#define SLMP_FEATURE_CONFIG(key) {ProfileFeatureKey::key, "config-dependent", nullptr}
+#define SLMP_FEATURE_DELEGATED(key) {ProfileFeatureKey::key, "delegated", nullptr}
+#define SLMP_FEATURE_BLOCKED(key, evidence) {ProfileFeatureKey::key, "blocked", evidence}
+#define SLMP_FEATURE_UNVERIFIED(key, evidence) {ProfileFeatureKey::key, "unverified", evidence}
+
+static const FeatureEntry kIqRFeatures[] = {
+    SLMP_FEATURE_SUPPORTED(TypeName),
+    SLMP_FEATURE_SUPPORTED(Direct),
+    SLMP_FEATURE_SUPPORTED(Random),
+    SLMP_FEATURE_SUPPORTED(Block),
+    SLMP_FEATURE_SUPPORTED(Monitor),
+    SLMP_FEATURE_CONFIG(ExtModuleAccess),
+    SLMP_FEATURE_CONFIG(ExtLinkDirect),
+    SLMP_FEATURE_SUPPORTED(HgCpuBuffer),
+    SLMP_FEATURE_SUPPORTED(LongDevicePath),
+    SLMP_FEATURE_SUPPORTED(Lz32BitPath),
+};
+
+static const FeatureEntry kIqLFeatures[] = {
+    SLMP_FEATURE_SUPPORTED(TypeName),
+    SLMP_FEATURE_SUPPORTED(Direct),
+    SLMP_FEATURE_SUPPORTED(Random),
+    SLMP_FEATURE_SUPPORTED(Block),
+    SLMP_FEATURE_SUPPORTED(Monitor),
+    SLMP_FEATURE_CONFIG(ExtModuleAccess),
+    SLMP_FEATURE_CONFIG(ExtLinkDirect),
+    SLMP_FEATURE_BLOCKED(HgCpuBuffer, "iQ-R only route; not defined for iQ-L"),
+    SLMP_FEATURE_SUPPORTED(LongDevicePath),
+    SLMP_FEATURE_SUPPORTED(Lz32BitPath),
+};
+
+static const FeatureEntry kMxFeatures[] = {
+    SLMP_FEATURE_SUPPORTED(TypeName),
+    SLMP_FEATURE_SUPPORTED(Direct),
+    SLMP_FEATURE_SUPPORTED(Random),
+    SLMP_FEATURE_SUPPORTED(Block),
+    SLMP_FEATURE_SUPPORTED(Monitor),
+    SLMP_FEATURE_CONFIG(ExtModuleAccess),
+    SLMP_FEATURE_CONFIG(ExtLinkDirect),
+    SLMP_FEATURE_BLOCKED(HgCpuBuffer, "Unavailable by design because multi-CPU configuration is not available"),
+    SLMP_FEATURE_SUPPORTED(LongDevicePath),
+    SLMP_FEATURE_SUPPORTED(Lz32BitPath),
+};
+
+static const FeatureEntry kIqFFeatures[] = {
+    SLMP_FEATURE_SUPPORTED(TypeName),
+    SLMP_FEATURE_SUPPORTED(Direct),
+    SLMP_FEATURE_SUPPORTED(Random),
+    SLMP_FEATURE_SUPPORTED(Block),
+    SLMP_FEATURE_BLOCKED(Monitor, "C059 even for D10 single registration"),
+    SLMP_FEATURE_CONFIG(ExtModuleAccess),
+    SLMP_FEATURE_UNVERIFIED(ExtLinkDirect, "Not live-verified; guarded when strict"),
+    SLMP_FEATURE_BLOCKED(HgCpuBuffer, "iQ-R only route; not defined for iQ-F"),
+    SLMP_FEATURE_SUPPORTED(LongDevicePath),
+    SLMP_FEATURE_SUPPORTED(Lz32BitPath),
+};
+
+static const FeatureEntry kLCpuFeatures[] = {
+    SLMP_FEATURE_BLOCKED(TypeName, "0101/0000 returned C059"),
+    SLMP_FEATURE_SUPPORTED(Direct),
+    SLMP_FEATURE_SUPPORTED(Random),
+    SLMP_FEATURE_BLOCKED(Block, "Raw send returned C059"),
+    SLMP_FEATURE_SUPPORTED(Monitor),
+    SLMP_FEATURE_BLOCKED(ExtModuleAccess, "U0\\G10 / U2\\G1000 returned C070"),
+    SLMP_FEATURE_UNVERIFIED(ExtLinkDirect, "Not live-verified; guarded when strict"),
+    SLMP_FEATURE_BLOCKED(HgCpuBuffer, "iQ-R only route; not defined for LCPU"),
+    SLMP_FEATURE_DELEGATED(LongDevicePath),
+    SLMP_FEATURE_DELEGATED(Lz32BitPath),
+};
+
+static const FeatureEntry kQnUDVFeatures[] = {
+    SLMP_FEATURE_BLOCKED(TypeName, "0101/0000 returned C059"),
+    SLMP_FEATURE_SUPPORTED(Direct),
+    SLMP_FEATURE_SUPPORTED(Random),
+    SLMP_FEATURE_BLOCKED(Block, "Raw send returned C059; high-level API guards before transport"),
+    SLMP_FEATURE_SUPPORTED(Monitor),
+    SLMP_FEATURE_BLOCKED(ExtModuleAccess, "U0\\G10 / U2\\G1000 returned C070"),
+    SLMP_FEATURE_UNVERIFIED(ExtLinkDirect, "Not live-verified; guarded when strict"),
+    SLMP_FEATURE_BLOCKED(HgCpuBuffer, "iQ-R only route; not defined for QnUDV"),
+    SLMP_FEATURE_DELEGATED(LongDevicePath),
+    SLMP_FEATURE_DELEGATED(Lz32BitPath),
+};
+
+#undef SLMP_FEATURE_SUPPORTED
+#undef SLMP_FEATURE_CONFIG
+#undef SLMP_FEATURE_DELEGATED
+#undef SLMP_FEATURE_BLOCKED
+#undef SLMP_FEATURE_UNVERIFIED
+
+#define SLMP_LIMIT(key, max_value) {ProfileLimitKey::key, max_value, 0U, false}
+#define SLMP_LIMIT_WEIGHTED(key, max_value, weighted) {ProfileLimitKey::key, max_value, weighted, true}
+
+static const LimitEntry kIqRLimits[] = {
+    SLMP_LIMIT(DirectWordRead, 960U),
+    SLMP_LIMIT(DirectWordWrite, 960U),
+    SLMP_LIMIT(DirectBitRead, 7168U),
+    SLMP_LIMIT(DirectBitWrite, 7168U),
+    SLMP_LIMIT(RandomReadWord, 96U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWord, 80U, 960U),
+    SLMP_LIMIT(RandomWriteBit, 94U),
+    SLMP_LIMIT(MonitorRegisterWord, 96U),
+};
+
+static const LimitEntry kIqLLimits[] = {
+    SLMP_LIMIT(DirectWordRead, 960U),
+    SLMP_LIMIT(DirectWordWrite, 960U),
+    SLMP_LIMIT(DirectBitRead, 7168U),
+    SLMP_LIMIT(DirectBitWrite, 7168U),
+    SLMP_LIMIT(RandomReadWord, 96U),
+    SLMP_LIMIT(RandomWriteWord, 80U),
+    SLMP_LIMIT(RandomWriteBit, 94U),
+    SLMP_LIMIT(MonitorRegisterWord, 96U),
+};
+
+static const LimitEntry kIqFLimits[] = {
+    SLMP_LIMIT(DirectWordRead, 960U),
+    SLMP_LIMIT(DirectWordWrite, 960U),
+    SLMP_LIMIT(DirectBitRead, 3584U),
+    SLMP_LIMIT(DirectBitWrite, 3584U),
+    SLMP_LIMIT(RandomReadWord, 192U),
+    SLMP_LIMIT(RandomWriteWord, 160U),
+    SLMP_LIMIT(RandomWriteBit, 188U),
+};
+
+static const LimitEntry kQLMeasuredLimits[] = {
+    SLMP_LIMIT(DirectWordRead, 960U),
+    SLMP_LIMIT(DirectWordWrite, 960U),
+    SLMP_LIMIT(DirectBitRead, 7168U),
+    SLMP_LIMIT(DirectBitWrite, 7168U),
+    SLMP_LIMIT(RandomReadWord, 192U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWord, 160U, 1920U),
+    SLMP_LIMIT(RandomWriteBit, 188U),
+    SLMP_LIMIT(MonitorRegisterWord, 192U),
+};
+
+#undef SLMP_LIMIT
+#undef SLMP_LIMIT_WEIGHTED
+
+static const WritePolicyEntry kSAndLcsWritePolicy[] = {
+    {DeviceCode::S},
+    {DeviceCode::LCS},
+};
+
+static const WritePolicyEntry kXWritePolicy[] = {
+    {DeviceCode::X},
+};
+
+static const CapabilityProfile kCapabilityProfiles[] = {
+    {PlcProfile::IqR, kIqRFeatures, sizeof(kIqRFeatures) / sizeof(kIqRFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSAndLcsWritePolicy, sizeof(kSAndLcsWritePolicy) / sizeof(kSAndLcsWritePolicy[0])},
+    {PlcProfile::IqL, kIqLFeatures, sizeof(kIqLFeatures) / sizeof(kIqLFeatures[0]), kIqLLimits, sizeof(kIqLLimits) / sizeof(kIqLLimits[0]), kSAndLcsWritePolicy, sizeof(kSAndLcsWritePolicy) / sizeof(kSAndLcsWritePolicy[0])},
+    {PlcProfile::MxR, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSAndLcsWritePolicy, sizeof(kSAndLcsWritePolicy) / sizeof(kSAndLcsWritePolicy[0])},
+    {PlcProfile::MxF, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSAndLcsWritePolicy, sizeof(kSAndLcsWritePolicy) / sizeof(kSAndLcsWritePolicy[0])},
+    {PlcProfile::IqF, kIqFFeatures, sizeof(kIqFFeatures) / sizeof(kIqFFeatures[0]), kIqFLimits, sizeof(kIqFLimits) / sizeof(kIqFLimits[0]), kXWritePolicy, sizeof(kXWritePolicy) / sizeof(kXWritePolicy[0])},
+    {PlcProfile::LCpu, kLCpuFeatures, sizeof(kLCpuFeatures) / sizeof(kLCpuFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), nullptr, 0U},
+    {PlcProfile::QnUDV, kQnUDVFeatures, sizeof(kQnUDVFeatures) / sizeof(kQnUDVFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), nullptr, 0U},
+};
+
+static const char* profileLabel(PlcProfile profile) {
+    switch (profile) {
+        case PlcProfile::IqF: return "melsec:iq-f";
+        case PlcProfile::IqR: return "melsec:iq-r";
+        case PlcProfile::IqL: return "melsec:iq-l";
+        case PlcProfile::MxF: return "melsec:mx-f";
+        case PlcProfile::MxR: return "melsec:mx-r";
+        case PlcProfile::QCpu: return "melsec:qcpu";
+        case PlcProfile::LCpu: return "melsec:lcpu";
+        case PlcProfile::QnU: return "melsec:qnu";
+        case PlcProfile::QnUDV: return "melsec:qnudv";
+        case PlcProfile::Unspecified:
+        default:
+            return "";
+    }
+}
+
+static const char* featureKeyName(ProfileFeatureKey key) {
+    switch (key) {
+        case ProfileFeatureKey::TypeName: return "type_name";
+        case ProfileFeatureKey::Direct: return "direct";
+        case ProfileFeatureKey::Random: return "random";
+        case ProfileFeatureKey::Block: return "block";
+        case ProfileFeatureKey::Monitor: return "monitor";
+        case ProfileFeatureKey::ExtModuleAccess: return "ext_module_access";
+        case ProfileFeatureKey::ExtLinkDirect: return "ext_link_direct";
+        case ProfileFeatureKey::HgCpuBuffer: return "hg_cpu_buffer";
+        case ProfileFeatureKey::LongDevicePath: return "long_device_path";
+        case ProfileFeatureKey::Lz32BitPath: return "lz_32bit_path";
+        default: return "";
+    }
+}
+
+static const CapabilityProfile* findCapabilityProfile(PlcProfile profile) {
+    for (size_t i = 0; i < sizeof(kCapabilityProfiles) / sizeof(kCapabilityProfiles[0]); ++i) {
+        if (kCapabilityProfiles[i].profile == profile) return &kCapabilityProfiles[i];
+    }
+    return nullptr;
+}
+
+static const FeatureEntry* findFeatureEntry(PlcProfile profile, ProfileFeatureKey key) {
+    const CapabilityProfile* capability = findCapabilityProfile(profile);
+    if (capability == nullptr) return nullptr;
+    for (size_t i = 0; i < capability->feature_count; ++i) {
+        if (capability->features[i].key == key) return &capability->features[i];
+    }
+    return nullptr;
+}
+
+static const LimitEntry* findLimitEntry(PlcProfile profile, ProfileLimitKey key) {
+    const CapabilityProfile* capability = findCapabilityProfile(profile);
+    if (capability == nullptr) return nullptr;
+    for (size_t i = 0; i < capability->limit_count; ++i) {
+        if (capability->limits[i].key == key) return &capability->limits[i];
+    }
+    return nullptr;
+}
+
+static size_t profileLimitOr(PlcProfile profile, ProfileLimitKey key, size_t fallback) {
+    const LimitEntry* limit = findLimitEntry(profile, key);
+    return limit == nullptr ? fallback : limit->max;
+}
+
+static bool isGuardedFeatureState(const char* state) {
+    return strcmp(state, "blocked") == 0 || strcmp(state, "unverified") == 0;
+}
+
+static bool profileFeatureWouldBlock(PlcProfile profile, ProfileFeatureKey key) {
+    const FeatureEntry* feature = findFeatureEntry(profile, key);
+    return feature != nullptr && isGuardedFeatureState(feature->state);
+}
+
+static bool isProfileReadOnlyDevice(PlcProfile profile, DeviceCode code) {
+    const CapabilityProfile* capability = findCapabilityProfile(profile);
+    if (capability == nullptr || capability->write_policy == nullptr) return false;
+    for (size_t i = 0; i < capability->write_policy_count; ++i) {
+        if (capability->write_policy[i].code == code) return true;
+    }
+    return false;
 }
 
 inline FrameType frameTypeForPlcProfile(PlcProfile profile) {
@@ -188,49 +465,89 @@ inline size_t blockWriteOverheadPerBlock(CompatibilityMode mode) {
     return (mode == CompatibilityMode::iQR) ? 9U : 4U;
 }
 
-inline size_t directBitPointLimit(PlcProfile profile) {
-    return (profile == PlcProfile::IqF) ? kDirectIqFBitPointLimit : kDirectBitPointLimit;
+inline Error validateDirectWordAccessPoints(size_t points, PlcProfile profile, bool write) {
+    const size_t limit = profileLimitOr(
+        profile,
+        write ? ProfileLimitKey::DirectWordWrite : ProfileLimitKey::DirectWordRead,
+        kDirectWordPointLimit
+    );
+    return (points >= 1U && points <= limit) ? Error::Ok : Error::InvalidArgument;
 }
 
-inline Error validateDirectWordAccessPoints(size_t points) {
-    return (points >= 1U && points <= kDirectWordPointLimit) ? Error::Ok : Error::InvalidArgument;
+inline Error validateDirectDWordAccessPoints(size_t points, PlcProfile profile, bool write) {
+    const size_t word_limit = profileLimitOr(
+        profile,
+        write ? ProfileLimitKey::DirectWordWrite : ProfileLimitKey::DirectWordRead,
+        kDirectWordPointLimit
+    );
+    return (points >= 1U && points <= (word_limit / 2U)) ? Error::Ok : Error::InvalidArgument;
 }
 
-inline Error validateDirectDWordAccessPoints(size_t points) {
-    return (points >= 1U && points <= (kDirectWordPointLimit / 2U)) ? Error::Ok : Error::InvalidArgument;
-}
-
-inline Error validateDirectBitAccessPoints(size_t points, PlcProfile profile) {
-    const size_t limit = directBitPointLimit(profile);
+inline Error validateDirectBitAccessPoints(size_t points, PlcProfile profile, bool write) {
+    const size_t limit = profileLimitOr(
+        profile,
+        write ? ProfileLimitKey::DirectBitWrite : ProfileLimitKey::DirectBitRead,
+        kDirectBitPointLimit
+    );
     return (points >= 1U && points <= limit) ? Error::Ok : Error::InvalidArgument;
 }
 
 inline Error validateRandomReadLikeCounts(
-    size_t word_count, size_t dword_count, CompatibilityMode mode, bool extended = false
+    size_t word_count,
+    size_t dword_count,
+    CompatibilityMode mode,
+    bool extended = false,
+    PlcProfile profile = PlcProfile::Unspecified,
+    ProfileLimitKey limit_key = ProfileLimitKey::RandomReadWord
 ) {
     if (word_count > 0xFFU || dword_count > 0xFFU) {
         return Error::InvalidArgument;
     }
     const size_t total = word_count + dword_count;
-    const size_t limit = randomReadLikeLimit(mode, extended);
+    const size_t fallback = randomReadLikeLimit(mode, extended);
+    const size_t limit = extended ? fallback : profileLimitOr(profile, limit_key, fallback);
     return (total >= 1U && total <= limit) ? Error::Ok : Error::InvalidArgument;
 }
 
 inline Error validateRandomWriteWordCounts(
-    size_t word_count, size_t dword_count, CompatibilityMode mode, bool extended = false
+    size_t word_count,
+    size_t dword_count,
+    CompatibilityMode mode,
+    bool extended = false,
+    PlcProfile profile = PlcProfile::Unspecified
 ) {
     if (word_count > 0xFFU || dword_count > 0xFFU) {
         return Error::InvalidArgument;
     }
-    if ((word_count + dword_count) == 0U) {
+    const size_t total = word_count + dword_count;
+    if (total == 0U) {
         return Error::InvalidArgument;
+    }
+    if (!extended) {
+        const LimitEntry* limit = findLimitEntry(profile, ProfileLimitKey::RandomWriteWord);
+        if (limit != nullptr) {
+            if (total > limit->max) {
+                return Error::InvalidArgument;
+            }
+            if (!limit->has_weighted_max) {
+                return Error::Ok;
+            }
+            const size_t weighted = (word_count * 12U) + (dword_count * 14U);
+            return (weighted <= limit->weighted_max) ? Error::Ok : Error::InvalidArgument;
+        }
     }
     const size_t weighted = (word_count * 12U) + (dword_count * 14U);
     return (weighted <= randomWriteWordWeightLimit(mode, extended)) ? Error::Ok : Error::InvalidArgument;
 }
 
-inline Error validateRandomBitWriteCount(size_t bit_count, CompatibilityMode mode, bool extended = false) {
-    const size_t limit = randomBitWriteLimit(mode, extended);
+inline Error validateRandomBitWriteCount(
+    size_t bit_count,
+    CompatibilityMode mode,
+    bool extended = false,
+    PlcProfile profile = PlcProfile::Unspecified
+) {
+    const size_t fallback = randomBitWriteLimit(mode, extended);
+    const size_t limit = extended ? fallback : profileLimitOr(profile, ProfileLimitKey::RandomWriteBit, fallback);
     return (bit_count >= 1U && bit_count <= limit) ? Error::Ok : Error::InvalidArgument;
 }
 
@@ -290,8 +607,8 @@ inline bool isUnsupportedDirectDevice(DeviceCode code) {
     }
 }
 
-inline bool isReadOnlyDevice(DeviceCode code) {
-    return code == DeviceCode::S;
+inline bool isReadOnlyDevice(DeviceCode code, PlcProfile profile = PlcProfile::Unspecified) {
+    return code == DeviceCode::S || isProfileReadOnlyDevice(profile, code);
 }
 
 inline bool isLongTimerStateReadOnlyDevice(DeviceCode code) {
@@ -369,8 +686,8 @@ inline Error validateDirectBitReadDevice(const DeviceAddress& device) {
     return Error::Ok;
 }
 
-inline Error validateDirectBitWriteDevice(const DeviceAddress& device) {
-    if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code) || isLongFamilyStateWriteDevice(device.code)) {
+inline Error validateDirectBitWriteDevice(const DeviceAddress& device, PlcProfile profile) {
+    if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code, profile) || isLongFamilyStateWriteDevice(device.code)) {
         return Error::UnsupportedDevice;
     }
     return Error::Ok;
@@ -383,16 +700,16 @@ inline Error validateDirectDWordReadDevice(const DeviceAddress& device) {
     return Error::Ok;
 }
 
-inline Error validateDirectWordWriteDevice(const DeviceAddress& device) {
-    if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code) ||
+inline Error validateDirectWordWriteDevice(const DeviceAddress& device, PlcProfile profile) {
+    if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code, profile) ||
         isLongTimerCurrentBlockDevice(device.code) || isDwordOnlyDirectWordDevice(device.code)) {
         return Error::UnsupportedDevice;
     }
     return Error::Ok;
 }
 
-inline Error validateDirectDWordWriteDevice(const DeviceAddress& device) {
-    if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code) ||
+inline Error validateDirectDWordWriteDevice(const DeviceAddress& device, PlcProfile profile) {
+    if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code, profile) ||
         isLongTimerCurrentBlockDevice(device.code) || isDwordOnlyDirectWordDevice(device.code)) {
         return Error::UnsupportedDevice;
     }
@@ -465,7 +782,7 @@ inline Error validateExtRandomReadDevices(
     return Error::Ok;
 }
 
-inline Error validateExtRandomWriteWordDevices(const ExtDeviceSpec* word_devices, size_t word_count) {
+inline Error validateExtRandomWriteWordDevices(const ExtDeviceSpec* word_devices, size_t word_count, PlcProfile profile) {
     if (word_count == 0) {
         return Error::Ok;
     }
@@ -478,14 +795,14 @@ inline Error validateExtRandomWriteWordDevices(const ExtDeviceSpec* word_devices
             return spec_error;
         }
         if (word_devices[i].kind == ExtDeviceSpec::Kind::LinkDirect &&
-            (isReadOnlyDevice(word_devices[i].link.code) || isLongCurrentOrDwordOnlyDevice(word_devices[i].link.code))) {
+            (isReadOnlyDevice(word_devices[i].link.code, profile) || isLongCurrentOrDwordOnlyDevice(word_devices[i].link.code))) {
             return Error::UnsupportedDevice;
         }
     }
     return Error::Ok;
 }
 
-inline Error validateExtRandomBitWriteDevices(const ExtDeviceSpec* bit_devices, size_t bit_count) {
+inline Error validateExtRandomBitWriteDevices(const ExtDeviceSpec* bit_devices, size_t bit_count, PlcProfile profile) {
     if (bit_count == 0) {
         return Error::Ok;
     }
@@ -501,7 +818,7 @@ inline Error validateExtRandomBitWriteDevices(const ExtDeviceSpec* bit_devices, 
             return Error::UnsupportedDevice;
         }
         if (bit_devices[i].kind == ExtDeviceSpec::Kind::LinkDirect &&
-            (isReadOnlyDevice(bit_devices[i].link.code) || bit_devices[i].link.code == DeviceCode::G ||
+            (isReadOnlyDevice(bit_devices[i].link.code, profile) || bit_devices[i].link.code == DeviceCode::G ||
              bit_devices[i].link.code == DeviceCode::HG)) {
             return Error::UnsupportedDevice;
         }
@@ -564,7 +881,7 @@ inline Error summarizeBlockReadList(const DeviceBlockRead* blocks, size_t count,
     return Error::Ok;
 }
 
-inline Error summarizeBlockWriteList(const DeviceBlockWrite* blocks, size_t count, size_t& total_points) {
+inline Error summarizeBlockWriteList(const DeviceBlockWrite* blocks, size_t count, size_t& total_points, PlcProfile profile) {
     total_points = 0;
     if (count == 0) {
         return Error::Ok;
@@ -577,7 +894,7 @@ inline Error summarizeBlockWriteList(const DeviceBlockWrite* blocks, size_t coun
             return Error::InvalidArgument;
         }
         if (isUnsupportedDirectDevice(blocks[i].device.code) ||
-            isReadOnlyDevice(blocks[i].device.code) ||
+            isReadOnlyDevice(blocks[i].device.code, profile) ||
             isLongCounterContactDevice(blocks[i].device.code) ||
             isLongCurrentOrDwordOnlyDevice(blocks[i].device.code)) {
             return Error::UnsupportedDevice;
@@ -780,12 +1097,14 @@ SlmpClient::SlmpClient(
       frame_type_(FrameType::Frame4E),
       compatibility_mode_(CompatibilityMode::iQR),
       block_access_enabled_(true),
+      strict_profile_(true),
       monitoring_timer_(0x0010),
       timeout_ms_(3000),
       serial_(0),
       last_error_(Error::Ok),
       last_end_code_(0),
       last_error_info_(),
+      last_profile_feature_error_info_(),
       last_request_length_(0),
       last_response_length_(0),
       state_(State::Idle),
@@ -859,12 +1178,22 @@ PlcProfile SlmpClient::plcProfile() const {
     return plc_profile_;
 }
 
+void SlmpClient::setStrictProfile(bool enabled) {
+    strict_profile_ = enabled;
+}
+
+bool SlmpClient::strictProfile() const {
+    return strict_profile_;
+}
+
 void SlmpClient::setBlockAccessEnabled(bool enabled) {
     block_access_enabled_ = enabled;
 }
 
 bool SlmpClient::blockAccessEnabled() const {
-    return block_access_enabled_ && !profileDisablesBlockAccess(plc_profile_);
+    return block_access_enabled_ &&
+           !profileDisablesBlockAccess(plc_profile_) &&
+           !(strict_profile_ && profileFeatureWouldBlock(plc_profile_, ProfileFeatureKey::Block));
 }
 
 void SlmpClient::setMonitoringTimer(uint16_t monitoring_timer) {
@@ -897,6 +1226,14 @@ bool SlmpClient::hasLastErrorInfo() const {
 
 const SlmpErrorInfo& SlmpClient::lastErrorInfo() const {
     return last_error_info_;
+}
+
+bool SlmpClient::hasLastProfileFeatureErrorInfo() const {
+    return last_profile_feature_error_info_.present;
+}
+
+const ProfileFeatureErrorInfo& SlmpClient::lastProfileFeatureErrorInfo() const {
+    return last_profile_feature_error_info_;
 }
 
 const uint8_t* SlmpClient::lastRequestFrame() const {
@@ -1577,6 +1914,8 @@ void SlmpClient::completeAsync() {
 }
 
 Error SlmpClient::beginReadTypeName(TypeNameInfo& out, uint32_t now_ms) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::TypeName);
+    if (guard_error != Error::Ok) return guard_error;
     out.model[0] = '\0';
     out.model_code = 0;
     out.has_model_code = false;
@@ -1628,7 +1967,9 @@ Error SlmpClient::beginReadWords(
     size_t value_capacity,
     uint32_t now_ms
 ) {
-    if (values == nullptr || value_capacity < points || validateDirectWordAccessPoints(points) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Direct);
+    if (guard_error != Error::Ok) return guard_error;
+    if (values == nullptr || value_capacity < points || validateDirectWordAccessPoints(points, plc_profile_, false) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -1674,11 +2015,13 @@ Error SlmpClient::beginWriteWords(
     size_t count,
     uint32_t now_ms
 ) {
-    if (values == nullptr || validateDirectWordAccessPoints(count) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Direct);
+    if (guard_error != Error::Ok) return guard_error;
+    if (values == nullptr || validateDirectWordAccessPoints(count, plc_profile_, true) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
-    Error validate_error = validateDirectWordWriteDevice(device);
+    Error validate_error = validateDirectWordWriteDevice(device, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -1720,7 +2063,9 @@ Error SlmpClient::beginReadBits(
     size_t value_capacity,
     uint32_t now_ms
 ) {
-    if (values == nullptr || value_capacity < points || validateDirectBitAccessPoints(points, plc_profile_) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Direct);
+    if (guard_error != Error::Ok) return guard_error;
+    if (values == nullptr || value_capacity < points || validateDirectBitAccessPoints(points, plc_profile_, false) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -1761,11 +2106,13 @@ Error SlmpClient::beginWriteBits(
     size_t count,
     uint32_t now_ms
 ) {
-    if (values == nullptr || validateDirectBitAccessPoints(count, plc_profile_) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Direct);
+    if (guard_error != Error::Ok) return guard_error;
+    if (values == nullptr || validateDirectBitAccessPoints(count, plc_profile_, true) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
-    Error validate_error = validateDirectBitWriteDevice(device);
+    Error validate_error = validateDirectBitWriteDevice(device, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -1814,7 +2161,9 @@ Error SlmpClient::beginReadDWords(
     size_t value_capacity,
     uint32_t now_ms
 ) {
-    if (values == nullptr || value_capacity < points || validateDirectDWordAccessPoints(points) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Direct);
+    if (guard_error != Error::Ok) return guard_error;
+    if (values == nullptr || value_capacity < points || validateDirectDWordAccessPoints(points, plc_profile_, false) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -1860,11 +2209,13 @@ Error SlmpClient::beginWriteDWords(
     size_t count,
     uint32_t now_ms
 ) {
-    if (values == nullptr || validateDirectDWordAccessPoints(count) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Direct);
+    if (guard_error != Error::Ok) return guard_error;
+    if (values == nullptr || validateDirectDWordAccessPoints(count, plc_profile_, true) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
-    Error validate_error = validateDirectDWordWriteDevice(device);
+    Error validate_error = validateDirectDWordWriteDevice(device, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -1906,7 +2257,9 @@ Error SlmpClient::beginReadFloat32s(
     size_t value_capacity,
     uint32_t now_ms
 ) {
-    if (values == nullptr || value_capacity < points || validateDirectDWordAccessPoints(points) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Direct);
+    if (guard_error != Error::Ok) return guard_error;
+    if (values == nullptr || value_capacity < points || validateDirectDWordAccessPoints(points, plc_profile_, false) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -1951,11 +2304,13 @@ Error SlmpClient::beginWriteFloat32s(
     size_t count,
     uint32_t now_ms
 ) {
-    if (values == nullptr || validateDirectDWordAccessPoints(count) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Direct);
+    if (guard_error != Error::Ok) return guard_error;
+    if (values == nullptr || validateDirectDWordAccessPoints(count, plc_profile_, true) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
-    if (isUnsupportedDirectDevice(device.code)) {
+    if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code, plc_profile_)) {
         setError(Error::UnsupportedDevice);
         return last_error_;
     }
@@ -1994,6 +2349,8 @@ Error SlmpClient::writeFloat32s(const DeviceAddress& device, const float* values
 // -----------------------------------------------------------------------
 
 Error SlmpClient::beginReadLongTimer(int head_no, int points, LongTimerResult* out, size_t capacity, uint32_t now_ms) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::LongDevicePath);
+    if (guard_error != Error::Ok) return guard_error;
     if (out == nullptr || points <= 0 || head_no < 0 || capacity < static_cast<size_t>(points)) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -2023,6 +2380,8 @@ Error SlmpClient::readLongTimer(int head_no, int points, LongTimerResult* out, s
 }
 
 Error SlmpClient::beginReadLongRetentiveTimer(int head_no, int points, LongTimerResult* out, size_t capacity, uint32_t now_ms) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::LongDevicePath);
+    if (guard_error != Error::Ok) return guard_error;
     if (out == nullptr || points <= 0 || head_no < 0 || capacity < static_cast<size_t>(points)) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -2124,7 +2483,9 @@ Error SlmpClient::readLstsStates(int head_no, int points, bool* out, size_t capa
 // -----------------------------------------------------------------------
 
 Error SlmpClient::beginReadWordsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no, uint16_t points, uint16_t* out, size_t capacity, uint32_t now_ms) {
-    if (out == nullptr || capacity < points || validateDirectWordAccessPoints(points) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(use_hg ? ProfileFeatureKey::HgCpuBuffer : ProfileFeatureKey::ExtModuleAccess);
+    if (guard_error != Error::Ok) return guard_error;
+    if (out == nullptr || capacity < points || validateDirectWordAccessPoints(points, plc_profile_, false) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -2151,7 +2512,9 @@ Error SlmpClient::readWordsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no
 }
 
 Error SlmpClient::beginWriteWordsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no, const uint16_t* values, size_t count, uint32_t now_ms) {
-    if (values == nullptr || validateDirectWordAccessPoints(count) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(use_hg ? ProfileFeatureKey::HgCpuBuffer : ProfileFeatureKey::ExtModuleAccess);
+    if (guard_error != Error::Ok) return guard_error;
+    if (values == nullptr || validateDirectWordAccessPoints(count, plc_profile_, true) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -2184,7 +2547,9 @@ Error SlmpClient::writeWordsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_n
 }
 
 Error SlmpClient::beginReadBitsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no, uint16_t points, bool* out, size_t capacity, uint32_t now_ms) {
-    if (out == nullptr || capacity < points || validateDirectBitAccessPoints(points, plc_profile_) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(use_hg ? ProfileFeatureKey::HgCpuBuffer : ProfileFeatureKey::ExtModuleAccess);
+    if (guard_error != Error::Ok) return guard_error;
+    if (out == nullptr || capacity < points || validateDirectBitAccessPoints(points, plc_profile_, false) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -2211,7 +2576,9 @@ Error SlmpClient::readBitsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no,
 }
 
 Error SlmpClient::beginWriteBitsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no, const bool* values, size_t count, uint32_t now_ms) {
-    if (values == nullptr || validateDirectBitAccessPoints(count, plc_profile_) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(use_hg ? ProfileFeatureKey::HgCpuBuffer : ProfileFeatureKey::ExtModuleAccess);
+    if (guard_error != Error::Ok) return guard_error;
+    if (values == nullptr || validateDirectBitAccessPoints(count, plc_profile_, true) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -2252,7 +2619,9 @@ Error SlmpClient::writeBitsModuleBuf(uint16_t slot, bool use_hg, uint32_t dev_no
 // -----------------------------------------------------------------------
 
 Error SlmpClient::beginReadWordsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t dev_no, uint16_t points, uint16_t* out, size_t capacity, uint32_t now_ms) {
-    if (out == nullptr || capacity < points || validateDirectWordAccessPoints(points) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::ExtLinkDirect);
+    if (guard_error != Error::Ok) return guard_error;
+    if (out == nullptr || capacity < points || validateDirectWordAccessPoints(points, plc_profile_, false) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -2275,13 +2644,15 @@ Error SlmpClient::readWordsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t d
 }
 
 Error SlmpClient::beginWriteWordsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t dev_no, const uint16_t* values, size_t count, uint32_t now_ms) {
-    if (values == nullptr || validateDirectWordAccessPoints(count) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::ExtLinkDirect);
+    if (guard_error != Error::Ok) return guard_error;
+    if (values == nullptr || validateDirectWordAccessPoints(count, plc_profile_, true) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
     // Link-direct writes use the same device families as direct writes; keep
     // them from bypassing read-only and qualified-only policy checks.
-    Error validate_error = validateDirectWordWriteDevice({code, dev_no});
+    Error validate_error = validateDirectWordWriteDevice({code, dev_no}, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -2311,7 +2682,9 @@ Error SlmpClient::writeWordsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t 
 }
 
 Error SlmpClient::beginReadBitsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t dev_no, uint16_t points, bool* out, size_t capacity, uint32_t now_ms) {
-    if (out == nullptr || capacity < points || validateDirectBitAccessPoints(points, plc_profile_) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::ExtLinkDirect);
+    if (guard_error != Error::Ok) return guard_error;
+    if (out == nullptr || capacity < points || validateDirectBitAccessPoints(points, plc_profile_, false) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -2334,13 +2707,15 @@ Error SlmpClient::readBitsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t de
 }
 
 Error SlmpClient::beginWriteBitsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t dev_no, const bool* values, size_t count, uint32_t now_ms) {
-    if (values == nullptr || validateDirectBitAccessPoints(count, plc_profile_) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::ExtLinkDirect);
+    if (guard_error != Error::Ok) return guard_error;
+    if (values == nullptr || validateDirectBitAccessPoints(count, plc_profile_, true) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
     // Link-direct writes use the same device families as direct writes; keep
     // them from bypassing read-only and qualified-only policy checks.
-    Error validate_error = validateDirectBitWriteDevice({code, dev_no});
+    Error validate_error = validateDirectBitWriteDevice({code, dev_no}, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -2520,18 +2895,26 @@ Error SlmpClient::writeExtendUnitWords(uint32_t head_address, uint16_t module_no
 // -----------------------------------------------------------------------
 
 Error SlmpClient::readCpuBufferBytes(uint32_t head_address, uint16_t byte_length, uint8_t* out, size_t capacity) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
+    if (guard_error != Error::Ok) return guard_error;
     return readExtendUnitBytes(head_address, byte_length, 0x03E0, out, capacity);
 }
 
 Error SlmpClient::readCpuBufferWords(uint32_t head_address, uint16_t word_length, uint16_t* out, size_t capacity) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
+    if (guard_error != Error::Ok) return guard_error;
     return readExtendUnitWords(head_address, word_length, 0x03E0, out, capacity);
 }
 
 Error SlmpClient::writeCpuBufferBytes(uint32_t head_address, const uint8_t* data, size_t byte_length) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
+    if (guard_error != Error::Ok) return guard_error;
     return writeExtendUnitBytes(head_address, 0x03E0, data, byte_length);
 }
 
 Error SlmpClient::writeCpuBufferWords(uint32_t head_address, const uint16_t* values, size_t count) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
+    if (guard_error != Error::Ok) return guard_error;
     return writeExtendUnitWords(head_address, 0x03E0, values, count);
 }
 
@@ -2793,7 +3176,9 @@ Error SlmpClient::beginReadRandom(
     size_t dword_value_capacity,
     uint32_t now_ms
 ) {
-    if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Random);
+    if (guard_error != Error::Ok) return guard_error;
+    if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_, false, plc_profile_) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -2899,7 +3284,9 @@ Error SlmpClient::beginWriteRandomWords(
     size_t dword_count,
     uint32_t now_ms
 ) {
-    if (validateRandomWriteWordCounts(word_count, dword_count, compatibility_mode_) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Random);
+    if (guard_error != Error::Ok) return guard_error;
+    if (validateRandomWriteWordCounts(word_count, dword_count, compatibility_mode_, false, plc_profile_) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -2915,7 +3302,7 @@ Error SlmpClient::beginWriteRandomWords(
         return last_error_;
     }
     for (size_t i = 0; i < word_count; ++i) {
-        if (isReadOnlyDevice(word_devices[i].code) || isLongCurrentOrDwordOnlyDevice(word_devices[i].code)) {
+        if (isReadOnlyDevice(word_devices[i].code, plc_profile_) || isLongCurrentOrDwordOnlyDevice(word_devices[i].code)) {
             setError(Error::UnsupportedDevice);
             return last_error_;
         }
@@ -2926,7 +3313,7 @@ Error SlmpClient::beginWriteRandomWords(
         return last_error_;
     }
     for (size_t i = 0; i < dword_count; ++i) {
-        if (isReadOnlyDevice(dword_devices[i].code)) {
+        if (isReadOnlyDevice(dword_devices[i].code, plc_profile_)) {
             setError(Error::UnsupportedDevice);
             return last_error_;
         }
@@ -2994,8 +3381,10 @@ Error SlmpClient::beginWriteRandomBits(
     size_t bit_count,
     uint32_t now_ms
 ) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Random);
+    if (guard_error != Error::Ok) return guard_error;
     if (bit_devices == nullptr || bit_values == nullptr ||
-        validateRandomBitWriteCount(bit_count, compatibility_mode_) != Error::Ok) {
+        validateRandomBitWriteCount(bit_count, compatibility_mode_, false, plc_profile_) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -3006,7 +3395,7 @@ Error SlmpClient::beginWriteRandomBits(
         return last_error_;
     }
     for (size_t i = 0; i < bit_count; ++i) {
-        if (isReadOnlyDevice(bit_devices[i].code)) {
+        if (isReadOnlyDevice(bit_devices[i].code, plc_profile_)) {
             setError(Error::UnsupportedDevice);
             return last_error_;
         }
@@ -3061,10 +3450,12 @@ Error SlmpClient::beginReadBlock(
     size_t bit_value_capacity,
     uint32_t now_ms
 ) {
-    if (!blockAccessEnabled()) {
+    if (profileDisablesBlockAccess(plc_profile_) || !block_access_enabled_) {
         setError(Error::UnsupportedDevice);
         return last_error_;
     }
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Block);
+    if (guard_error != Error::Ok) return guard_error;
     if ((word_block_count == 0 && bit_block_count == 0) || word_block_count > 0xFFU || bit_block_count > 0xFFU) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -3173,10 +3564,12 @@ Error SlmpClient::beginWriteBlock(
     const BlockWriteOptions& options,
     uint32_t now_ms
 ) {
-    if (!blockAccessEnabled()) {
+    if (profileDisablesBlockAccess(plc_profile_) || !block_access_enabled_) {
         setError(Error::UnsupportedDevice);
         return last_error_;
     }
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Block);
+    if (guard_error != Error::Ok) return guard_error;
     const bool has_mixed_blocks = (word_block_count > 0U && bit_block_count > 0U);
 
     if (options.split_mixed_blocks && has_mixed_blocks) {
@@ -3234,12 +3627,12 @@ Error SlmpClient::beginWriteBlockRequest(
 
     size_t total_word_points = 0;
     size_t total_bit_points = 0;
-    Error validate_error = summarizeBlockWriteList(request_word_blocks, request_word_block_count, total_word_points);
+    Error validate_error = summarizeBlockWriteList(request_word_blocks, request_word_block_count, total_word_points, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
     }
-    validate_error = summarizeBlockWriteList(request_bit_blocks, request_bit_block_count, total_bit_points);
+    validate_error = summarizeBlockWriteList(request_bit_blocks, request_bit_block_count, total_bit_points, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -3588,6 +3981,7 @@ void SlmpClient::setError(Error error, uint16_t end_code) {
     last_error_ = error;
     last_end_code_ = end_code;
     last_error_info_ = SlmpErrorInfo{};
+    last_profile_feature_error_info_ = ProfileFeatureErrorInfo{};
 }
 
 void SlmpClient::setPlcError(uint16_t end_code, const uint8_t* response_data, size_t response_length) {
@@ -3603,6 +3997,38 @@ void SlmpClient::setPlcError(uint16_t end_code, const uint8_t* response_data, si
     last_error_info_.command = readLe16(response_data + 5U);
     last_error_info_.subcommand = readLe16(response_data + 7U);
     memcpy(last_error_info_.raw, response_data, 9U);
+}
+
+void SlmpClient::setProfileFeatureError(ProfileFeatureKey feature_key, const char* state, const char* evidence) {
+    last_error_ = Error::ProfileFeatureBlocked;
+    last_end_code_ = 0U;
+    last_error_info_ = SlmpErrorInfo{};
+    last_profile_feature_error_info_.present = true;
+    last_profile_feature_error_info_.profile = plc_profile_;
+    last_profile_feature_error_info_.profile_id = profileLabel(plc_profile_);
+    last_profile_feature_error_info_.feature_key = featureKeyName(feature_key);
+    last_profile_feature_error_info_.state = state;
+    last_profile_feature_error_info_.evidence = evidence;
+    last_profile_feature_error_info_.disable_hint = "Set strictProfile=false to send the request anyway.";
+}
+
+Error SlmpClient::ensureProfileFeatureAllowed(ProfileFeatureKey feature_key) {
+    const FeatureEntry* feature = findFeatureEntry(plc_profile_, feature_key);
+    if (feature == nullptr || !strict_profile_ || !isGuardedFeatureState(feature->state)) {
+        return Error::Ok;
+    }
+    setProfileFeatureError(feature_key, feature->state, feature->evidence);
+    return last_error_;
+}
+
+Error SlmpClient::ensureExtProfileFeatureAllowed(const ExtDeviceSpec& spec) {
+    if (spec.kind == ExtDeviceSpec::Kind::LinkDirect) {
+        return ensureProfileFeatureAllowed(ProfileFeatureKey::ExtLinkDirect);
+    }
+    if (spec.kind == ExtDeviceSpec::Kind::ModuleBuf && spec.mod.use_hg) {
+        return ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
+    }
+    return ensureProfileFeatureAllowed(ProfileFeatureKey::ExtModuleAccess);
 }
 
 const char* errorString(Error error) {
@@ -3623,6 +4049,8 @@ const char* errorString(Error error) {
             return "protocol_error";
         case Error::PlcError:
             return "plc_error";
+        case Error::ProfileFeatureBlocked:
+            return "profile_feature_blocked";
         default:
             return "unknown_error";
     }
@@ -3680,6 +4108,8 @@ Error SlmpClient::beginReadRandomExt(
     uint32_t* dword_values, size_t dword_value_capacity,
     uint32_t now_ms
 ) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Random);
+    if (guard_error != Error::Ok) return guard_error;
     if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_, true) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
@@ -3691,6 +4121,14 @@ Error SlmpClient::beginReadRandomExt(
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
+    }
+    for (size_t i = 0; i < word_count; ++i) {
+        guard_error = ensureExtProfileFeatureAllowed(word_devices[i]);
+        if (guard_error != Error::Ok) return guard_error;
+    }
+    for (size_t i = 0; i < dword_count; ++i) {
+        guard_error = ensureExtProfileFeatureAllowed(dword_devices[i]);
+        if (guard_error != Error::Ok) return guard_error;
     }
 
     tx_buffer_[0] = static_cast<uint8_t>(word_count);
@@ -3733,6 +4171,8 @@ Error SlmpClient::beginWriteRandomWordsExt(
     const ExtDeviceSpec* dword_devices, const uint32_t* dword_values, size_t dword_count,
     uint32_t now_ms
 ) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Random);
+    if (guard_error != Error::Ok) return guard_error;
     if (validateRandomWriteWordCounts(word_count, dword_count, compatibility_mode_, true) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
@@ -3740,10 +4180,14 @@ Error SlmpClient::beginWriteRandomWordsExt(
         (dword_count > 0 && (dword_devices == nullptr || dword_values == nullptr))) {
         setError(Error::InvalidArgument); return last_error_;
     }
-    Error validate_error = validateExtRandomWriteWordDevices(word_devices, word_count);
+    Error validate_error = validateExtRandomWriteWordDevices(word_devices, word_count, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
+    }
+    for (size_t i = 0; i < word_count; ++i) {
+        guard_error = ensureExtProfileFeatureAllowed(word_devices[i]);
+        if (guard_error != Error::Ok) return guard_error;
     }
     for (size_t i = 0; i < dword_count; ++i) {
         validate_error = validateExtDeviceSpec(dword_devices[i]);
@@ -3751,8 +4195,10 @@ Error SlmpClient::beginWriteRandomWordsExt(
             setError(validate_error);
             return last_error_;
         }
+        guard_error = ensureExtProfileFeatureAllowed(dword_devices[i]);
+        if (guard_error != Error::Ok) return guard_error;
         if (dword_devices[i].kind == ExtDeviceSpec::Kind::LinkDirect &&
-            isReadOnlyDevice(dword_devices[i].link.code)) {
+            isReadOnlyDevice(dword_devices[i].link.code, plc_profile_)) {
             setError(Error::UnsupportedDevice);
             return last_error_;
         }
@@ -3791,14 +4237,20 @@ Error SlmpClient::beginWriteRandomBitsExt(
     const ExtDeviceSpec* bit_devices, const bool* bit_values, size_t bit_count,
     uint32_t now_ms
 ) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Random);
+    if (guard_error != Error::Ok) return guard_error;
     if (bit_devices == nullptr || bit_values == nullptr ||
         validateRandomBitWriteCount(bit_count, compatibility_mode_, true) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
-    Error validate_error = validateExtRandomBitWriteDevices(bit_devices, bit_count);
+    Error validate_error = validateExtRandomBitWriteDevices(bit_devices, bit_count, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
+    }
+    for (size_t i = 0; i < bit_count; ++i) {
+        guard_error = ensureExtProfileFeatureAllowed(bit_devices[i]);
+        if (guard_error != Error::Ok) return guard_error;
     }
 
     tx_buffer_[0] = static_cast<uint8_t>(bit_count);
@@ -3833,7 +4285,9 @@ Error SlmpClient::beginRegisterMonitorDevices(
     const DeviceAddress* dword_devices, size_t dword_count,
     uint32_t now_ms
 ) {
-    if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_) != Error::Ok) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Monitor);
+    if (guard_error != Error::Ok) return guard_error;
+    if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_, false, plc_profile_, ProfileLimitKey::MonitorRegisterWord) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
 
@@ -3891,6 +4345,8 @@ Error SlmpClient::beginRegisterMonitorDevicesExt(
     const ExtDeviceSpec* dword_devices, size_t dword_count,
     uint32_t now_ms
 ) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Monitor);
+    if (guard_error != Error::Ok) return guard_error;
     if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_, true) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
@@ -3898,6 +4354,14 @@ Error SlmpClient::beginRegisterMonitorDevicesExt(
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
+    }
+    for (size_t i = 0; i < word_count; ++i) {
+        guard_error = ensureExtProfileFeatureAllowed(word_devices[i]);
+        if (guard_error != Error::Ok) return guard_error;
+    }
+    for (size_t i = 0; i < dword_count; ++i) {
+        guard_error = ensureExtProfileFeatureAllowed(dword_devices[i]);
+        if (guard_error != Error::Ok) return guard_error;
     }
 
     tx_buffer_[0] = static_cast<uint8_t>(word_count);
@@ -3931,6 +4395,8 @@ Error SlmpClient::beginRunMonitorCycle(
     uint32_t* dword_values, uint16_t dword_count,
     uint32_t now_ms
 ) {
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Monitor);
+    if (guard_error != Error::Ok) return guard_error;
     if ((word_count > 0 && word_values == nullptr) || (dword_count > 0 && dword_values == nullptr)) {
         setError(Error::InvalidArgument); return last_error_;
     }

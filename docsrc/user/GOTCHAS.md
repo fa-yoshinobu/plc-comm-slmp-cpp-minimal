@@ -81,13 +81,13 @@ int main() {
 | Root cause | SLMP command `0x1406` does not accept word and bit blocks in one request on the target PLC path. |
 | Fix | Send word writes and bit writes as separate calls. |
 
-## Q-series profiles reject block commands
+## Some legacy profiles reject block commands before transport
 
 | Item | Detail |
 | --- | --- |
-| Symptom | `readBlock()` or `writeBlock()` returns `slmp::Error::UnsupportedDevice` when the client is configured for `melsec:qcpu`, `melsec:qnu`, or `melsec:qnudv`. |
-| Root cause | These Q-series PLC profiles reject SLMP Read Block (`0x0406`) and Write Block (`0x1406`) before transport. |
-| Fix | Use direct or random device commands for those profiles. |
+| Symptom | `readBlock()` or `writeBlock()` fails before a request is sent. |
+| Root cause | `melsec:qcpu` and `melsec:qnu` use the legacy block guard and return `slmp::Error::UnsupportedDevice`. `melsec:lcpu` and `melsec:qnudv` are in the built-in capability table; their measured block routes return `slmp::Error::ProfileFeatureBlocked` while strict profile is enabled. |
+| Fix | Use direct or random device commands for normal applications. For deliberate verification only, call `setStrictProfile(false)` on `melsec:lcpu` or `melsec:qnudv` and inspect the PLC response. |
 
 ```cpp
 #include <cstddef>
@@ -124,7 +124,7 @@ int main() {
 
     const slmp::Error blockErr = plc.readBlock(&block, 1U, nullptr, 0U, &word, 1U, nullptr, 0U);
     const slmp::Error directErr = plc.readWords(slmp::dev::D(slmp::dev::dec(0)), 1U, &word, 1U);
-    return (blockErr == slmp::Error::UnsupportedDevice && directErr == slmp::Error::NotConnected) ? 0 : 1;
+    return (blockErr == slmp::Error::ProfileFeatureBlocked && directErr == slmp::Error::NotConnected) ? 0 : 1;
 }
 ```
 
