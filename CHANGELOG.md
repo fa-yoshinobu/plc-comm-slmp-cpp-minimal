@@ -27,8 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: Documented `S` as a read-only bit device in supported-register, gotcha, and audit-reflection notes.
 - Docs: Documented the Q-series Read Block (`0x0406`) and Write Block (`0x1406`) profile guard in user profiles and gotchas.
 - Docs: Clarified the ESP32/RP2040-class target focus while retaining Arduino-compatible transport naming for those cores.
-- Samples: Updated the low-level ESP32 sample to select `slmp::PlcProfile::IqR` instead of manually pairing frame type and compatibility mode.
 - Docs: Fixed PowerShell placeholder text in maintainer publishing notes.
+- Docs: Cleaned up maintainer notes and normalized the root TODO.
+- Samples: Updated the low-level ESP32 sample to select `slmp::PlcProfile::IqR` instead of manually pairing frame type and compatibility mode.
+- Tooling: Removed local absolute fallback tool paths from `run_ci.bat`.
 - Tests: Added guard coverage for `S` read-only writes, high-level `S10:BIT` parsing, `G/HG` random bit write rejection, and low-level link-direct write rejection.
 - Tests: Added guard coverage that Q-series PLC profiles reject block read/write before transport and cannot be re-enabled through the block-access flag.
 - Tests: Added named-read planning coverage for random-word-safe plain bit families versus the direct-bit-only families seen on R-series hardware.
