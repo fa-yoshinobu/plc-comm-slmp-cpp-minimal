@@ -188,3 +188,8 @@ void loop() {
 | Address parsing fails | Check that your `slmp::highlevel::PlcProfile` matches your actual hardware. |
 | `profile_feature_blocked` is returned | The selected profile does not support that operation. Use a supported operation, or intentionally call `plc.setStrictProfile(false)` for verification. |
 | `X` or `Y` looks wrong | Use the profile-aware overloads of `slmp::highlevel::readTyped` and `slmp::highlevel::writeTyped`. |
+
+## Next steps
+
+- Open the runnable samples: [examples README](https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal/tree/main/examples).
+- Continue with the [Usage guide](USAGE_GUIDE.md) and [Gotchas](GOTCHAS.md).
