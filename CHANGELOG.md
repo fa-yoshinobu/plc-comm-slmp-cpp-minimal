@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: Slimmed Gotchas to library-specific items and moved shared setup/end-code symptoms to the PLC Setup Guide.
 - Docs: Standardized the Gotchas page structure with KV Host Link so library-specific caveats have the same destination across protocols.
 - Docs: Clarified the ESP32/RP2040-class target focus while retaining Arduino-compatible transport naming for those cores.
+- Docs: Added generated Doxygen-based API reference for the public C++ headers, with CI freshness validation.
 - Docs: Fixed PowerShell placeholder text in maintainer publishing notes.
 - Docs: Cleaned up maintainer notes and normalized the root TODO.
 - Samples: Updated the low-level ESP32 sample to select `slmp::PlcProfile::IqR` instead of manually pairing frame type and compatibility mode.

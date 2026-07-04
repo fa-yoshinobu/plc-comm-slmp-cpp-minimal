@@ -32,7 +32,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           sudo apt-get update
-          sudo apt-get install -y zip
+          sudo apt-get install -y doxygen zip
+
+      - name: Check API reference
+        run: python scripts/generate_api_reference.py --title "SLMP C++ API Reference" --output docsrc/user/API_REFERENCE.md --input src/slmp_minimal.h --input src/slmp_high_level.h --input src/slmp_arduino_transport.h --input src/slmp_error_codes.h --input src/slmp_utility.h --predefine SLMP_MINIMAL_ENABLE_HIGH_LEVEL=1 --predefine SLMP_ENABLE_UDP_TRANSPORT=1 --check
 
       - name: Build host tests
         run: g++ -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_error_codes.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests
