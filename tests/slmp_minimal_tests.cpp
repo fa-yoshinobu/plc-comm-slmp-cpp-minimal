@@ -1481,6 +1481,10 @@ void testValidationAndBoundaryFailures() {
         std::vector<slmp::DeviceAddress> random_bit_devices(95U, slmp::dev::M(slmp::dev::dec(0)));
         bool random_bits[95] = {};
         std::vector<slmp::ExtDeviceSpec> ext_word_devices(97U, slmp::ExtDeviceSpec::moduleBuf(0x03E0, false, 0));
+        std::vector<slmp::ExtDeviceSpec> ext_write_word_devices(81U, slmp::ExtDeviceSpec::moduleBuf(0x03E0, false, 0));
+        std::vector<slmp::ExtDeviceSpec> ext_weight_word_devices(40U, slmp::ExtDeviceSpec::moduleBuf(0x03E0, false, 0));
+        std::vector<slmp::ExtDeviceSpec> ext_weight_dword_devices(40U, slmp::ExtDeviceSpec::moduleBuf(0x03E0, false, 0));
+        std::vector<slmp::ExtDeviceSpec> ext_bit_devices(95U, slmp::ExtDeviceSpec::moduleBuf(0x03E0, false, 0));
         std::vector<uint8_t> bytes(1921U, 0U);
 
         assert(plc.readWords(slmp::dev::D(slmp::dev::dec(0)), 961, words.data(), words.size()) == slmp::Error::InvalidArgument);
@@ -1511,6 +1515,12 @@ void testValidationAndBoundaryFailures() {
         assert(plc.writeWordsModuleBuf(0x03E0, false, 0, words.data(), words.size()) == slmp::Error::InvalidArgument);
         assert(plc.readRandomExt(ext_word_devices.data(), ext_word_devices.size(), words.data(), words.size(),
                                  nullptr, 0, nullptr, 0) == slmp::Error::InvalidArgument);
+        assert(plc.writeRandomWordsExt(ext_write_word_devices.data(), words.data(), ext_write_word_devices.size(),
+                                       nullptr, nullptr, 0) == slmp::Error::InvalidArgument);
+        assert(plc.writeRandomWordsExt(ext_weight_word_devices.data(), words.data(), ext_weight_word_devices.size(),
+                                       ext_weight_dword_devices.data(), dwords.data(), ext_weight_dword_devices.size()) == slmp::Error::InvalidArgument);
+        assert(plc.writeRandomBitsExt(ext_bit_devices.data(), random_bits, ext_bit_devices.size()) == slmp::Error::InvalidArgument);
+        assert(plc.registerMonitorDevicesExt(ext_word_devices.data(), ext_word_devices.size(), nullptr, 0) == slmp::Error::InvalidArgument);
 
         assert(plc.readMemoryWords(0, 481, words.data(), words.size()) == slmp::Error::InvalidArgument);
         assert(plc.writeMemoryWords(0, words.data(), 481U) == slmp::Error::InvalidArgument);
@@ -2913,6 +2923,10 @@ void testCapabilityProfileFixtureSnapshot() {
     assertContains(json, "\"direct_bit_read\"");
     assertContains(json, "\"max\": 3584");
     assertContains(json, "\"random_write_word\"");
+    assertContains(json, "\"random_read_word_ext\"");
+    assertContains(json, "\"random_write_word_ext\"");
+    assertContains(json, "\"random_write_bit_ext\"");
+    assertContains(json, "\"monitor_register_word_ext\"");
     assertContains(json, "\"weighted_max\": 1920");
     assertContains(json, "\"S\": \"read-only\"");
     assertContains(json, "\"S\": \"read-write\"");

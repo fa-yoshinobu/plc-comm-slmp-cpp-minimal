@@ -116,9 +116,13 @@ enum class ProfileLimitKey : uint8_t {
     DirectBitRead,
     DirectBitWrite,
     RandomReadWord,
+    RandomReadWordExt,
     RandomWriteWord,
+    RandomWriteWordExt,
     RandomWriteBit,
+    RandomWriteBitExt,
     MonitorRegisterWord,
+    MonitorRegisterWordExt,
 };
 
 struct FeatureEntry {
@@ -247,9 +251,13 @@ static const LimitEntry kIqRLimits[] = {
     SLMP_LIMIT(DirectBitRead, 7168U),
     SLMP_LIMIT(DirectBitWrite, 7168U),
     SLMP_LIMIT(RandomReadWord, 96U),
+    SLMP_LIMIT(RandomReadWordExt, 96U),
     SLMP_LIMIT_WEIGHTED(RandomWriteWord, 80U, 960U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWordExt, 80U, 960U),
     SLMP_LIMIT(RandomWriteBit, 94U),
+    SLMP_LIMIT(RandomWriteBitExt, 94U),
     SLMP_LIMIT(MonitorRegisterWord, 96U),
+    SLMP_LIMIT(MonitorRegisterWordExt, 96U),
 };
 
 static const LimitEntry kIqLLimits[] = {
@@ -258,9 +266,13 @@ static const LimitEntry kIqLLimits[] = {
     SLMP_LIMIT(DirectBitRead, 7168U),
     SLMP_LIMIT(DirectBitWrite, 7168U),
     SLMP_LIMIT(RandomReadWord, 96U),
+    SLMP_LIMIT(RandomReadWordExt, 96U),
     SLMP_LIMIT_WEIGHTED(RandomWriteWord, 80U, 960U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWordExt, 80U, 960U),
     SLMP_LIMIT(RandomWriteBit, 94U),
+    SLMP_LIMIT(RandomWriteBitExt, 94U),
     SLMP_LIMIT(MonitorRegisterWord, 96U),
+    SLMP_LIMIT(MonitorRegisterWordExt, 96U),
 };
 
 static const LimitEntry kIqFLimits[] = {
@@ -269,8 +281,11 @@ static const LimitEntry kIqFLimits[] = {
     SLMP_LIMIT(DirectBitRead, 3584U),
     SLMP_LIMIT(DirectBitWrite, 3584U),
     SLMP_LIMIT(RandomReadWord, 192U),
+    SLMP_LIMIT(RandomReadWordExt, 96U),
     SLMP_LIMIT_WEIGHTED(RandomWriteWord, 160U, 1920U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWordExt, 80U, 960U),
     SLMP_LIMIT(RandomWriteBit, 188U),
+    SLMP_LIMIT(RandomWriteBitExt, 94U),
 };
 
 static const LimitEntry kQLMeasuredLimits[] = {
@@ -279,9 +294,13 @@ static const LimitEntry kQLMeasuredLimits[] = {
     SLMP_LIMIT(DirectBitRead, 7168U),
     SLMP_LIMIT(DirectBitWrite, 7168U),
     SLMP_LIMIT(RandomReadWord, 192U),
+    SLMP_LIMIT(RandomReadWordExt, 96U),
     SLMP_LIMIT_WEIGHTED(RandomWriteWord, 160U, 1920U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWordExt, 80U, 960U),
     SLMP_LIMIT(RandomWriteBit, 188U),
+    SLMP_LIMIT(RandomWriteBitExt, 94U),
     SLMP_LIMIT(MonitorRegisterWord, 192U),
+    SLMP_LIMIT(MonitorRegisterWordExt, 96U),
 };
 
 #undef SLMP_LIMIT
@@ -364,6 +383,17 @@ static const LimitEntry* findLimitEntry(PlcProfile profile, ProfileLimitKey key)
 static size_t profileLimitOr(PlcProfile profile, ProfileLimitKey key, size_t fallback) {
     const LimitEntry* limit = findLimitEntry(profile, key);
     return limit == nullptr ? fallback : limit->max;
+}
+
+inline ProfileLimitKey extendedProfileLimitKey(ProfileLimitKey key) {
+    switch (key) {
+        case ProfileLimitKey::RandomReadWord:
+            return ProfileLimitKey::RandomReadWordExt;
+        case ProfileLimitKey::MonitorRegisterWord:
+            return ProfileLimitKey::MonitorRegisterWordExt;
+        default:
+            return key;
+    }
 }
 
 static bool isGuardedFeatureState(const char* state) {
@@ -517,7 +547,7 @@ inline Error validateRandomReadLikeCounts(
     }
     const size_t total = word_count + dword_count;
     const size_t fallback = randomReadLikeLimit(mode, extended);
-    const size_t limit = extended ? fallback : profileLimitOr(profile, limit_key, fallback);
+    const size_t limit = profileLimitOr(profile, extended ? extendedProfileLimitKey(limit_key) : limit_key, fallback);
     return (total >= 1U && total <= limit) ? Error::Ok : Error::InvalidArgument;
 }
 
@@ -535,18 +565,17 @@ inline Error validateRandomWriteWordCounts(
     if (total == 0U) {
         return Error::InvalidArgument;
     }
-    if (!extended) {
-        const LimitEntry* limit = findLimitEntry(profile, ProfileLimitKey::RandomWriteWord);
-        if (limit != nullptr) {
-            if (total > limit->max) {
-                return Error::InvalidArgument;
-            }
-            if (!limit->has_weighted_max) {
-                return Error::Ok;
-            }
-            const size_t weighted = (word_count * 12U) + (dword_count * 14U);
-            return (weighted <= limit->weighted_max) ? Error::Ok : Error::InvalidArgument;
+    const ProfileLimitKey limit_key = extended ? ProfileLimitKey::RandomWriteWordExt : ProfileLimitKey::RandomWriteWord;
+    const LimitEntry* limit = findLimitEntry(profile, limit_key);
+    if (limit != nullptr) {
+        if (total > limit->max) {
+            return Error::InvalidArgument;
         }
+        if (!limit->has_weighted_max) {
+            return Error::Ok;
+        }
+        const size_t weighted = (word_count * 12U) + (dword_count * 14U);
+        return (weighted <= limit->weighted_max) ? Error::Ok : Error::InvalidArgument;
     }
     const size_t weighted = (word_count * 12U) + (dword_count * 14U);
     return (weighted <= randomWriteWordWeightLimit(mode, extended)) ? Error::Ok : Error::InvalidArgument;
@@ -559,7 +588,8 @@ inline Error validateRandomBitWriteCount(
     PlcProfile profile = PlcProfile::Unspecified
 ) {
     const size_t fallback = randomBitWriteLimit(mode, extended);
-    const size_t limit = extended ? fallback : profileLimitOr(profile, ProfileLimitKey::RandomWriteBit, fallback);
+    const ProfileLimitKey limit_key = extended ? ProfileLimitKey::RandomWriteBitExt : ProfileLimitKey::RandomWriteBit;
+    const size_t limit = profileLimitOr(profile, limit_key, fallback);
     return (bit_count >= 1U && bit_count <= limit) ? Error::Ok : Error::InvalidArgument;
 }
 
@@ -4173,7 +4203,7 @@ Error SlmpClient::beginReadRandomExt(
 ) {
     Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Random);
     if (guard_error != Error::Ok) return guard_error;
-    if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_, true) != Error::Ok) {
+    if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_, true, plc_profile_) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
     if ((word_count > 0 && (word_devices == nullptr || word_values == nullptr || word_value_capacity < word_count)) ||
@@ -4236,7 +4266,7 @@ Error SlmpClient::beginWriteRandomWordsExt(
 ) {
     Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Random);
     if (guard_error != Error::Ok) return guard_error;
-    if (validateRandomWriteWordCounts(word_count, dword_count, compatibility_mode_, true) != Error::Ok) {
+    if (validateRandomWriteWordCounts(word_count, dword_count, compatibility_mode_, true, plc_profile_) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
     if ((word_count > 0 && (word_devices == nullptr || word_values == nullptr)) ||
@@ -4303,7 +4333,7 @@ Error SlmpClient::beginWriteRandomBitsExt(
     Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Random);
     if (guard_error != Error::Ok) return guard_error;
     if (bit_devices == nullptr || bit_values == nullptr ||
-        validateRandomBitWriteCount(bit_count, compatibility_mode_, true) != Error::Ok) {
+        validateRandomBitWriteCount(bit_count, compatibility_mode_, true, plc_profile_) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
     Error validate_error = validateExtRandomBitWriteDevices(bit_devices, bit_count, plc_profile_);
@@ -4410,7 +4440,7 @@ Error SlmpClient::beginRegisterMonitorDevicesExt(
 ) {
     Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Monitor);
     if (guard_error != Error::Ok) return guard_error;
-    if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_, true) != Error::Ok) {
+    if (validateRandomReadLikeCounts(word_count, dword_count, compatibility_mode_, true, plc_profile_, ProfileLimitKey::MonitorRegisterWord) != Error::Ok) {
         setError(Error::InvalidArgument); return last_error_;
     }
     Error validate_error = validateExtMonitorDevices(word_devices, word_count, dword_devices, dword_count);
