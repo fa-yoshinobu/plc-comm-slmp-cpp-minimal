@@ -5,24 +5,21 @@ Use this page as a short symptom index. For PLC response codes, use the shared
 page. For profile limits and device availability, use the shared
 [SLMP Profile Parameters](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/parameters/)
 page.
+For PLC-side Ethernet settings, use the shared
+[MELSEC SLMP PLC Setup Guide](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/).
+Check Binary communication data code, port/open settings, and RUN-time write permission there before debugging application code.
 
 ## `connect()` or transport I/O fails
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| `connect()` fails, a transport call times out, or `TransportError` is returned before a valid SLMP response is parsed. | PLC IP address, port, transport path, or local network route is wrong. | Check the PLC endpoint first. The usual built-in Ethernet TCP port is `1025`; use UDP only when the PLC is configured for UDP. |
+| `connect()` fails, a transport call times out, or `TransportError` is returned before a valid SLMP response is parsed. | PLC IP address, port, transport path, or local network route is wrong. | Check the PLC setup guide first. The usual built-in Ethernet TCP port is `1025`; use UDP only when the PLC is configured for UDP. |
 
 ## `ProtocolError` is returned
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| Bytes are received, but the response is rejected as an invalid SLMP frame. | The endpoint is not speaking the expected SLMP binary frame, or the response length does not match the request. | Verify the PLC frame/data-code setting and inspect `lastRequestFrame()` / `lastResponseFrame()` with `formatHexBytes()`. |
-
-## GX Simulator 3 uses port 5511
-
-| Symptom | Root cause | Fix |
-| --- | --- | --- |
-| A local GX Works3 simulator connection fails on the hardware default port. | GX Simulator 3 uses a simulator port, not the hardware SLMP port. For System `1`, PLC `1`, the port is `5511`. | Connect to `127.0.0.1:5511`. GX Simulator 2 uses a proprietary protocol and is not supported by this SLMP library. |
+| Bytes are received, but the response is rejected as an invalid SLMP frame. | The endpoint is not speaking the expected SLMP binary frame, or the response length does not match the request. | Verify the PLC Binary data-code setting and inspect `lastRequestFrame()` / `lastResponseFrame()` with `formatHexBytes()`. |
 
 ## `BufferTooSmall` is returned
 
@@ -34,13 +31,13 @@ page.
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| Simple reads such as `D100:U` connect but fail with an SLMP end code. | The selected PLC profile does not match the PLC, or the PLC port data code does not match the library request format. | Configure one concrete `slmp::highlevel::PlcProfile` and confirm the PLC Ethernet port is configured for binary SLMP. Use the shared end-code page for codes such as `C050`, `C059`, and `4031`. |
+| Simple reads such as `D100:U` connect but fail with an SLMP end code. | The selected PLC profile does not match the PLC, or the PLC port data code does not match the library request format. | Configure one concrete `slmp::highlevel::PlcProfile` and confirm the PLC Ethernet port is configured for Binary SLMP. Use the shared end-code page for codes such as `C050`, `C059`, and `4031`. |
 
 ## Reads work but writes fail
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| Reads work, but writes are rejected. | PLC-side write permission during RUN, remote password state, or profile write policy blocks the write. | Check the PLC setup guide and the selected profile's write policy. `S` is read-only except on iQ-F profiles. |
+| Reads work, but writes are rejected. | PLC-side write permission during RUN, remote password state, or profile write policy blocks the write. | Check RUN-time write permission in the PLC setup guide and the selected profile's write policy. `S` is read-only except on iQ-F profiles. |
 
 ## Large requests fail with point-limit end codes
 

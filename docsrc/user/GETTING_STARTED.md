@@ -171,15 +171,19 @@ void loop() {
 
 1. The board joins the same network as your PLC.
 2. The serial monitor prints `PLC connected`.
-3. `D100:U` prints a stable value or a value you expect from the PLC.
-4. The write test uses a safe address reserved for bring-up.
-5. A write followed by a read returns the value you wrote.
+3. The PLC-side communication data code is Binary and the port/open setting matches your transport; see the [MELSEC SLMP PLC Setup Guide](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/).
+4. PLC-side RUN-time write permission is enabled before you run a write example where the PLC exposes that setting.
+5. `D100:U` prints a stable value or a value you expect from the PLC.
+6. The write test uses a safe address reserved for bring-up.
+7. A write followed by a read returns the value you wrote.
 
 ## If it does not work
 
 | Symptom | Check |
 | --- | --- |
 | `connect()` fails | Your board must provide a `WiFiClient` or `EthernetClient` compatible transport, and the PLC must listen on TCP port `1025`. |
+| Connection opens but all requests fail | Confirm Binary communication data code in the PLC setup guide. |
+| Reads work but writes fail | Confirm RUN-time write permission in the PLC setup guide and the selected profile write policy. |
 | High-level helpers are undefined | Add `#include <slmp_high_level.h>`; it is not included automatically. |
 | Address parsing fails | Check that your `slmp::highlevel::PlcProfile` matches your actual hardware. |
 | `profile_feature_blocked` is returned | The selected profile does not support that operation. Use a supported operation, or intentionally call `plc.setStrictProfile(false)` for verification. |

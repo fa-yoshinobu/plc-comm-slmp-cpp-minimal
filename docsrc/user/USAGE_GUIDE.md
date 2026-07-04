@@ -80,6 +80,25 @@ Use the default target unless the PLC routing setup gives you specific values.
 
 Leave this enabled for normal applications. Call `setStrictProfile(false)` only for deliberate verification where you want the PLC to answer directly. Point limits and write policy still apply.
 
+## Remote password
+
+Remote password lock/unlock commands are available on the low-level `slmp::SlmpClient`.
+The C++ high-level facade does not automatically unlock or lock a remote password.
+If your PLC route uses remote password protection, unlock after connecting and lock before closing.
+
+```cpp
+slmp::Error err = plc.remotePasswordUnlock("secret");
+if (err == slmp::Error::Ok) {
+    slmp::highlevel::Value value;
+    err = slmp::highlevel::readTyped(plc, kProfile, "D100:U", value);
+    plc.remotePasswordLock("secret");
+}
+```
+
+For `C200`-series password end codes, see the shared
+[SLMP Troubleshooting & End Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/troubleshooting-end-codes/)
+page.
+
 ## Read a single value
 
 `slmp::highlevel::readTyped` reads one logical value from one address.
