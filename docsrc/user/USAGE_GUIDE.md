@@ -74,6 +74,50 @@ plc.setTarget(target);
 
 Use the default target unless the PLC routing setup gives you specific values.
 
+## Extended device access
+
+`G`, `HG`, and `J` devices are not normal standalone addresses. The C++ high-level
+facade is for normal device strings such as `D100:U`; use the low-level
+`slmp::SlmpClient` APIs for extended device routes.
+
+| Address form | Low-level call shape |
+| --- | --- |
+| `U3\G100` | `readWordsModuleBuf(3, false, 100, ...)` |
+| `U3E0\HG0` | `readWordsModuleBuf(0x03E0, true, 0, ...)` |
+| `J2\SW10` | `readWordsLinkDirect(2, slmp::DeviceCode::SW, 0x10, ...)` |
+| `J1\X10` | `readBitsLinkDirect(1, slmp::DeviceCode::X, 0x10, ...)` |
+
+The selected PLC profile and the actual PLC configuration still decide whether
+the route is accepted.
+
+```cpp
+uint16_t moduleWords[4] = {};
+slmp::Error err = plc.readWordsModuleBuf(3, false, 100, 4, moduleWords, 4);
+
+const uint16_t moduleWrite[] = {1, 2, 3, 4};
+err = plc.writeWordsModuleBuf(3, false, 100, moduleWrite, 4);
+
+uint16_t cpuBufferWords[2] = {};
+err = plc.readWordsModuleBuf(0x03E0, true, 0, 2, cpuBufferWords, 2);
+
+uint16_t linkWords[1] = {};
+err = plc.readWordsLinkDirect(2, slmp::DeviceCode::SW, 0x10, 1, linkWords, 1);
+
+bool linkBits[16] = {};
+err = plc.readBitsLinkDirect(1, slmp::DeviceCode::X, 0x10, 16, linkBits, 16);
+```
+
+For extended random access, build `slmp::ExtDeviceSpec` entries:
+
+```cpp
+const slmp::ExtDeviceSpec wordDevices[] = {
+    slmp::ExtDeviceSpec::moduleBuf(3, false, 100),
+    slmp::ExtDeviceSpec::linkDirect(2, slmp::DeviceCode::SW, 0x10),
+};
+uint16_t values[2] = {};
+err = plc.readRandomExt(wordDevices, 2, values, 2, nullptr, 0, nullptr, 0);
+```
+
 ## Strict profile
 
 `SlmpClient` enables strict profile checks by default. With a selected profile, operations known to be unavailable for that PLC are rejected before sending.
