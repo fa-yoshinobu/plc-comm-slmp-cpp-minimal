@@ -60,11 +60,11 @@ Compatibility hook for Japanese message lookup; returns nullptr.
 
 Fluent API for defining device addresses.
 
-This namespace is the recommended way to create `DeviceAddress` values in application code. It keeps the call site explicit about whether the PLC uses decimal numbering or MELSEC hexadecimal numbering.
+This namespace is the recommended way to create DeviceAddress values in application code. It keeps the call site explicit about whether the PLC uses decimal numbering or MELSEC hexadecimal numbering.
 
-Typical usage: autod100=slmp::dev::D(`slmp::dev::dec`(100));//decimal-numberedDregister autox1a=slmp::dev::X(`slmp::dev::hex`(0x1A));//hexadecimal-numberedXinput autord10=slmp::dev::RD(`slmp::dev::dec`(10));//refreshdataregister autoltn0=slmp::dev::LTN(`slmp::dev::dec`(0));//longtimercurrentvalue
+Typical usage: autod100=slmp::dev::D(slmp::dev::dec(100));//decimal-numberedDregister autox1a=slmp::dev::X(slmp::dev::hex(0x1A));//hexadecimal-numberedXinput autord10=slmp::dev::RD(slmp::dev::dec(10));//refreshdataregister autoltn0=slmp::dev::LTN(slmp::dev::dec(0));//longtimercurrentvalue
 
-Device families exposed here match the generic direct-access helpers in `SlmpClient`. Extended devices such as `U\\G`, `U\\HG`, and `J\\device` use `ExtDeviceSpec` instead of these factory helpers.
+Device families exposed here match the generic direct-access helpers in SlmpClient. Extended devices such as U\\G, U\\HG, and J\\device use ExtDeviceSpec instead of these factory helpers.
 
 #### Functions
 
@@ -76,11 +76,11 @@ DecNo slmp::dev::dec(uint32_t value)
 
 Mark a PLC device number as decimal.
 
-`value` Decimal device number, for example `100` for `D100`. Decimal-number wrapper consumed by the device helper factories.
+value Decimal device number, for example 100 for D100. Decimal-number wrapper consumed by the device helper factories.
 
 | Parameter | Description |
 | --- | --- |
-| `value` | Decimal device number, for example `100` for `D100`. |
+| `value` | Decimal device number, for example 100 for D100. |
 
 Returns: Decimal-number wrapper consumed by the device helper factories.
 
@@ -92,11 +92,11 @@ HexNo slmp::dev::hex(uint32_t value)
 
 Mark a PLC device number as hexadecimal.
 
-`value` Hexadecimal device number, for example `0x1A` for `X1A`. Hexadecimal-number wrapper consumed by the device helper factories.
+value Hexadecimal device number, for example 0x1A for X1A. Hexadecimal-number wrapper consumed by the device helper factories.
 
 | Parameter | Description |
 | --- | --- |
-| `value` | Hexadecimal device number, for example `0x1A` for `X1A`. |
+| `value` | Hexadecimal device number, for example 0x1A for X1A. |
 
 Returns: Hexadecimal-number wrapper consumed by the device helper factories.
 
@@ -106,15 +106,15 @@ Returns: Hexadecimal-number wrapper consumed by the device helper factories.
 DeviceAddress slmp::dev::FDevice(DecNo number)
 ```
 
-Create an annunciator (`F`) device address.
+Create an annunciator (F) device address.
 
-`number` Decimal annunciator number such as `slmp::dev::dec(10)`. Device address for `F<number>`. This helper is named ``FDevice`` instead of `F` because some embedded toolchains define `F` as a macro.
+number Decimal annunciator number such as slmp::dev::dec(10). Device address for F<number>. This helper is named FDevice instead of F because some embedded toolchains define F as a macro.
 
 | Parameter | Description |
 | --- | --- |
-| `number` | Decimal annunciator number such as `slmp::dev::dec(10)`. |
+| `number` | Decimal annunciator number such as slmp::dev::dec(10). |
 
-Returns: Device address for `F<number>`.
+Returns: Device address for F<number>.
 
 #### `blockRead`
 
@@ -124,14 +124,14 @@ DeviceBlockRead slmp::dev::blockRead(DeviceAddress device, uint16_t points)
 
 Create a contiguous block-read descriptor.
 
-`device` First device in the block. `points` Number of points to read from `device` onward. Descriptor suitable for `SlmpClient::readBlock` and related APIs.
+device First device in the block. points Number of points to read from device onward. Descriptor suitable for SlmpClient::readBlock and related APIs.
 
 | Parameter | Description |
 | --- | --- |
 | `device` | First device in the block. |
-| `points` | Number of points to read from `device` onward. |
+| `points` | Number of points to read from device onward. |
 
-Returns: Descriptor suitable for `SlmpClient::readBlock` and related APIs.
+Returns: Descriptor suitable for SlmpClient::readBlock and related APIs.
 
 #### `blockWrite`
 
@@ -141,15 +141,15 @@ DeviceBlockWrite slmp::dev::blockWrite(DeviceAddress device, const uint16_t *val
 
 Create a contiguous block-write descriptor.
 
-`device` First device in the block. `values` Caller-owned word values in PLC order. `points` Number of points to write from `values`. Descriptor suitable for `SlmpClient::writeBlock` and related APIs. Bit-block writes also use word-sized values. Each element should be either `0` or `1` when targeting bit devices.
+device First device in the block. values Caller-owned word values in PLC order. points Number of points to write from values. Descriptor suitable for SlmpClient::writeBlock and related APIs. Bit-block writes also use word-sized values. Each element should be either 0 or 1 when targeting bit devices.
 
 | Parameter | Description |
 | --- | --- |
 | `device` | First device in the block. |
 | `values` | Caller-owned word values in PLC order. |
-| `points` | Number of points to write from `values`. |
+| `points` | Number of points to write from values. |
 
-Returns: Descriptor suitable for `SlmpClient::writeBlock` and related APIs.
+Returns: Descriptor suitable for SlmpClient::writeBlock and related APIs.
 
 ## Classes
 
@@ -157,7 +157,7 @@ Returns: Descriptor suitable for `SlmpClient::writeBlock` and related APIs.
 
 Transport adapter for Arduino 'Client' objects (TCP).
 
-Wraps classes like `WiFiClient`, `EthernetClient`, or `GSMClient`. Implements reliable stream-based communication for SLMP 3E/4E frames.
+Wraps classes like WiFiClient, EthernetClient, or GSMClient. Implements reliable stream-based communication for SLMP 3E/4E frames.
 
 #### Member Functions
 
@@ -169,7 +169,7 @@ slmp::ArduinoClientTransport::ArduinoClientTransport(::Client &client)
 
 Wrap an existing Arduino Client.
 
-`client` Reference to an Arduino Client object (e.g., WiFiClient).
+client Reference to an Arduino Client object (e.g., WiFiClient).
 
 | Parameter | Description |
 | --- | --- |
@@ -243,9 +243,9 @@ Check number of bytes available in the stream.
 
 Transport adapter for Arduino 'UDP' objects.
 
-Wraps classes like `WiFiUDP` or `EthernetUDP`. Manages remote endpoint (host/port) and packet framing for SLMP.
+Wraps classes like WiFiUDP or EthernetUDP. Manages remote endpoint (host/port) and packet framing for SLMP.
 
-UDP is connectionless; "connected" state in this class simply means that `begin()` has been called and remote endpoint is known.
+UDP is connectionless; "connected" state in this class simply means that begin() has been called and remote endpoint is known.
 
 #### Member Functions
 
@@ -257,7 +257,7 @@ slmp::ArduinoUdpTransport::ArduinoUdpTransport(::UDP &udp, uint16_t local_port=0
 
 Wrap an existing Arduino UDP object.
 
-`udp` Reference to UDP object. `local_port` Local port to bind to (0 = use same as remote port).
+udp Reference to UDP object. local_port Local port to bind to (0 = use same as remote port).
 
 | Parameter | Description |
 | --- | --- |
@@ -310,7 +310,7 @@ Block until a UDP packet of exact length is received or timeout.
 size_t slmp::ArduinoUdpTransport::write(const uint8_t *data, size_t length) override
 ```
 
-Non-blocking packet send. Returns `length` on success.
+Non-blocking packet send. Returns length on success.
 
 #### `read`
 
@@ -332,7 +332,7 @@ Check if a new packet has arrived and return its size.
 
 Reusable snapshot poller that keeps one compiled read plan.
 
-This class does not sleep. The caller controls timing and repeatedly calls `readOnce` from a scheduler, main loop, or RTOS task.
+This class does not sleep. The caller controls timing and repeatedly calls readOnce from a scheduler, main loop, or RTOS task.
 
 #### Member Functions
 
@@ -358,13 +358,13 @@ Error slmp::highlevel::Poller::compile(const std::vector< std::string > &address
 
 Compile and store one reusable read plan.
 
-`addresses` Caller-provided high-level addresses. `Error::Ok` on success. This overload is retained for source compatibility but returns `Error::InvalidArgument`. Use the overload that receives a PLC profile.
+addresses Caller-provided high-level addresses. Error::Ok on success. This overload is retained for source compatibility but returns Error::InvalidArgument. Use the overload that receives a PLC profile.
 
 | Parameter | Description |
 | --- | --- |
 | `addresses` | Caller-provided high-level addresses. |
 
-Returns: `Error::Ok` on success.
+Returns: Error::Ok on success.
 
 #### `compile`
 
@@ -382,14 +382,14 @@ Error slmp::highlevel::Poller::readOnce(SlmpClient &client, Snapshot &out) const
 
 Execute one snapshot read with the stored compiled plan.
 
-`client` Connected low-level client instance. `out` Receives the logical values in plan order. `Error::Ok` on success.
+client Connected low-level client instance. out Receives the logical values in plan order. Error::Ok on success.
 
 | Parameter | Description |
 | --- | --- |
 | `client` | Connected low-level client instance. |
 | `out` | Receives the logical values in plan order. |
 
-Returns: `Error::Ok` on success.
+Returns: Error::Ok on success.
 
 #### `plan`
 
@@ -403,7 +403,7 @@ Return the currently stored compiled plan for inspection or reuse.
 
 Abstract interface for the underlying transport layer (TCP/UDP/Serial).
 
-Implement this interface to support custom communication stacks. For Arduino-compatible ESP32/RP2040 cores, see `ArduinoClientTransport` or `ArduinoUdpTransport`.
+Implement this interface to support custom communication stacks. For Arduino-compatible ESP32/RP2040 cores, see ArduinoClientTransport or ArduinoUdpTransport.
 
 #### Member Functions
 
@@ -483,7 +483,7 @@ Main SLMP client implementation.
 
 This class is the core low-level client. It is designed to be: - Memory Efficient: No dynamic allocation. User provides buffers. - Flexible: Supports synchronous (blocking) and asynchronous (non-blocking) calls. - Robust: Validates buffer capacities and protocol state.
 
-Use this class directly when you want deterministic firmware behavior. If you prefer string device addresses such as `D100` or `D200:F`, see the optional helper facade in `slmp_high_level.h`.
+Use this class directly when you want deterministic firmware behavior. If you prefer string device addresses such as D100 or D200:F, see the optional helper facade in slmp_high_level.h.
 
 #### Member Functions
 
@@ -495,7 +495,7 @@ slmp::SlmpClient::SlmpClient(ITransport &transport, uint8_t *tx_buffer, size_t t
 
 Initialize client with transport and buffers.
 
-`transport` Reference to transport implementation (must remain valid). `tx_buffer` Pointer to transmission buffer. `tx_capacity` Capacity of tx_buffer in bytes. `rx_buffer` Pointer to reception buffer. `rx_capacity` Capacity of rx_buffer in bytes.
+transport Reference to transport implementation (must remain valid). tx_buffer Pointer to transmission buffer. tx_capacity Capacity of tx_buffer in bytes. rx_buffer Pointer to reception buffer. rx_capacity Capacity of rx_buffer in bytes.
 
 | Parameter | Description |
 | --- | --- |
@@ -513,7 +513,7 @@ bool slmp::SlmpClient::connect(const char *host, uint16_t port)
 
 Connect the configured transport to one PLC endpoint.
 
-`host` PLC IP address or hostname. `port` SLMP TCP or UDP port such as 1025. True when the underlying transport reports a successful connect. Call this once before using the synchronous helper API such as `readWords`, `readOneDWord`, or `writeOneFloat32`.
+host PLC IP address or hostname. port SLMP TCP or UDP port such as 1025. True when the underlying transport reports a successful connect. Call this once before using the synchronous helper API such as readWords, readOneDWord, or writeOneFloat32.
 
 | Parameter | Description |
 | --- | --- |
@@ -610,7 +610,7 @@ void slmp::SlmpClient::setManualProfile(PlcProfile profile, FrameType frame_type
 
 Set an explicit PLC profile while manually selecting frame and compatibility mode.
 
-This is intended for low-level verification and compatibility tooling that must emit a specific SLMP frame shape while still keeping profile-based guards active. Normal applications should prefer `setPlcProfile`.
+This is intended for low-level verification and compatibility tooling that must emit a specific SLMP frame shape while still keeping profile-based guards active. Normal applications should prefer setPlcProfile.
 
 #### `setStrictProfile`
 
@@ -690,7 +690,7 @@ Get the error code from the last operation.
 uint16_t slmp::SlmpClient::lastEndCode() const
 ```
 
-Get the PLC-specific end code from the last operation. Valid if `lastError()` is `Error::PlcError`.
+Get the PLC-specific end code from the last operation. Valid if lastError() is Error::PlcError.
 
 #### `hasLastErrorInfo`
 
@@ -764,7 +764,7 @@ Error slmp::SlmpClient::readTypeName(TypeNameInfo &out)
 
 Read PLC model information for diagnostics.
 
-Profile selection is intentionally explicit in the high-level API. Do not infer the active profile from this response. `out` Receives the PLC model name and optional model code. Operation result.
+Profile selection is intentionally explicit in the high-level API. Do not infer the active profile from this response. out Receives the PLC model name and optional model code. Operation result.
 
 | Parameter | Description |
 | --- | --- |
@@ -780,7 +780,7 @@ Error slmp::SlmpClient::readCpuOperationState(CpuOperationState &out)
 
 Read SD203 and decode the CPU operation state from the lower 4 bits.
 
-`out` Receives the decoded state and raw masked code. Operation result.
+out Receives the decoded state and raw masked code. Operation result.
 
 | Parameter | Description |
 | --- | --- |
@@ -796,7 +796,7 @@ Error slmp::SlmpClient::readWords(const DeviceAddress &device, uint16_t points, 
 
 Read contiguous word devices.
 
-`device` Start address. `points` Number of words to read. `values` Buffer to store read values. `value_capacity` Capacity of values buffer (in elements).
+device Start address. points Number of words to read. values Buffer to store read values. value_capacity Capacity of values buffer (in elements).
 
 | Parameter | Description |
 | --- | --- |
@@ -813,7 +813,7 @@ Error slmp::SlmpClient::writeWords(const DeviceAddress &device, const uint16_t *
 
 Write a contiguous word-device range.
 
-`device` First word device in the range. `values` Word values in PLC order. `count` Number of words to write. Operation result.
+device First word device in the range. values Word values in PLC order. count Number of words to write. Operation result.
 
 | Parameter | Description |
 | --- | --- |
@@ -831,14 +831,14 @@ Error slmp::SlmpClient::readBits(const DeviceAddress &device, uint16_t points, b
 
 Read a contiguous bit-device range as boolean values.
 
-`device` First bit device in the range. `points` Number of bit points to read. `values` Output buffer for the returned bit states. `value_capacity` Capacity of `values` in elements. Operation result.
+device First bit device in the range. points Number of bit points to read. values Output buffer for the returned bit states. value_capacity Capacity of values in elements. Operation result.
 
 | Parameter | Description |
 | --- | --- |
 | `device` | First bit device in the range. |
 | `points` | Number of bit points to read. |
 | `values` | Output buffer for the returned bit states. |
-| `value_capacity` | Capacity of `values` in elements. |
+| `value_capacity` | Capacity of values in elements. |
 
 Returns: Operation result.
 
@@ -850,7 +850,7 @@ Error slmp::SlmpClient::writeBits(const DeviceAddress &device, const bool *value
 
 Write a contiguous bit-device range from boolean values.
 
-`device` First bit device in the range. `values` Bit values in PLC order. `count` Number of bit points to write. Operation result.
+device First bit device in the range. values Bit values in PLC order. count Number of bit points to write. Operation result.
 
 | Parameter | Description |
 | --- | --- |
@@ -868,14 +868,14 @@ Error slmp::SlmpClient::readDWords(const DeviceAddress &device, uint16_t points,
 
 Read a contiguous DWord range as unsigned 32-bit values.
 
-`device` First device in the range. `points` Number of 32-bit values to read. `values` Output buffer for the returned values. `value_capacity` Capacity of `values` in elements. Operation result.
+device First device in the range. points Number of 32-bit values to read. values Output buffer for the returned values. value_capacity Capacity of values in elements. Operation result.
 
 | Parameter | Description |
 | --- | --- |
 | `device` | First device in the range. |
 | `points` | Number of 32-bit values to read. |
 | `values` | Output buffer for the returned values. |
-| `value_capacity` | Capacity of `values` in elements. |
+| `value_capacity` | Capacity of values in elements. |
 
 Returns: Operation result.
 
@@ -887,7 +887,7 @@ Error slmp::SlmpClient::writeDWords(const DeviceAddress &device, const uint32_t 
 
 Write a contiguous DWord range from unsigned 32-bit values.
 
-`device` First device in the range. `values` 32-bit values in PLC order. `count` Number of 32-bit values to write. Operation result.
+device First device in the range. values 32-bit values in PLC order. count Number of 32-bit values to write. Operation result.
 
 | Parameter | Description |
 | --- | --- |
@@ -905,14 +905,14 @@ Error slmp::SlmpClient::readFloat32s(const DeviceAddress &device, uint16_t point
 
 Read a contiguous range of IEEE-754 float32 values.
 
-`device` First device in the range. `points` Number of float32 values to read. `values` Output buffer for the returned values. `value_capacity` Capacity of `values` in elements. Operation result.
+device First device in the range. points Number of float32 values to read. values Output buffer for the returned values. value_capacity Capacity of values in elements. Operation result.
 
 | Parameter | Description |
 | --- | --- |
 | `device` | First device in the range. |
 | `points` | Number of float32 values to read. |
 | `values` | Output buffer for the returned values. |
-| `value_capacity` | Capacity of `values` in elements. |
+| `value_capacity` | Capacity of values in elements. |
 
 Returns: Operation result.
 
@@ -924,7 +924,7 @@ Error slmp::SlmpClient::writeFloat32s(const DeviceAddress &device, const float *
 
 Write a contiguous range of IEEE-754 float32 values.
 
-`device` First device in the range. `values` Float32 values in PLC order. `count` Number of float32 values to write. Operation result.
+device First device in the range. values Float32 values in PLC order. count Number of float32 values to write. Operation result.
 
 | Parameter | Description |
 | --- | --- |
@@ -1058,7 +1058,7 @@ Error slmp::SlmpClient::registerMonitorDevices(const DeviceAddress *word_devices
 
 Register devices for monitoring (command 0x0801).
 
-Register once, then call `runMonitorCycle` repeatedly to read current values without rebuilding the monitor list every cycle.
+Register once, then call runMonitorCycle repeatedly to read current values without rebuilding the monitor list every cycle.
 
 #### `registerMonitorDevicesExt`
 
@@ -1076,7 +1076,7 @@ Error slmp::SlmpClient::runMonitorCycle(uint16_t *word_values, uint16_t word_cou
 
 Execute monitor cycle (command 0x0802).
 
-Returns values for the devices previously registered by `registerMonitorDevices` or `registerMonitorDevicesExt`.
+Returns values for the devices previously registered by registerMonitorDevices or registerMonitorDevicesExt.
 
 #### `readBlock`
 
@@ -1182,7 +1182,7 @@ void slmp::SlmpClient::update(uint32_t now_ms)
 
 Advance asynchronous state machine. Must be called frequently in your main loop to process pending I/O.
 
-`now_ms` Current system time in milliseconds.
+now_ms Current system time in milliseconds.
 
 | Parameter | Description |
 | --- | --- |
@@ -1202,7 +1202,7 @@ Check if an asynchronous operation is currently active.
 Error slmp::SlmpClient::beginReadTypeName(TypeNameInfo &out, uint32_t now_ms)
 ```
 
-Start async ReadTypeName. Result will be in `out` when busy becomes false.
+Start async ReadTypeName. Result will be in out when busy becomes false.
 
 #### `beginReadWords`
 
@@ -1210,7 +1210,7 @@ Start async ReadTypeName. Result will be in `out` when busy becomes false.
 Error slmp::SlmpClient::beginReadWords(const DeviceAddress &device, uint16_t points, uint16_t *values, size_t value_capacity, uint32_t now_ms)
 ```
 
-Start async ReadWords. Result will be in `values` when busy becomes false.
+Start async ReadWords. Result will be in values when busy becomes false.
 
 #### `beginWriteWords`
 
@@ -1444,7 +1444,7 @@ Error slmp::SlmpClient::readLongTimer(int head_no, int points, LongTimerResult *
 
 Read one or more long timers (LTN device, 4 words per entry).
 
-`head_no` Starting LTN device number (e.g. 0 for LTN0). `points` Number of timers to read. `out` Output buffer for decoded results. `capacity` Capacity of out buffer (in elements).
+head_no Starting LTN device number (e.g. 0 for LTN0). points Number of timers to read. out Output buffer for decoded results. capacity Capacity of out buffer (in elements).
 
 | Parameter | Description |
 | --- | --- |
@@ -1517,7 +1517,7 @@ Error slmp::SlmpClient::readWordsModuleBuf(uint16_t slot, bool use_hg, uint32_t 
 
 Read words from intelligent module buffer memory.
 
-`slot` Module slot number in hex (e.g. 3 for U3, 0x3E0 for U3E0). `use_hg` true for HG (extended buffer), false for G (normal buffer). `dev_no` Device number (buffer memory address). `points` Number of words to read. `out` Output buffer. `capacity` Capacity of out buffer (in elements).
+slot Module slot number in hex (e.g. 3 for U3, 0x3E0 for U3E0). use_hg true for HG (extended buffer), false for G (normal buffer). dev_no Device number (buffer memory address). points Number of words to read. out Output buffer. capacity Capacity of out buffer (in elements).
 
 | Parameter | Description |
 | --- | --- |
@@ -1590,9 +1590,9 @@ Start async writeBitsModuleBuf.
 Error slmp::SlmpClient::readWordsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t dev_no, uint16_t points, uint16_t *out, size_t capacity)
 ```
 
-Read words from a link direct device (CC-Link IE `J&#92;device`).
+Read words from a link direct device (CC-Link IE J&#92;device).
 
-`j_net` J-network number (0..255). `code` Device code. `dev_no` Device number. `points` Number of words to read. `out` Output buffer. `capacity` Capacity of out buffer (in elements).
+j_net J-network number (0..255). code Device code. dev_no Device number. points Number of words to read. out Output buffer. capacity Capacity of out buffer (in elements).
 
 | Parameter | Description |
 | --- | --- |
@@ -1667,7 +1667,7 @@ Error slmp::SlmpClient::readMemoryWords(uint32_t head_address, uint16_t word_len
 
 Read words from PLC memory (command 0x0613).
 
-`head_address` 32-bit starting memory address. `word_length` Number of words to read. `out` Output buffer. `capacity` Capacity of out buffer (in elements).
+head_address 32-bit starting memory address. word_length Number of words to read. out Output buffer. capacity Capacity of out buffer (in elements).
 
 | Parameter | Description |
 | --- | --- |
@@ -1708,7 +1708,7 @@ Error slmp::SlmpClient::readExtendUnitBytes(uint32_t head_address, uint16_t byte
 
 Read raw bytes from an extend unit (command 0x0601).
 
-`head_address` 32-bit starting address. `byte_length` Number of bytes to read. `module_no` Extend unit module I/O number (e.g. 0x03E0 for CPU buffer). `out` Output buffer. `capacity` Capacity of out buffer in bytes.
+head_address 32-bit starting address. byte_length Number of bytes to read. module_no Extend unit module I/O number (e.g. 0x03E0 for CPU buffer). out Output buffer. capacity Capacity of out buffer in bytes.
 
 | Parameter | Description |
 | --- | --- |
@@ -1862,7 +1862,7 @@ Error slmp::SlmpClient::readArrayLabels(const LabelArrayReadPoint *points, size_
 
 Read array labels from the PLC (command 0x041A).
 
-`points` Array of read point descriptors. `point_count` Number of points. `out` Output buffer for results. result.data pointers are valid until the next operation. `out_capacity` Capacity of out buffer (in elements). `out_count` Receives the number of results written. `abbrevs` Optional abbreviation label names (may be nullptr). `abbrev_count` Number of abbreviation labels.
+points Array of read point descriptors. point_count Number of points. out Output buffer for results. result.data pointers are valid until the next operation. out_capacity Capacity of out buffer (in elements). out_count Receives the number of results written. abbrevs Optional abbreviation label names (may be nullptr). abbrev_count Number of abbreviation labels.
 
 | Parameter | Description |
 | --- | --- |
@@ -1906,7 +1906,7 @@ Error slmp::SlmpClient::readRandomLabels(const LabelName *labels, size_t label_c
 
 Read random labels from the PLC (command 0x041C).
 
-`labels` Array of label names. `label_count` Number of labels. `out` Output buffer for results. `out_capacity` Capacity of out buffer. `out_count` Receives the number of results written. `abbrevs` Optional abbreviation labels. `abbrev_count` Number of abbreviation labels.
+labels Array of label names. label_count Number of labels. out Output buffer for results. out_capacity Capacity of out buffer. out_count Receives the number of results written. abbrevs Optional abbreviation labels. abbrev_count Number of abbreviation labels.
 
 | Parameter | Description |
 | --- | --- |
@@ -1958,11 +1958,11 @@ slmp::ReconnectHelper::ReconnectHelper(SlmpClient &client, const char *host, uin
 
 Initialize helper with client and target endpoint.
 
-`client` Reference to an initialized `SlmpClient`. `host` Target IP address or hostname. `port` Target Port (usually 1025 or 1280). `options` Reconnection configuration.
+client Reference to an initialized SlmpClient. host Target IP address or hostname. port Target Port (usually 1025 or 1280). options Reconnection configuration.
 
 | Parameter | Description |
 | --- | --- |
-| `client` | Reference to an initialized `SlmpClient`. |
+| `client` | Reference to an initialized SlmpClient. |
 | `host` | Target IP address or hostname. |
 | `port` | Target Port (usually 1025 or 1280). |
 | `options` | Reconnection configuration. |
@@ -1975,9 +1975,9 @@ bool slmp::ReconnectHelper::ensureConnected(uint32_t now_ms)
 
 Check and restore connection if needed.
 
-If already connected, returns true immediately. If disconnected, attempts to connect only if `ReconnectOptions::retry_interval_ms` has elapsed since the last attempt.
+If already connected, returns true immediately. If disconnected, attempts to connect only if ReconnectOptions::retry_interval_ms has elapsed since the last attempt.
 
-`now_ms` Current system time in milliseconds. true if currently connected (or just successfully reconnected).
+now_ms Current system time in milliseconds. true if currently connected (or just successfully reconnected).
 
 | Parameter | Description |
 | --- | --- |
@@ -2005,7 +2005,7 @@ Returns: true if a NEW connection was established since the last call to this me
 void slmp::ReconnectHelper::forceReconnect(uint32_t now_ms)
 ```
 
-Manually trigger a reconnection attempt on the next call to `ensureConnected`.
+Manually trigger a reconnection attempt on the next call to ensureConnected.
 
 Closes the current connection and resets the retry timer to allow an immediate attempt if desired.
 
@@ -2015,7 +2015,7 @@ Closes the current connection and resets the retry timer to allow an immediate a
 
 Tagged logical value used by typed read, write, and named snapshots.
 
-Only the field that matches `type` is meaningful. This struct is intentionally simple so it can be stack-allocated, copied into snapshots, and passed through firmware code without pulling in a heavier variant type.
+Only the field that matches type is meaningful. This struct is intentionally simple so it can be stack-allocated, copied into snapshots, and passed through firmware code without pulling in a heavier variant type.
 
 #### Fields
 
@@ -2025,7 +2025,7 @@ Only the field that matches `type` is meaningful. This struct is intentionally s
 ValueType slmp::highlevel::Value::type = ValueType::U16
 ```
 
-Declared logical type of this value.
+Declared logical type of this value
 
 #### `bit`
 
@@ -2033,7 +2033,7 @@ Declared logical type of this value.
 bool slmp::highlevel::Value::bit = false
 ```
 
-Boolean payload for `ValueType::Bit`.
+Boolean payload for ValueType::Bit
 
 #### `u16`
 
@@ -2041,7 +2041,7 @@ Boolean payload for `ValueType::Bit`.
 uint16_t slmp::highlevel::Value::u16 = 0U
 ```
 
-Unsigned 16-bit payload.
+Unsigned 16-bit payload
 
 #### `s16`
 
@@ -2049,7 +2049,7 @@ Unsigned 16-bit payload.
 int16_t slmp::highlevel::Value::s16 = 0
 ```
 
-Signed 16-bit payload.
+Signed 16-bit payload
 
 #### `u32`
 
@@ -2057,7 +2057,7 @@ Signed 16-bit payload.
 uint32_t slmp::highlevel::Value::u32 = 0UL
 ```
 
-Unsigned 32-bit payload.
+Unsigned 32-bit payload
 
 #### `s32`
 
@@ -2065,7 +2065,7 @@ Unsigned 32-bit payload.
 int32_t slmp::highlevel::Value::s32 = 0L
 ```
 
-Signed 32-bit payload.
+Signed 32-bit payload
 
 #### `f32`
 
@@ -2073,7 +2073,7 @@ Signed 32-bit payload.
 float slmp::highlevel::Value::f32 = 0.0f
 ```
 
-Float32 payload.
+Float32 payload
 
 #### Member Functions
 
@@ -2085,13 +2085,13 @@ static Value slmp::highlevel::Value::bitValue(bool value)
 
 Create a boolean logical value.
 
-`value` Boolean payload. Tagged `Value` initialized as `ValueType::Bit`.
+value Boolean payload. Tagged Value initialized as ValueType::Bit.
 
 | Parameter | Description |
 | --- | --- |
 | `value` | Boolean payload. |
 
-Returns: Tagged `Value` initialized as `ValueType::Bit`.
+Returns: Tagged Value initialized as ValueType::Bit.
 
 #### `u16Value`
 
@@ -2101,13 +2101,13 @@ static Value slmp::highlevel::Value::u16Value(uint16_t value)
 
 Create an unsigned 16-bit logical value.
 
-`value` Unsigned 16-bit payload. Tagged `Value` initialized as `ValueType::U16`.
+value Unsigned 16-bit payload. Tagged Value initialized as ValueType::U16.
 
 | Parameter | Description |
 | --- | --- |
 | `value` | Unsigned 16-bit payload. |
 
-Returns: Tagged `Value` initialized as `ValueType::U16`.
+Returns: Tagged Value initialized as ValueType::U16.
 
 #### `s16Value`
 
@@ -2117,13 +2117,13 @@ static Value slmp::highlevel::Value::s16Value(int16_t value)
 
 Create a signed 16-bit logical value.
 
-`value` Signed 16-bit payload. Tagged `Value` initialized as `ValueType::S16`.
+value Signed 16-bit payload. Tagged Value initialized as ValueType::S16.
 
 | Parameter | Description |
 | --- | --- |
 | `value` | Signed 16-bit payload. |
 
-Returns: Tagged `Value` initialized as `ValueType::S16`.
+Returns: Tagged Value initialized as ValueType::S16.
 
 #### `u32Value`
 
@@ -2133,13 +2133,13 @@ static Value slmp::highlevel::Value::u32Value(uint32_t value)
 
 Create an unsigned 32-bit logical value.
 
-`value` Unsigned 32-bit payload. Tagged `Value` initialized as `ValueType::U32`.
+value Unsigned 32-bit payload. Tagged Value initialized as ValueType::U32.
 
 | Parameter | Description |
 | --- | --- |
 | `value` | Unsigned 32-bit payload. |
 
-Returns: Tagged `Value` initialized as `ValueType::U32`.
+Returns: Tagged Value initialized as ValueType::U32.
 
 #### `s32Value`
 
@@ -2149,13 +2149,13 @@ static Value slmp::highlevel::Value::s32Value(int32_t value)
 
 Create a signed 32-bit logical value.
 
-`value` Signed 32-bit payload. Tagged `Value` initialized as `ValueType::S32`.
+value Signed 32-bit payload. Tagged Value initialized as ValueType::S32.
 
 | Parameter | Description |
 | --- | --- |
 | `value` | Signed 32-bit payload. |
 
-Returns: Tagged `Value` initialized as `ValueType::S32`.
+Returns: Tagged Value initialized as ValueType::S32.
 
 #### `float32Value`
 
@@ -2165,23 +2165,23 @@ static Value slmp::highlevel::Value::float32Value(float value)
 
 Create an IEEE-754 float32 logical value.
 
-`value` Float payload. Tagged `Value` initialized as `ValueType::Float32`.
+value Float payload. Tagged Value initialized as ValueType::Float32.
 
 | Parameter | Description |
 | --- | --- |
 | `value` | Float payload. |
 
-Returns: Tagged `Value` initialized as `ValueType::Float32`.
+Returns: Tagged Value initialized as ValueType::Float32.
 
 ### Struct `slmp::highlevel::AddressSpec`
 
 Parsed logical address accepted by the high-level helpers.
 
-Examples: - `D100:U` - `D100:S` - `D200:F` - `D50.3` - `M1000:BIT`
+Examples: - D100:U - D100:S - D200:F - D50.3 - M1000:BIT
 
-Device families accepted by the parser include: - standard relay/register devices such as `D`, `M`, `X`, `Y`, `R`, `ZR` - long timer families `LTN`, `LTS`, `LTC` - long retentive timer families `LSTN`, `LSTS`, `LSTC` - long counter families `LCN`, `LCS`, `LCC` - index/register families `Z`, `LZ`, and `RD`
+Device families accepted by the parser include: - standard relay/register devices such as D, M, X, Y, R, ZR - long timer families LTN, LTS, LTC - long retentive timer families LSTN, LSTS, LSTC - long counter families LCN, LCS, LCC - index/register families Z, LZ, and RD
 
-The `.bit` notation is valid only for word devices and maps to a read-modify-write flow on writes.
+The .bit notation is valid only for word devices and maps to a read-modify-write flow on writes.
 
 #### Fields
 
@@ -2191,7 +2191,7 @@ The `.bit` notation is valid only for word devices and maps to a read-modify-wri
 DeviceAddress slmp::highlevel::AddressSpec::device {}
 ```
 
-Base device address used by the low-level API.
+Base device address used by the low-level API
 
 #### `type`
 
@@ -2199,7 +2199,7 @@ Base device address used by the low-level API.
 ValueType slmp::highlevel::AddressSpec::type = ValueType::U16
 ```
 
-Logical value type requested by the caller.
+Logical value type requested by the caller
 
 #### `bit_index`
 
@@ -2207,7 +2207,7 @@ Logical value type requested by the caller.
 int slmp::highlevel::AddressSpec::bit_index = -1
 ```
 
-Bit index for `D50.3` style access, otherwise -1.
+Bit index for D50.3 style access, otherwise -1
 
 #### `explicit_type`
 
@@ -2215,7 +2215,7 @@ Bit index for `D50.3` style access, otherwise -1.
 bool slmp::highlevel::AddressSpec::explicit_type = false
 ```
 
-True when the input used an explicit suffix such as `:F`.
+True when the input used an explicit suffix such as :F
 
 ### Struct `slmp::highlevel::ReadPlanEntry`
 
@@ -2231,7 +2231,7 @@ A plan entry keeps both the original caller string and the normalized low-level 
 std::string slmp::highlevel::ReadPlanEntry::address
 ```
 
-Original caller-provided address string.
+Original caller-provided address string
 
 #### `spec`
 
@@ -2239,7 +2239,7 @@ Original caller-provided address string.
 AddressSpec slmp::highlevel::ReadPlanEntry::spec
 ```
 
-Parsed logical address.
+Parsed logical address
 
 #### `kind`
 
@@ -2247,13 +2247,13 @@ Parsed logical address.
 BatchKind slmp::highlevel::ReadPlanEntry::kind = BatchKind::None
 ```
 
-Batching strategy selected for this address.
+Batching strategy selected for this address
 
 ### Struct `slmp::highlevel::ReadPlan`
 
-Compiled snapshot plan reused by `readNamed` and `Poller`.
+Compiled snapshot plan reused by readNamed and Poller.
 
-The ``entries`` vector preserves caller order for user-facing results. The ``word_devices`` and ``dword_devices`` vectors hold deduplicated batchable devices in the order chosen by the compiler so the runtime can perform one random-read request for many named addresses.
+The entries vector preserves caller order for user-facing results. The word_devices and dword_devices vectors hold deduplicated batchable devices in the order chosen by the compiler so the runtime can perform one random-read request for many named addresses.
 
 #### Fields
 
@@ -2263,7 +2263,7 @@ The ``entries`` vector preserves caller order for user-facing results. The ``wor
 std::vector<ReadPlanEntry> slmp::highlevel::ReadPlan::entries
 ```
 
-`Snapshot` entries in caller order.
+Snapshot entries in caller order
 
 #### `word_devices`
 
@@ -2271,7 +2271,7 @@ std::vector<ReadPlanEntry> slmp::highlevel::ReadPlan::entries
 std::vector<DeviceAddress> slmp::highlevel::ReadPlan::word_devices
 ```
 
-Unique batched word devices.
+Unique batched word devices
 
 #### `dword_devices`
 
@@ -2279,7 +2279,7 @@ Unique batched word devices.
 std::vector<DeviceAddress> slmp::highlevel::ReadPlan::dword_devices
 ```
 
-Unique batched dword devices.
+Unique batched dword devices
 
 ### Struct `slmp::highlevel::NamedValue`
 
@@ -2293,7 +2293,7 @@ One result item in a named snapshot.
 std::string slmp::highlevel::NamedValue::address
 ```
 
-Original caller-provided address string.
+Original caller-provided address string
 
 #### `value`
 
@@ -2301,11 +2301,11 @@ Original caller-provided address string.
 Value slmp::highlevel::NamedValue::value
 ```
 
-Decoded logical value.
+Decoded logical value
 
 ### Struct `slmp::highlevel::PlcProfileDefaults`
 
-Resolved fixed defaults for one `PlcProfile`.
+Resolved fixed defaults for one PlcProfile.
 
 #### Fields
 
@@ -2315,7 +2315,7 @@ Resolved fixed defaults for one `PlcProfile`.
 FrameType slmp::highlevel::PlcProfileDefaults::frame_type
 ```
 
-Derived SLMP frame type.
+Derived SLMP frame type
 
 #### `compatibility_mode`
 
@@ -2323,7 +2323,7 @@ Derived SLMP frame type.
 CompatibilityMode slmp::highlevel::PlcProfileDefaults::compatibility_mode
 ```
 
-Derived low-level compatibility mode.
+Derived low-level compatibility mode
 
 #### `address_profile`
 
@@ -2331,7 +2331,7 @@ Derived low-level compatibility mode.
 PlcProfile slmp::highlevel::PlcProfileDefaults::address_profile
 ```
 
-String-address profile used by the helper parser.
+String-address profile used by the helper parser
 
 #### `range_profile`
 
@@ -2339,11 +2339,11 @@ String-address profile used by the helper parser.
 PlcProfile slmp::highlevel::PlcProfileDefaults::range_profile
 ```
 
-PLC profile used for SD-range helpers.
+PLC profile used for SD-range helpers
 
 ### Struct `slmp::highlevel::DeviceRangeEntry`
 
-One device-range row for one public device code such as `D` or `STS`.
+One device-range row for one public device code such as D or STS.
 
 #### Fields
 
@@ -2353,7 +2353,7 @@ One device-range row for one public device code such as `D` or `STS`.
 std::string slmp::highlevel::DeviceRangeEntry::device
 ```
 
-Public device code such as `D` or `X`.
+Public device code such as D or X
 
 #### `category`
 
@@ -2361,7 +2361,7 @@ Public device code such as `D` or `X`.
 DeviceRangeCategory slmp::highlevel::DeviceRangeEntry::category = DeviceRangeCategory::Word
 ```
 
-Logical category for grouping.
+Logical category for grouping
 
 #### `is_bit_device`
 
@@ -2369,7 +2369,7 @@ Logical category for grouping.
 bool slmp::highlevel::DeviceRangeEntry::is_bit_device = false
 ```
 
-True when this device is normally bit-addressed.
+True when this device is normally bit-addressed
 
 #### `supported`
 
@@ -2377,7 +2377,7 @@ True when this device is normally bit-addressed.
 bool slmp::highlevel::DeviceRangeEntry::supported = false
 ```
 
-False when the PLC profile does not support this device.
+False when the PLC profile does not support this device
 
 #### `lower_bound`
 
@@ -2385,7 +2385,7 @@ False when the PLC profile does not support this device.
 uint32_t slmp::highlevel::DeviceRangeEntry::lower_bound = 0U
 ```
 
-Always zero in the current profile rules.
+Always zero in the current profile rules
 
 #### `upper_bound`
 
@@ -2393,7 +2393,7 @@ Always zero in the current profile rules.
 uint32_t slmp::highlevel::DeviceRangeEntry::upper_bound = 0U
 ```
 
-Inclusive last address when `has_upper_bound` is true.
+Inclusive last address when has_upper_bound is true
 
 #### `has_upper_bound`
 
@@ -2401,7 +2401,7 @@ Inclusive last address when `has_upper_bound` is true.
 bool slmp::highlevel::DeviceRangeEntry::has_upper_bound = false
 ```
 
-True when a finite last address is known.
+True when a finite last address is known
 
 #### `point_count`
 
@@ -2409,7 +2409,7 @@ True when a finite last address is known.
 uint32_t slmp::highlevel::DeviceRangeEntry::point_count = 0U
 ```
 
-Configured point count when `has_point_count` is true.
+Configured point count when has_point_count is true
 
 #### `has_point_count`
 
@@ -2417,7 +2417,7 @@ Configured point count when `has_point_count` is true.
 bool slmp::highlevel::DeviceRangeEntry::has_point_count = false
 ```
 
-True when the PLC/configuration exposes a usable count.
+True when the PLC/configuration exposes a usable count
 
 #### `address_range`
 
@@ -2425,7 +2425,7 @@ True when the PLC/configuration exposes a usable count.
 std::string slmp::highlevel::DeviceRangeEntry::address_range
 ```
 
-Preformatted range such as `X0000-X1777` or empty when unavailable.
+Preformatted range such as X0000-X1777 or empty when unavailable
 
 #### `notation`
 
@@ -2433,7 +2433,7 @@ Preformatted range such as `X0000-X1777` or empty when unavailable.
 DeviceRangeNotation slmp::highlevel::DeviceRangeEntry::notation = DeviceRangeNotation::Base10
 ```
 
-Rendered numbering style.
+Rendered numbering style
 
 #### `source`
 
@@ -2441,7 +2441,7 @@ Rendered numbering style.
 std::string slmp::highlevel::DeviceRangeEntry::source
 ```
 
-Rule source such as `SD300` or `Fixed family limit`.
+Rule source such as SD300 or Fixed family limit
 
 #### `notes`
 
@@ -2449,7 +2449,7 @@ Rule source such as `SD300` or `Fixed family limit`.
 std::string slmp::highlevel::DeviceRangeEntry::notes
 ```
 
-Optional profile-specific note.
+Optional profile-specific note
 
 ### Struct `slmp::highlevel::DeviceRangeCatalog`
 
@@ -2463,7 +2463,7 @@ Resolved device-range catalog for one explicit PLC profile selection.
 std::string slmp::highlevel::DeviceRangeCatalog::model
 ```
 
-Synthetic profile label such as `IQ-F`.
+Synthetic profile label such as IQ-F
 
 #### `model_code`
 
@@ -2471,7 +2471,7 @@ Synthetic profile label such as `IQ-F`.
 uint16_t slmp::highlevel::DeviceRangeCatalog::model_code = 0U
 ```
 
-Always zero for explicit profile reads.
+Always zero for explicit profile reads
 
 #### `has_model_code`
 
@@ -2479,7 +2479,7 @@ Always zero for explicit profile reads.
 bool slmp::highlevel::DeviceRangeCatalog::has_model_code = false
 ```
 
-False because no type-name query is used here.
+False because no type-name query is used here
 
 #### `plc_profile`
 
@@ -2487,7 +2487,7 @@ False because no type-name query is used here.
 PlcProfile slmp::highlevel::DeviceRangeCatalog::plc_profile = PlcProfile::IqR
 ```
 
-Caller-selected PLC profile.
+Caller-selected PLC profile
 
 #### `entries`
 
@@ -2495,7 +2495,7 @@ Caller-selected PLC profile.
 std::vector<DeviceRangeEntry> slmp::highlevel::DeviceRangeCatalog::entries
 ```
 
-Device rows in stable output order.
+Device rows in stable output order
 
 ### Struct `slmp::SlmpErrorInfo`
 
@@ -2509,7 +2509,7 @@ Structured SLMP error information returned after a non-zero end code.
 bool slmp::SlmpErrorInfo::present = false
 ```
 
-True when the PLC response contained the 9-byte error information block.
+True when the PLC response contained the 9-byte error information block
 
 #### `network`
 
@@ -2517,7 +2517,7 @@ True when the PLC response contained the 9-byte error information block.
 uint8_t slmp::SlmpErrorInfo::network = 0U
 ```
 
-Network number reported by the PLC.
+Network number reported by the PLC
 
 #### `station`
 
@@ -2525,7 +2525,7 @@ Network number reported by the PLC.
 uint8_t slmp::SlmpErrorInfo::station = 0U
 ```
 
-Station number reported by the PLC.
+Station number reported by the PLC
 
 #### `module_io`
 
@@ -2533,7 +2533,7 @@ Station number reported by the PLC.
 uint16_t slmp::SlmpErrorInfo::module_io = 0U
 ```
 
-Module I/O number reported by the PLC.
+Module I/O number reported by the PLC
 
 #### `multidrop`
 
@@ -2541,7 +2541,7 @@ Module I/O number reported by the PLC.
 uint8_t slmp::SlmpErrorInfo::multidrop = 0U
 ```
 
-Multidrop station number reported by the PLC.
+Multidrop station number reported by the PLC
 
 #### `command`
 
@@ -2549,7 +2549,7 @@ Multidrop station number reported by the PLC.
 uint16_t slmp::SlmpErrorInfo::command = 0U
 ```
 
-Command code associated with the PLC error.
+Command code associated with the PLC error
 
 #### `subcommand`
 
@@ -2557,7 +2557,7 @@ Command code associated with the PLC error.
 uint16_t slmp::SlmpErrorInfo::subcommand = 0U
 ```
 
-Subcommand code associated with the PLC error.
+Subcommand code associated with the PLC error
 
 #### `raw`
 
@@ -2565,11 +2565,11 @@ Subcommand code associated with the PLC error.
 uint8_t slmp::SlmpErrorInfo::raw[9] = {}
 ```
 
-Raw 9-byte error information block.
+Raw 9-byte error information block
 
 ### Struct `slmp::ProfileFeatureErrorInfo`
 
-Structured information for `Error::ProfileFeatureBlocked`.
+Structured information for Error::ProfileFeatureBlocked.
 
 #### Fields
 
@@ -2579,7 +2579,7 @@ Structured information for `Error::ProfileFeatureBlocked`.
 bool slmp::ProfileFeatureErrorInfo::present = false
 ```
 
-True when the last error was produced by the profile guard.
+True when the last error was produced by the profile guard
 
 #### `profile`
 
@@ -2587,7 +2587,7 @@ True when the last error was produced by the profile guard.
 PlcProfile slmp::ProfileFeatureErrorInfo::profile = PlcProfile::Unspecified
 ```
 
-Selected PLC profile.
+Selected PLC profile
 
 #### `profile_id`
 
@@ -2595,7 +2595,7 @@ Selected PLC profile.
 const char* slmp::ProfileFeatureErrorInfo::profile_id = nullptr
 ```
 
-Canonical profile ID such as `melsec:qnudv`.
+Canonical profile ID such as melsec:qnudv
 
 #### `feature_key`
 
@@ -2603,7 +2603,7 @@ Canonical profile ID such as `melsec:qnudv`.
 const char* slmp::ProfileFeatureErrorInfo::feature_key = nullptr
 ```
 
-Capability feature key such as `block`.
+Capability feature key such as block
 
 #### `state`
 
@@ -2611,7 +2611,7 @@ Capability feature key such as `block`.
 const char* slmp::ProfileFeatureErrorInfo::state = nullptr
 ```
 
-Capability state, `blocked` or `unverified`.
+Capability state, blocked or unverified
 
 #### `evidence`
 
@@ -2619,7 +2619,7 @@ Capability state, `blocked` or `unverified`.
 const char* slmp::ProfileFeatureErrorInfo::evidence = nullptr
 ```
 
-Evidence or policy note from the embedded table.
+Evidence or policy note from the embedded table
 
 #### `disable_hint`
 
@@ -2627,7 +2627,7 @@ Evidence or policy note from the embedded table.
 const char* slmp::ProfileFeatureErrorInfo::disable_hint = nullptr
 ```
 
-How to intentionally bypass the feature guard.
+How to intentionally bypass the feature guard
 
 ### Struct `slmp::DeviceAddress`
 
@@ -2641,7 +2641,7 @@ Represents a specific device and its numeric address.
 DeviceCode slmp::DeviceAddress::code
 ```
 
-Device type code (e.g. D, M, X).
+Device type code (e.g. D, M, X)
 
 #### `number`
 
@@ -2649,7 +2649,7 @@ Device type code (e.g. D, M, X).
 uint32_t slmp::DeviceAddress::number
 ```
 
-Numeric address (index). Use `dev::dec` or `dev::hex`.
+Numeric address (index). Use dev::dec or dev::hex
 
 ### Struct `slmp::DeviceBlockRead`
 
@@ -2663,7 +2663,7 @@ Description for a contiguous block of devices to read.
 DeviceAddress slmp::DeviceBlockRead::device
 ```
 
-Starting device address.
+Starting device address
 
 #### `points`
 
@@ -2671,7 +2671,7 @@ Starting device address.
 uint16_t slmp::DeviceBlockRead::points
 ```
 
-Number of points to read.
+Number of points to read
 
 ### Struct `slmp::DeviceBlockWrite`
 
@@ -2685,7 +2685,7 @@ Description for a contiguous block of devices to write.
 DeviceAddress slmp::DeviceBlockWrite::device
 ```
 
-Starting device address.
+Starting device address
 
 #### `values`
 
@@ -2693,7 +2693,7 @@ Starting device address.
 const uint16_t* slmp::DeviceBlockWrite::values
 ```
 
-Pointer to word values to write.
+Pointer to word values to write
 
 #### `points`
 
@@ -2701,7 +2701,7 @@ Pointer to word values to write.
 uint16_t slmp::DeviceBlockWrite::points
 ```
 
-Number of points to write.
+Number of points to write
 
 ### Struct `slmp::BlockWriteOptions`
 
@@ -2715,7 +2715,7 @@ Configuration for block write operations.
 bool slmp::BlockWriteOptions::split_mixed_blocks
 ```
 
-Split bit and word blocks into separate requests.
+Split bit and word blocks into separate requests
 
 ### Struct `slmp::dev::DecNo`
 
@@ -2747,7 +2747,7 @@ Decoded result for one long timer or long retentive timer entry.
 
 Each entry occupies 4 words in the device memory: [current_lo, current_hi, status_word, reserved].
 
-This structure is returned by the dedicated long timer helpers instead of exposing the raw 4-word payload directly. The helper keeps the wire format available through `status_word` while also decoding the current value and the commonly-used contact / coil bits.
+This structure is returned by the dedicated long timer helpers instead of exposing the raw 4-word payload directly. The helper keeps the wire format available through status_word while also decoding the current value and the commonly-used contact / coil bits.
 
 #### Fields
 
@@ -2757,7 +2757,7 @@ This structure is returned by the dedicated long timer helpers instead of exposi
 uint32_t slmp::LongTimerResult::current_value
 ```
 
-Current timer value assembled from `current_lo` and `current_hi`.
+Current timer value assembled from current_lo and current_hi
 
 #### `contact`
 
@@ -2765,7 +2765,7 @@ Current timer value assembled from `current_lo` and `current_hi`.
 bool slmp::LongTimerResult::contact
 ```
 
-Contact state (`LTS` / `LSTS`, decoded from ``status_word` & 0x0002`).
+Contact state (LTS / LSTS, decoded from status_word & 0x0002)
 
 #### `coil`
 
@@ -2773,7 +2773,7 @@ Contact state (`LTS` / `LSTS`, decoded from ``status_word` & 0x0002`).
 bool slmp::LongTimerResult::coil
 ```
 
-Coil state (`LTC` / `LSTC`, decoded from ``status_word` & 0x0001`).
+Coil state (LTC / LSTC, decoded from status_word & 0x0001)
 
 #### `status_word`
 
@@ -2781,7 +2781,7 @@ Coil state (`LTC` / `LSTC`, decoded from ``status_word` & 0x0001`).
 uint16_t slmp::LongTimerResult::status_word
 ```
 
-Raw status word returned by the PLC for callers that need bit-exact inspection.
+Raw status word returned by the PLC for callers that need bit-exact inspection
 
 ### Struct `slmp::LabelName`
 
@@ -2797,7 +2797,7 @@ Use 2-byte characters as-is from the label string. staticconstuint16_tkMyLabel[]
 const uint16_t* slmp::LabelName::chars
 ```
 
-UTF-16-LE characters.
+UTF-16-LE characters
 
 #### `length`
 
@@ -2805,11 +2805,11 @@ UTF-16-LE characters.
 uint16_t slmp::LabelName::length
 ```
 
-Number of characters (not bytes).
+Number of characters (not bytes)
 
 ### Struct `slmp::LabelArrayReadPoint`
 
-Single label read entry for `SlmpClient::readArrayLabels`.
+Single label read entry for SlmpClient::readArrayLabels.
 
 #### Fields
 
@@ -2833,13 +2833,13 @@ uint8_t slmp::LabelArrayReadPoint::unit_specification
 uint16_t slmp::LabelArrayReadPoint::array_data_length
 ```
 
-Number of elements.
+Number of elements
 
 ### Struct `slmp::LabelArrayReadResult`
 
-Single label read result from `SlmpClient::readArrayLabels`.
+Single label read result from SlmpClient::readArrayLabels.
 
-`data` points into the internal rx_buffer and is valid only until the next operation.
+data points into the internal rx_buffer and is valid only until the next operation.
 
 #### Fields
 
@@ -2849,7 +2849,7 @@ Single label read result from `SlmpClient::readArrayLabels`.
 uint8_t slmp::LabelArrayReadResult::dt_id
 ```
 
-Data type identifier.
+Data type identifier
 
 #### `unit_specification`
 
@@ -2865,7 +2865,7 @@ uint8_t slmp::LabelArrayReadResult::unit_specification
 uint16_t slmp::LabelArrayReadResult::array_data_length
 ```
 
-Number of elements.
+Number of elements
 
 #### `data`
 
@@ -2873,7 +2873,7 @@ Number of elements.
 const uint8_t* slmp::LabelArrayReadResult::data
 ```
 
-Pointer into rx_buffer (valid until next operation).
+Pointer into rx_buffer (valid until next operation)
 
 #### `data_bytes`
 
@@ -2881,11 +2881,11 @@ Pointer into rx_buffer (valid until next operation).
 size_t slmp::LabelArrayReadResult::data_bytes
 ```
 
-Byte length of data.
+Byte length of data
 
 ### Struct `slmp::LabelArrayWritePoint`
 
-Single label write entry for `SlmpClient::writeArrayLabels`.
+Single label write entry for SlmpClient::writeArrayLabels.
 
 #### Fields
 
@@ -2909,7 +2909,7 @@ uint8_t slmp::LabelArrayWritePoint::unit_specification
 uint16_t slmp::LabelArrayWritePoint::array_data_length
 ```
 
-Number of elements.
+Number of elements
 
 #### `data`
 
@@ -2917,7 +2917,7 @@ Number of elements.
 const uint8_t* slmp::LabelArrayWritePoint::data
 ```
 
-Data to write.
+Data to write
 
 #### `data_bytes`
 
@@ -2925,13 +2925,13 @@ Data to write.
 size_t slmp::LabelArrayWritePoint::data_bytes
 ```
 
-Byte length of data.
+Byte length of data
 
 ### Struct `slmp::LabelRandomReadResult`
 
-Single result from `SlmpClient::readRandomLabels`.
+Single result from SlmpClient::readRandomLabels.
 
-`data` points into the internal rx_buffer and is valid only until the next operation.
+data points into the internal rx_buffer and is valid only until the next operation.
 
 #### Fields
 
@@ -2941,7 +2941,7 @@ Single result from `SlmpClient::readRandomLabels`.
 uint8_t slmp::LabelRandomReadResult::dt_id
 ```
 
-Data type identifier.
+Data type identifier
 
 #### `spare`
 
@@ -2949,7 +2949,7 @@ Data type identifier.
 uint8_t slmp::LabelRandomReadResult::spare
 ```
 
-Reserved byte.
+Reserved byte
 
 #### `result_length`
 
@@ -2957,7 +2957,7 @@ Reserved byte.
 uint16_t slmp::LabelRandomReadResult::result_length
 ```
 
-Byte length of data.
+Byte length of data
 
 #### `data`
 
@@ -2965,11 +2965,11 @@ Byte length of data.
 const uint8_t* slmp::LabelRandomReadResult::data
 ```
 
-Pointer into rx_buffer (valid until next operation).
+Pointer into rx_buffer (valid until next operation)
 
 ### Struct `slmp::LabelRandomWritePoint`
 
-Single write entry for `SlmpClient::writeRandomLabels`.
+Single write entry for SlmpClient::writeRandomLabels.
 
 #### Fields
 
@@ -2985,7 +2985,7 @@ LabelName slmp::LabelRandomWritePoint::label
 const uint8_t* slmp::LabelRandomWritePoint::data
 ```
 
-Data to write.
+Data to write
 
 #### `data_bytes`
 
@@ -2993,13 +2993,13 @@ Data to write.
 uint16_t slmp::LabelRandomWritePoint::data_bytes
 ```
 
-Byte length of data.
+Byte length of data
 
 ### Struct `slmp::ExtDeviceSpec`
 
 Extended device address for Ext variants (readRandomExt, etc.).
 
-Represents either a module buffer (`U&#92;G` / `U&#92;HG`) or link direct (`J&#92;device`) target. Use the static factory methods to construct.
+Represents either a module buffer (U&#92;G / U&#92;HG) or link direct (J&#92;device) target. Use the static factory methods to construct.
 
 #### Enums
 
@@ -3027,7 +3027,7 @@ uint32_t slmp::ExtDeviceSpec::dev_no
 #### `mod`
 
 ```cpp
-struct slmp::ExtDeviceSpec::@303015012204050333307271134214101241271002223136::@331260354132111363232133104115014323261274374164 slmp::ExtDeviceSpec::mod
+struct slmp::ExtDeviceSpec slmp::ExtDeviceSpec::mod
 ```
 
 #### `slot`
@@ -3057,13 +3057,7 @@ uint8_t slmp::ExtDeviceSpec::j_net
 #### `link`
 
 ```cpp
-struct slmp::ExtDeviceSpec::@303015012204050333307271134214101241271002223136::@110211251221326200342121215073037075070366267346 slmp::ExtDeviceSpec::link
-```
-
-#### `@342356144237216263137055135047027310177367316014`
-
-```cpp
-union slmp::ExtDeviceSpec::@303015012204050333307271134214101241271002223136 slmp::ExtDeviceSpec::@342356144237216263137055135047027310177367316014
+struct slmp::ExtDeviceSpec slmp::ExtDeviceSpec::link
 ```
 
 #### Member Functions
@@ -3074,7 +3068,7 @@ union slmp::ExtDeviceSpec::@303015012204050333307271134214101241271002223136 slm
 static ExtDeviceSpec slmp::ExtDeviceSpec::moduleBuf(uint16_t slot, bool use_hg, uint32_t dev_no) noexcept
 ```
 
-Construct a module buffer device (`U&#92;G` or `U&#92;HG`).
+Construct a module buffer device (U&#92;G or U&#92;HG).
 
 #### `linkDirect`
 
@@ -3082,7 +3076,7 @@ Construct a module buffer device (`U&#92;G` or `U&#92;HG`).
 static ExtDeviceSpec slmp::ExtDeviceSpec::linkDirect(uint8_t j_net, DeviceCode code, uint32_t dev_no) noexcept
 ```
 
-Construct a link direct device (`J&#92;device`).
+Construct a link direct device (J&#92;device).
 
 ### Struct `slmp::TargetAddress`
 
@@ -3096,7 +3090,7 @@ SLMP target station routing information.
 uint8_t slmp::TargetAddress::network = 0x00
 ```
 
-Network number (0=Local).
+Network number (0=Local)
 
 #### `station`
 
@@ -3104,7 +3098,7 @@ Network number (0=Local).
 uint8_t slmp::TargetAddress::station = 0xFF
 ```
 
-Station number (255=Control CPU).
+Station number (255=Control CPU)
 
 #### `module_io`
 
@@ -3112,7 +3106,7 @@ Station number (255=Control CPU).
 uint16_t slmp::TargetAddress::module_io = 0x03FF
 ```
 
-Module I/O number (0x03FF=Own Station).
+Module I/O number (0x03FF=Own Station)
 
 #### `multidrop`
 
@@ -3120,7 +3114,7 @@ Module I/O number (0x03FF=Own Station).
 uint8_t slmp::TargetAddress::multidrop = 0x00
 ```
 
-Multidrop station number.
+Multidrop station number
 
 ### Struct `slmp::TypeNameInfo`
 
@@ -3134,7 +3128,7 @@ PLC model and hardware information.
 char slmp::TypeNameInfo::model[17]
 ```
 
-Model name string (max 16 chars + null).
+Model name string (max 16 chars + null)
 
 #### `model_code`
 
@@ -3142,7 +3136,7 @@ Model name string (max 16 chars + null).
 uint16_t slmp::TypeNameInfo::model_code
 ```
 
-Internal model code.
+Internal model code
 
 #### `has_model_code`
 
@@ -3150,7 +3144,7 @@ Internal model code.
 bool slmp::TypeNameInfo::has_model_code
 ```
 
-True if model code is valid.
+True if model code is valid
 
 ### Struct `slmp::CpuOperationState`
 
@@ -3164,7 +3158,7 @@ Decoded CPU operation state read from SD203.
 CpuOperationStatus slmp::CpuOperationState::status = CpuOperationStatus::Unknown
 ```
 
-Decoded operation state.
+Decoded operation state
 
 #### `raw_status_word`
 
@@ -3172,7 +3166,7 @@ Decoded operation state.
 uint16_t slmp::CpuOperationState::raw_status_word = 0U
 ```
 
-Full raw word value read from SD203.
+Full raw word value read from SD203
 
 #### `raw_code`
 
@@ -3180,7 +3174,7 @@ Full raw word value read from SD203.
 uint8_t slmp::CpuOperationState::raw_code = 0U
 ```
 
-Lower 4-bit masked status code from SD203.
+Lower 4-bit masked status code from SD203
 
 ### Struct `slmp::SlmpClient::AsyncContext`
 
@@ -3214,29 +3208,29 @@ Lower 4-bit masked status code from SD203.
 | `ClearError` |  |
 | `PasswordUnlock` |  |
 | `PasswordLock` |  |
-| `ReadLongTimer` | Reads LTN/LSTN words and decodes to `LongTimerResult`[]. |
-| `ReadModuleBufWords` | Extended device read (module buffer), word subcommand (0x0080/0x0082). |
-| `WriteModuleBufWords` | Extended device write (module buffer), word subcommand (0x0080/0x0082). |
-| `ReadModuleBufBits` | Extended device read (module buffer), bit subcommand (0x0081/0x0083). |
-| `WriteModuleBufBits` | Extended device write (module buffer), bit subcommand (0x0081/0x0083). |
-| `ReadLinkDirectWords` | Link direct read, sub 0x0080. |
-| `WriteWordsLinkDirect` | Link direct write words, sub 0x0080. |
-| `ReadLinkDirectBits` | Link direct read bits, sub 0x0081. |
-| `WriteBitsLinkDirect` | Link direct write bits, sub 0x0081. |
-| `ReadMemoryWords` | Memory read (0x0613). |
-| `WriteMemoryWords` | Memory write (0x1613). |
-| `ReadExtendUnitBytes` | Extend unit read (0x0601). |
-| `WriteExtendUnitBytes` | Extend unit write (0x1601). |
-| `ReadArrayLabels` | Label array read (0x041A). |
-| `WriteArrayLabels` | Label array write (0x141A). |
-| `ReadRandomLabels` | Label random read (0x041C). |
-| `WriteRandomLabels` | Label random write (0x141B). |
-| `ReadRandomExt` | Extended random read (0x0403 sub 0x0080/0x0082). |
-| `WriteRandomWordsExt` | Extended random write words (0x1402 sub 0x0080/0x0082). |
-| `WriteRandomBitsExt` | Extended random write bits (0x1402 sub 0x0081/0x0083). |
-| `RegisterMonitorDevices` | Register monitor devices (0x0801 sub 0x0000/0x0002). |
-| `RegisterMonitorDevicesExt` | Register monitor devices ext (0x0801 sub 0x0080/0x0082). |
-| `RunMonitorCycle` | Run monitor cycle (0x0802). |
+| `ReadLongTimer` | Reads LTN/LSTN words and decodes to LongTimerResult[] |
+| `ReadModuleBufWords` | Extended device read (module buffer), word subcommand (0x0080/0x0082) |
+| `WriteModuleBufWords` | Extended device write (module buffer), word subcommand (0x0080/0x0082) |
+| `ReadModuleBufBits` | Extended device read (module buffer), bit subcommand (0x0081/0x0083) |
+| `WriteModuleBufBits` | Extended device write (module buffer), bit subcommand (0x0081/0x0083) |
+| `ReadLinkDirectWords` | Link direct read, sub 0x0080 |
+| `WriteWordsLinkDirect` | Link direct write words, sub 0x0080 |
+| `ReadLinkDirectBits` | Link direct read bits, sub 0x0081 |
+| `WriteBitsLinkDirect` | Link direct write bits, sub 0x0081 |
+| `ReadMemoryWords` | Memory read (0x0613) |
+| `WriteMemoryWords` | Memory write (0x1613) |
+| `ReadExtendUnitBytes` | Extend unit read (0x0601) |
+| `WriteExtendUnitBytes` | Extend unit write (0x1601) |
+| `ReadArrayLabels` | Label array read (0x041A) |
+| `WriteArrayLabels` | Label array write (0x141A) |
+| `ReadRandomLabels` | Label random read (0x041C) |
+| `WriteRandomLabels` | Label random write (0x141B) |
+| `ReadRandomExt` | Extended random read (0x0403 sub 0x0080/0x0082) |
+| `WriteRandomWordsExt` | Extended random write words (0x1402 sub 0x0080/0x0082) |
+| `WriteRandomBitsExt` | Extended random write bits (0x1402 sub 0x0081/0x0083) |
+| `RegisterMonitorDevices` | Register monitor devices (0x0801 sub 0x0000/0x0002) |
+| `RegisterMonitorDevicesExt` | Register monitor devices ext (0x0801 sub 0x0080/0x0082) |
+| `RunMonitorCycle` | Run monitor cycle (0x0802) |
 
 #### `WriteBlockStage`
 
@@ -3257,7 +3251,7 @@ Type slmp::SlmpClient::AsyncContext::type = Type::None
 #### `common`
 
 ```cpp
-struct slmp::SlmpClient::AsyncContext::@304362011254372156255150033027202214231127375354::@155304104337265134271244110171031225165141177347 slmp::SlmpClient::AsyncContext::common
+struct slmp::SlmpClient::AsyncContext slmp::SlmpClient::AsyncContext::common
 ```
 
 #### `points`
@@ -3281,7 +3275,7 @@ TypeNameInfo* slmp::SlmpClient::AsyncContext::out
 #### `readTypeName`
 
 ```cpp
-struct slmp::SlmpClient::AsyncContext::@304362011254372156255150033027202214231127375354::@235010220153275206023044324336214224130172001036 slmp::SlmpClient::AsyncContext::readTypeName
+struct slmp::SlmpClient::AsyncContext slmp::SlmpClient::AsyncContext::readTypeName
 ```
 
 #### `dword_count`
@@ -3299,7 +3293,7 @@ uint32_t* slmp::SlmpClient::AsyncContext::dword_values
 #### `readRandom`
 
 ```cpp
-struct slmp::SlmpClient::AsyncContext::@304362011254372156255150033027202214231127375354::@316161262261271122051015267107052352050104257224 slmp::SlmpClient::AsyncContext::readRandom
+struct slmp::SlmpClient::AsyncContext slmp::SlmpClient::AsyncContext::readRandom
 ```
 
 #### `word_count`
@@ -3323,7 +3317,7 @@ uint16_t* slmp::SlmpClient::AsyncContext::bit_values
 #### `readBlock`
 
 ```cpp
-struct slmp::SlmpClient::AsyncContext::@304362011254372156255150033027202214231127375354::@013132273145302035274107163141171070321255210167 slmp::SlmpClient::AsyncContext::readBlock
+struct slmp::SlmpClient::AsyncContext slmp::SlmpClient::AsyncContext::readBlock
 ```
 
 #### `total_bit_points`
@@ -3347,7 +3341,7 @@ bool slmp::SlmpClient::AsyncContext::expect_response
 #### `remoteReset`
 
 ```cpp
-struct slmp::SlmpClient::AsyncContext::@304362011254372156255150033027202214231127375354::@217354173236050350131037143021206103161015165000 slmp::SlmpClient::AsyncContext::remoteReset
+struct slmp::SlmpClient::AsyncContext slmp::SlmpClient::AsyncContext::remoteReset
 ```
 
 #### `subcommand`
@@ -3377,7 +3371,7 @@ size_t* slmp::SlmpClient::AsyncContext::out_length
 #### `selfTest`
 
 ```cpp
-struct slmp::SlmpClient::AsyncContext::@304362011254372156255150033027202214231127375354::@260223365321306233005331373250010304300351357160 slmp::SlmpClient::AsyncContext::selfTest
+struct slmp::SlmpClient::AsyncContext slmp::SlmpClient::AsyncContext::selfTest
 ```
 
 #### `word_blocks`
@@ -3425,7 +3419,7 @@ bool slmp::SlmpClient::AsyncContext::has_mixed_blocks
 #### `writeBlock`
 
 ```cpp
-struct slmp::SlmpClient::AsyncContext::@304362011254372156255150033027202214231127375354::@165054345334030320360142225027105221140015066050 slmp::SlmpClient::AsyncContext::writeBlock
+struct slmp::SlmpClient::AsyncContext slmp::SlmpClient::AsyncContext::writeBlock
 ```
 
 #### `out`
@@ -3437,7 +3431,7 @@ LongTimerResult* slmp::SlmpClient::AsyncContext::out
 #### `readLongTimer`
 
 ```cpp
-struct slmp::SlmpClient::AsyncContext::@304362011254372156255150033027202214231127375354::@200136355034075236050031111102211266135063116337 slmp::SlmpClient::AsyncContext::readLongTimer
+struct slmp::SlmpClient::AsyncContext slmp::SlmpClient::AsyncContext::readLongTimer
 ```
 
 #### `capacity`
@@ -3467,7 +3461,7 @@ size_t* slmp::SlmpClient::AsyncContext::out_count
 #### `readArrayLabels`
 
 ```cpp
-struct slmp::SlmpClient::AsyncContext::@304362011254372156255150033027202214231127375354::@106336032370270231322214212121223323037121020003 slmp::SlmpClient::AsyncContext::readArrayLabels
+struct slmp::SlmpClient::AsyncContext slmp::SlmpClient::AsyncContext::readArrayLabels
 ```
 
 #### `out`
@@ -3479,18 +3473,18 @@ LabelRandomReadResult* slmp::SlmpClient::AsyncContext::out
 #### `readRandomLabels`
 
 ```cpp
-struct slmp::SlmpClient::AsyncContext::@304362011254372156255150033027202214231127375354::@324270310121043317050331075007327021363360232261 slmp::SlmpClient::AsyncContext::readRandomLabels
+struct slmp::SlmpClient::AsyncContext slmp::SlmpClient::AsyncContext::readRandomLabels
 ```
 
 #### `data`
 
 ```cpp
-union slmp::SlmpClient::AsyncContext::@304362011254372156255150033027202214231127375354 slmp::SlmpClient::AsyncContext::data
+union slmp::SlmpClient::AsyncContext slmp::SlmpClient::AsyncContext::data
 ```
 
 ### Struct `slmp::ReconnectOptions`
 
-Configuration for the `ReconnectHelper`.
+Configuration for the ReconnectHelper.
 
 #### Fields
 
@@ -3500,7 +3494,7 @@ Configuration for the `ReconnectHelper`.
 uint32_t slmp::ReconnectOptions::retry_interval_ms = 3000
 ```
 
-Minimum time between connection attempts. Prevents hammering the network or PLC when the connection is physically down.
+Minimum time between connection attempts. Prevents hammering the network or PLC when the connection is physically down
 
 #### Member Functions
 
