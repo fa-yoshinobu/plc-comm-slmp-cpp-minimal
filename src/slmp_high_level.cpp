@@ -1221,7 +1221,7 @@ static void resolveRuntimeRangeLimits(SlmpClient& client, PlcProfile profile, De
     replaceDeviceRangePointCount(
         catalog,
         "R",
-        std::min(zr_count, 32768U),
+        std::min(zr_count, uint32_t{32768U}),
         "R register count follows the probed ZR count and is capped at R32767.");
 }
 
