@@ -188,10 +188,3 @@ void loop() {
 | Address parsing fails | Check that your `slmp::highlevel::PlcProfile` matches your actual hardware. |
 | `profile_feature_blocked` is returned | The selected profile does not support that operation. Use a supported operation, or intentionally call `plc.setStrictProfile(false)` for verification. |
 | `X` or `Y` looks wrong | Use the profile-aware overloads of `slmp::highlevel::readTyped` and `slmp::highlevel::writeTyped`. |
-
-## Next pages
-
-| Page | Use it when |
-| --- | --- |
-| [Usage guide](USAGE_GUIDE.md) | You want typed reads, named snapshots, block reads, polling, or low-level calls. |
-| [SLMP profile reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/) | You need the public device families, value types, address forms, and profile limits. |

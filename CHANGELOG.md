@@ -42,7 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: Removed the duplicated SLMP supported-register user page and linked users to the shared SLMP Profile Reference.
 - Docs: Added a Usage Guide example showing how to read `lastEndCode()` and structured `lastErrorInfo()`.
 - Docs: Added Usage Guide examples for `U...` module access, `U...HG` CPU-buffer access, and `J...` link direct extended devices.
+- Docs: Removed the manual page-navigation block from Getting Started and rely on site navigation instead.
+- Docs: Moved shared SLMP gotcha items to the common troubleshooting page and kept Gotchas focused on C++ minimal-specific behavior.
 - Docs: Slimmed Gotchas to library-specific items and moved shared setup/end-code symptoms to the PLC Setup Guide.
+- Docs: Standardized the Gotchas page structure with KV Host Link so library-specific caveats have the same destination across protocols.
 - Docs: Clarified the ESP32/RP2040-class target focus while retaining Arduino-compatible transport naming for those cores.
 - Docs: Fixed PowerShell placeholder text in maintainer publishing notes.
 - Docs: Cleaned up maintainer notes and normalized the root TODO.
