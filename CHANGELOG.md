@@ -39,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Batched named plain-bit reads through random word-read only for `SM/X/Y/M/L/F/V/B/SB`; `TS/TC/STS/STC/CS/CC/DX/DY` stay on direct bit reads.
 - Docs: Documented profile-specific `S` write policy in supported-register, gotcha, and audit-reflection notes.
 - Docs: Documented strict profile behavior, applied feature keys, and APIs intentionally outside the capability-feature guard.
+- Docs: Removed the duplicated SLMP supported-register user page and linked users to the shared SLMP Profile Reference.
+- Docs: Added a Usage Guide example showing how to read `lastEndCode()` and structured `lastErrorInfo()`.
+- Docs: Slimmed Gotchas to library-specific items and moved shared setup/end-code symptoms to the PLC Setup Guide.
 - Docs: Clarified the ESP32/RP2040-class target focus while retaining Arduino-compatible transport naming for those cores.
 - Docs: Fixed PowerShell placeholder text in maintainer publishing notes.
 - Docs: Cleaned up maintainer notes and normalized the root TODO.

@@ -1206,6 +1206,17 @@ void SlmpClient::setPlcProfile(PlcProfile profile) {
     block_access_enabled_ = !profileDisablesBlockAccess(profile);
 }
 
+void SlmpClient::setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode) {
+    if (!isSpecifiedPlcProfile(profile)) {
+        plc_profile_ = PlcProfile::Unspecified;
+        return;
+    }
+    plc_profile_ = profile;
+    frame_type_ = frame_type;
+    compatibility_mode_ = mode;
+    block_access_enabled_ = !profileDisablesBlockAccess(profile);
+}
+
 PlcProfile SlmpClient::plcProfile() const {
     return plc_profile_;
 }

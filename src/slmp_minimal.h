@@ -672,6 +672,15 @@ class SlmpClient {
     /** @brief Return the currently selected PLC profile, or Unspecified after manual low-level overrides. */
     PlcProfile plcProfile() const;
 
+    /**
+     * @brief Set an explicit PLC profile while manually selecting frame and compatibility mode.
+     *
+     * This is intended for low-level verification and compatibility tooling that must
+     * emit a specific SLMP frame shape while still keeping profile-based guards active.
+     * Normal applications should prefer @ref setPlcProfile.
+     */
+    void setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode);
+
     /** @brief Enable or disable strict built-in Ethernet profile feature guards. Default is enabled. */
     void setStrictProfile(bool enabled);
     /** @brief Return whether strict built-in Ethernet profile feature guards are enabled. */

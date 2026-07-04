@@ -194,4 +194,4 @@ void loop() {
 | Page | Use it when |
 | --- | --- |
 | [Usage guide](USAGE_GUIDE.md) | You want typed reads, named snapshots, block reads, polling, or low-level calls. |
-| [Supported registers](SUPPORTED_REGISTERS.md) | You need the public device families, value types, and address forms. |
+| [SLMP profile reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/) | You need the public device families, value types, address forms, and profile limits. |

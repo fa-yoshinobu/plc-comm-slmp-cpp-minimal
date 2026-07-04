@@ -96,8 +96,26 @@ if (err == slmp::Error::Ok) {
 ```
 
 For `C200`-series password end codes, see the shared
-[SLMP Troubleshooting & End Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/troubleshooting-end-codes/)
+[SLMP Troubleshooting & End Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/troubleshooting-end-codes/)
 page.
+
+## SLMP response end codes
+
+When the PLC returns a non-zero SLMP end code, low-level calls return `slmp::Error::PlcError`.
+Read `lastEndCode()` for the PLC response code and `lastErrorInfo()` when the PLC returned the structured error-information block.
+
+```cpp
+slmp::highlevel::Value value;
+const slmp::Error err = slmp::highlevel::readTyped(plc, kProfile, "D100:U", value);
+if (err == slmp::Error::PlcError) {
+    Serial.printf("SLMP end_code=0x%04X\n", plc.lastEndCode());
+    if (plc.hasLastErrorInfo()) {
+        const slmp::SlmpErrorInfo& info = plc.lastErrorInfo();
+        Serial.printf("command=0x%04X\n", info.command);
+        Serial.printf("subcommand=0x%04X\n", info.subcommand);
+    }
+}
+```
 
 ## Read a single value
 
@@ -379,6 +397,7 @@ void loop() {
 
 `slmp::highlevel::readDeviceRangeCatalogForPlcProfile` reads live device range bounds for one explicit profile. It requires your selected PLC profile and does not auto-discover the PLC profile.
 The catalog is for diagnostics and application-layer validation. Normal read/write helpers do not use it to reject addresses by configured upper bound before sending a request.
+The source rules for this catalog are maintained in the shared [SLMP device ranges](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/device-ranges/) reference.
 
 ```cpp
 #include <Arduino.h>
