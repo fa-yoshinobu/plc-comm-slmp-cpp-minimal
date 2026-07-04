@@ -53,6 +53,27 @@ void loop() {
 }
 ```
 
+## Routing / target station
+
+Most applications keep the default target, which means the directly connected
+own station/control CPU. Change the target only when your PLC network is
+configured for another station, multi-CPU module I/O, or multidrop access.
+
+`slmp::TargetAddress` controls the SLMP destination header. It is not a device
+family selector; routed devices such as `Un\Gn` and `Jn\...` still need their
+own address syntax.
+
+```cpp
+slmp::TargetAddress target{};
+target.network = 0x01;
+target.station = 0x02;
+target.module_io = 0x03FF;
+target.multidrop = 0x00;
+plc.setTarget(target);
+```
+
+Use the default target unless the PLC routing setup gives you specific values.
+
 ## Strict profile
 
 `SlmpClient` enables strict profile checks by default. With a selected profile, operations known to be unavailable for that PLC are rejected before sending.
