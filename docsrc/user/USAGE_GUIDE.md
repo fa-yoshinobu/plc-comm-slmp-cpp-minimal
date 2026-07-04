@@ -140,7 +140,7 @@ if (err == slmp::Error::Ok) {
 ```
 
 For `C200`-series password end codes, see the shared
-[SLMP Troubleshooting & End Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/troubleshooting-end-codes/)
+[SLMP Troubleshooting & Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/troubleshooting-codes/)
 page.
 
 ## SLMP response end codes
