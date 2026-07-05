@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Tooling`: Developer/operator command-line tools and helper utilities.
 - `CI`: Release checks, workflow scripts, or automation-only changes.
 
+## [1.2.1] - 2026-07-05
+
+### Changed
+- Release: Bumped package metadata to `1.2.1`.
+- Tooling: Added release metadata synchronization from `library.json` so mirrored Arduino metadata stays aligned before release checks.
+- CI: Added PlatformIO package packing and content checks to prevent development files or build outputs from entering published packages.
+- CI: Added an optional PlatformIO registry publish path for release workflow dispatches using `PLATFORMIO_AUTH_TOKEN`.
+
 ## [1.2.0] - 2026-07-05
 
 ### Changed

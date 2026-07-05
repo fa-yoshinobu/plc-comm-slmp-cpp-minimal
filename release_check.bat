@@ -35,27 +35,48 @@ echo ===================================================
 echo [RELEASE] SLMP minimal C++ release check
 echo ===================================================
 
-echo [1/4] Updating canonical SLMP profile JSON...
+echo [1/6] Syncing mirrored release metadata...
+python scripts\sync_release_metadata.py
+if %errorlevel% neq 0 (
+    echo [ERROR] Release metadata synchronization failed.
+    exit /b %errorlevel%
+)
+set "VERSION="
+set "JSON_VERSION="
+for /f "tokens=1,2 delims==" %%A in (library.properties) do (
+    if /I "%%A"=="version" set "VERSION=%%B"
+)
+if not defined VERSION (
+    echo [ERROR] Failed to read version from library.properties.
+    exit /b 1
+)
+for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "(Get-Content library.json -Raw | ConvertFrom-Json).version"`) do set "JSON_VERSION=%%V"
+if not defined JSON_VERSION (
+    echo [ERROR] Failed to read version from library.json.
+    exit /b 1
+)
+
+echo [2/6] Updating canonical SLMP profile JSON...
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\update_slmp_profile_jsons.ps1 -FailIfChanged
 if %errorlevel% neq 0 (
     echo [ERROR] Canonical SLMP profile JSON check failed.
     exit /b %errorlevel%
 )
 
-echo [2/5] Checking C++ device range catalog parity...
+echo [3/6] Checking C++ device range catalog parity...
 python scripts\check_device_range_catalog_parity.py
 if %errorlevel% neq 0 (
     echo [ERROR] Device range catalog parity check failed.
     exit /b %errorlevel%
 )
 
-echo [3/5] Checking manifest versions...
+echo [4/6] Checking manifest versions...
 if not "%VERSION%"=="%JSON_VERSION%" (
     echo [ERROR] library.properties version %VERSION% does not match library.json version %JSON_VERSION%.
     exit /b 1
 )
 
-echo [4/5] Running host CI gate...
+echo [5/6] Running host CI gate...
 call run_ci.bat
 if %errorlevel% neq 0 (
     echo [ERROR] CI failed.
@@ -77,7 +98,7 @@ if "%RUN_PLATFORMIO%"=="1" (
     )
 )
 
-echo [5/5] Building tracked release archive...
+echo [6/6] Building tracked release archive...
 if not exist release-artifacts mkdir release-artifacts
 git archive --format=zip --output "release-artifacts\slmp-connect-cpp-minimal-v%VERSION%.zip" HEAD
 if %errorlevel% neq 0 (

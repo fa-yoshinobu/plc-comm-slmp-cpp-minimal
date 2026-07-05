@@ -69,12 +69,42 @@ jobs:
             coverage.html
           retention-days: 7
 
+  platformio-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install platformio
+      - name: Check mirrored release metadata
+        run: python scripts/sync_release_metadata.py --check
+      - name: Pack PlatformIO package
+        run: |
+          mkdir -p /tmp/platformio-package
+          python -m platformio pkg pack . --output /tmp/platformio-package
+          tar -tzf /tmp/platformio-package/slmp-connect-cpp-minimal-*.tar.gz > /tmp/platformio-package/files.txt
+          cat /tmp/platformio-package/files.txt
+      - name: Check PlatformIO package contents
+        run: |
+          if grep -E '(^|/)(AGENTS\.md|TODO\.md|\.gitignore|\.gitattributes|slmp_minimal_tests\.exe)$|(^|/)(scripts|tests|docsrc|docs|internal_docs|release-artifacts|build|build_win)/|\.exe$|\.dll$|\.pdb$' /tmp/platformio-package/files.txt; then
+            echo "::error::PlatformIO package contains excluded development files."
+            exit 1
+          fi
+          grep -x 'library.json' /tmp/platformio-package/files.txt
+          grep -x 'library.properties' /tmp/platformio-package/files.txt
+          grep -x 'src/slmp_minimal.h' /tmp/platformio-package/files.txt
+
   trigger-docs-rebuild:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
       - host-tests
       - host-sanitizers
       - host-coverage
+      - platformio-package
     runs-on: ubuntu-latest
     steps:
       - name: Trigger docs rebuild

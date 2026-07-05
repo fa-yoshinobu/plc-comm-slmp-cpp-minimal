@@ -10,6 +10,11 @@ on:
         description: "Release version without the leading v"
         required: true
         type: string
+      publish_platformio:
+        description: "Publish the PlatformIO package using PLATFORMIO_AUTH_TOKEN"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -18,34 +23,6 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Check canonical SLMP profile JSONs
-        shell: pwsh
-        run: ./scripts/update_slmp_profile_jsons.ps1 -FailIfChanged
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Install host tools
-        run: |
-          python -m pip install --upgrade pip
-          sudo apt-get update
-          sudo apt-get install -y doxygen zip
-
-      - name: Check API reference
-        run: python scripts/generate_api_reference.py --title "SLMP C++ API Reference" --output docsrc/user/API_REFERENCE.md --input src/slmp_minimal.h --input src/slmp_high_level.h --input src/slmp_arduino_transport.h --input src/slmp_error_codes.h --input src/slmp_utility.h --predefine SLMP_MINIMAL_ENABLE_HIGH_LEVEL=1 --predefine SLMP_ENABLE_UDP_TRANSPORT=1 --check
-
-      - name: Build host tests
-        run: g++ -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_error_codes.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests
-
-      - name: Run host tests
-        run: /tmp/slmp_minimal_tests
-
-      - name: Run socket integration test
-        run: python scripts/run_socket_integration.py --compiler g++
-
       - name: Resolve release version
         id: version
         shell: bash
@@ -60,6 +37,40 @@ jobs:
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.version.outputs.tag }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install host tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install platformio
+          sudo apt-get update
+          sudo apt-get install -y doxygen zip
+
+      - name: Check canonical SLMP profile JSONs
+        shell: pwsh
+        run: ./scripts/update_slmp_profile_jsons.ps1 -FailIfChanged
+
+      - name: Check release manifests
+        run: python scripts/sync_release_metadata.py --check --expected-version "${{ steps.version.outputs.version }}"
+
+      - name: Check API reference
+        run: python scripts/generate_api_reference.py --title "SLMP C++ API Reference" --output docsrc/user/API_REFERENCE.md --input src/slmp_minimal.h --input src/slmp_high_level.h --input src/slmp_arduino_transport.h --input src/slmp_error_codes.h --input src/slmp_utility.h --predefine SLMP_MINIMAL_ENABLE_HIGH_LEVEL=1 --predefine SLMP_ENABLE_UDP_TRANSPORT=1 --check
+
+      - name: Build host tests
+        run: g++ -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src/slmp_minimal.cpp src/slmp_error_codes.cpp src/slmp_high_level.cpp -o /tmp/slmp_minimal_tests
+
+      - name: Run host tests
+        run: /tmp/slmp_minimal_tests
+
+      - name: Run socket integration test
+        run: python scripts/run_socket_integration.py --compiler g++
+
       - name: Build release archive
         shell: bash
         run: |
@@ -68,6 +79,32 @@ jobs:
           git archive --format=zip --output "${archive}" HEAD
           unzip -l "${archive}" README.md library.properties library.json LICENSE src/* examples/* > /dev/null
 
+      - name: Pack PlatformIO package
+        shell: bash
+        run: |
+          python -m platformio pkg pack . --output release-artifacts
+          tarball="release-artifacts/slmp-connect-cpp-minimal-${{ steps.version.outputs.version }}.tar.gz"
+          tar -tzf "${tarball}" > /tmp/platformio-package-files.txt
+          cat /tmp/platformio-package-files.txt
+          if grep -E '(^|/)(AGENTS\.md|TODO\.md|\.gitignore|\.gitattributes|slmp_minimal_tests\.exe)$|(^|/)(scripts|tests|docsrc|docs|internal_docs|release-artifacts|build|build_win)/|\.exe$|\.dll$|\.pdb$' /tmp/platformio-package-files.txt; then
+            echo "::error::PlatformIO package contains excluded development files."
+            exit 1
+          fi
+          grep -x 'library.json' /tmp/platformio-package-files.txt
+          grep -x 'library.properties' /tmp/platformio-package-files.txt
+          grep -x 'src/slmp_minimal.h' /tmp/platformio-package-files.txt
+
+      - name: Publish PlatformIO package
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_platformio }}
+        env:
+          PLATFORMIO_AUTH_TOKEN: ${{ secrets.PLATFORMIO_AUTH_TOKEN }}
+        run: |
+          if [ -z "${PLATFORMIO_AUTH_TOKEN}" ]; then
+            echo "::error::PLATFORMIO_AUTH_TOKEN secret is not configured."
+            exit 1
+          fi
+          python -m platformio pkg publish . --owner fa-yoshinobu --type library --no-interactive
+
       - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -75,8 +112,9 @@ jobs:
         run: |
           tag="${{ steps.version.outputs.tag }}"
           asset="release-artifacts/slmp-connect-cpp-minimal-v${{ steps.version.outputs.version }}.zip"
+          pio_asset="release-artifacts/slmp-connect-cpp-minimal-${{ steps.version.outputs.version }}.tar.gz"
           if gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" > /dev/null 2>&1; then
-            gh release upload "${tag}" "${asset}" --clobber --repo "${GITHUB_REPOSITORY}"
+            gh release upload "${tag}" "${asset}" "${pio_asset}" --clobber --repo "${GITHUB_REPOSITORY}"
           else
-            gh release create "${tag}" "${asset}" --repo "${GITHUB_REPOSITORY}" --title "Release ${tag}" --generate-notes --target main
+            gh release create "${tag}" "${asset}" "${pio_asset}" --repo "${GITHUB_REPOSITORY}" --title "Release ${tag}" --generate-notes --target main
           fi
