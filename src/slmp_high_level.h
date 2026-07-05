@@ -217,6 +217,13 @@ struct PlcProfileDefaults {
 const char* plcProfileLabel(PlcProfile family);
 
 /**
+ * @brief Return the canonical human-readable display name for a PLC profile.
+ * @param family Selected PLC profile.
+ * @return Profile display name such as `MELSEC iQ-R (built-in)`.
+ */
+const char* plcProfileDisplayName(PlcProfile family);
+
+/**
  * @brief Resolve the fixed defaults for one PLC profile.
  * @param family Selected PLC profile.
  * @return Derived frame, compatibility mode, address profile, and range profile.

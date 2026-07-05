@@ -1271,6 +1271,27 @@ const char* plcProfileLabel(PlcProfile family) {
     return "";
 }
 
+const char* plcProfileDisplayName(PlcProfile family) {
+    switch (family) {
+        case PlcProfile::IqF: return "MELSEC iQ-F (built-in)";
+        case PlcProfile::IqR: return "MELSEC iQ-R (built-in)";
+        case PlcProfile::IqRRj71En71: return "MELSEC iQ-R (RJ71EN71)";
+        case PlcProfile::IqL: return "MELSEC iQ-L (built-in)";
+        case PlcProfile::MxF: return "MELSEC MX-F (built-in)";
+        case PlcProfile::MxR: return "MELSEC MX-R (built-in)";
+        case PlcProfile::QCpu: return "MELSEC-Q (base profile)";
+        case PlcProfile::QCpuQj71E71100: return "MELSEC-Q (QJ71E71-100)";
+        case PlcProfile::LCpu: return "MELSEC-L (built-in)";
+        case PlcProfile::LCpuLj71E71100: return "MELSEC-L (LJ71E71-100)";
+        case PlcProfile::QnU: return "MELSEC QnU (built-in)";
+        case PlcProfile::QnUQj71E71100: return "MELSEC QnU (QJ71E71-100)";
+        case PlcProfile::QnUDV: return "MELSEC QnUDV (built-in)";
+        case PlcProfile::QnUDVQj71E71100: return "MELSEC QnUDV (QJ71E71-100)";
+        case PlcProfile::Unspecified: break;
+    }
+    return "";
+}
+
 PlcProfileDefaults plcProfileDefaults(PlcProfile family) {
     return plcProfileDefaultsImpl(family);
 }

@@ -44,6 +44,17 @@ void assertContains(const std::string& text, const char* needle) {
     assert(text.find(needle) != std::string::npos);
 }
 
+void assertProfileDisplayName(const std::string& json, const char* profile_id, slmp::highlevel::PlcProfile profile) {
+    const std::string marker = std::string("\"") + profile_id + "\": {";
+    const size_t marker_pos = json.find(marker);
+    assert(marker_pos != std::string::npos);
+    const size_t next_profile_pos = json.find("\n    \"", marker_pos + marker.size());
+    const size_t block_end = next_profile_pos == std::string::npos ? json.size() : next_profile_pos;
+    const std::string expected = std::string("\"display_name\": \"") +
+                                 slmp::highlevel::plcProfileDisplayName(profile) + "\"";
+    assert(json.find(expected, marker_pos) < block_end);
+}
+
 void appendLe16(std::vector<uint8_t>& out, uint16_t value) {
     out.push_back(static_cast<uint8_t>(value & 0xFFU));
     out.push_back(static_cast<uint8_t>((value >> 8) & 0xFFU));
@@ -2814,6 +2825,7 @@ void testHighLevelplcProfileDefaults() {
         assert(defaults.address_profile == slmp::highlevel::PlcProfile::Unspecified);
         assert(defaults.range_profile == slmp::highlevel::PlcProfile::Unspecified);
         assert(std::string(slmp::highlevel::plcProfileLabel(invalid_profile)).empty());
+        assert(std::string(slmp::highlevel::plcProfileDisplayName(invalid_profile)).empty());
     }
 
     {
@@ -3020,6 +3032,21 @@ void testCapabilityProfileFixtureSnapshot() {
     assertContains(json, "\"weighted_max\": 1920");
     assertContains(json, "\"S\": \"read-only\"");
     assertContains(json, "\"S\": \"read-write\"");
+
+    assertProfileDisplayName(json, "melsec:iq-r", slmp::highlevel::PlcProfile::IqR);
+    assertProfileDisplayName(json, "melsec:iq-r:rj71en71", slmp::highlevel::PlcProfile::IqRRj71En71);
+    assertProfileDisplayName(json, "melsec:iq-l", slmp::highlevel::PlcProfile::IqL);
+    assertProfileDisplayName(json, "melsec:mx-r", slmp::highlevel::PlcProfile::MxR);
+    assertProfileDisplayName(json, "melsec:mx-f", slmp::highlevel::PlcProfile::MxF);
+    assertProfileDisplayName(json, "melsec:iq-f", slmp::highlevel::PlcProfile::IqF);
+    assertProfileDisplayName(json, "melsec:qcpu", slmp::highlevel::PlcProfile::QCpu);
+    assertProfileDisplayName(json, "melsec:qcpu:qj71e71-100", slmp::highlevel::PlcProfile::QCpuQj71E71100);
+    assertProfileDisplayName(json, "melsec:lcpu", slmp::highlevel::PlcProfile::LCpu);
+    assertProfileDisplayName(json, "melsec:lcpu:lj71e71-100", slmp::highlevel::PlcProfile::LCpuLj71E71100);
+    assertProfileDisplayName(json, "melsec:qnu", slmp::highlevel::PlcProfile::QnU);
+    assertProfileDisplayName(json, "melsec:qnu:qj71e71-100", slmp::highlevel::PlcProfile::QnUQj71E71100);
+    assertProfileDisplayName(json, "melsec:qnudv", slmp::highlevel::PlcProfile::QnUDV);
+    assertProfileDisplayName(json, "melsec:qnudv:qj71e71-100", slmp::highlevel::PlcProfile::QnUDVQj71E71100);
 }
 
 void testUnspecifiedProfileDoesNotSend() {
