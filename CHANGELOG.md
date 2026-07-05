@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Library: Synced the embedded SLMP capability fixture to `plc-comm-slmp-profiles` `v1.2.1`, including `display_name` labels and Ethernet unit profiles for RJ71EN71, LJ71E71-100, and QJ71E71-100 variants.
+- Library: Added Ethernet-unit `PlcProfile` enum values and `slmp::highlevel::plcProfileDisplayName(profile)` for UI labels while keeping stored PLC profile values canonical.
+- Docs: Documented the profile display-name helper and canonical-ID storage guidance.
+- Tests: Added canonical fixture parity coverage for profile `display_name` values.
 - Library: Added non-breaking SLMP specification-audit updates for point-limit guards and PLC error diagnostics.
 - Library: Exposed structured PLC error information through `hasLastErrorInfo()` and `lastErrorInfo()` when a non-zero end-code response carries the 9-byte error information block.
 - Library: Embedded the `plc-comm-slmp-profiles` `v1.1.0` built-in Ethernet capability table as static arrays and added strict profile guards to implemented high-level feature routes.
