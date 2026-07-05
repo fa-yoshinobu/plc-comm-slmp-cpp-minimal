@@ -2543,6 +2543,44 @@ void testHighLevelDeviceRangeCatalog() {
         assert(x->point_count == 4096U);
     }
 
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[256] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        slmp::highlevel::configureClientForPlcProfile(plc, slmp::highlevel::PlcProfile::IqRRj71En71);
+
+        std::vector<uint16_t> registers(50U, 0U);
+        registers[20] = 0x0034U; // SD280 low
+        registers[21] = 0x0001U; // SD281 high
+
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0002U), 0x0000U, makeWordPayload(registers)));
+
+        slmp::highlevel::DeviceRangeCatalog catalog;
+        assert(slmp::highlevel::readDeviceRangeCatalogForPlcProfile(
+            plc,
+            slmp::highlevel::PlcProfile::IqRRj71En71,
+            catalog) == slmp::Error::Ok);
+
+        assertDirectRequestHeader(
+            transport.lastWrite(),
+            0x0401U,
+            0x0002U,
+            slmp::dev::SD(slmp::dev::dec(260)),
+            50U);
+        assert(catalog.plc_profile == slmp::highlevel::PlcProfile::IqRRj71En71);
+        assert(catalog.model == "iQ-R via RJ71EN71");
+
+        const slmp::highlevel::DeviceRangeEntry* d = findDeviceRangeEntry(catalog, "D");
+        assert(d != nullptr);
+        assert(d->supported);
+        assert(d->has_point_count);
+        assert(d->point_count == 0x00010034U);
+        assert(d->has_upper_bound);
+        assert(d->upper_bound == 65587U);
+        assert(d->address_range == "D0-D65587");
+    }
+
     for (slmp::highlevel::PlcProfile profile : {slmp::highlevel::PlcProfile::MxF, slmp::highlevel::PlcProfile::MxR}) {
         MockTransport transport;
         uint8_t tx_buffer[256] = {};
@@ -2687,18 +2725,20 @@ void testHighLevelDeviceRangeCatalog() {
         uint8_t tx_buffer[256] = {};
         uint8_t rx_buffer[256] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-        slmp::highlevel::configureClientForPlcProfile(plc, slmp::highlevel::PlcProfile::QCpu);
+        slmp::highlevel::configureClientForPlcProfile(plc, slmp::highlevel::PlcProfile::QCpuQj71E71100);
 
         std::vector<uint16_t> registers(15U, 0U);
-        transport.queueResponse(makeResponse3E(makeGenericRequest3E(0x0401U, 0x0000U), 0x0000U, makeWordPayload(registers)));
-        transport.queueResponse(makeResponse3E(makeGenericRequest3E(0x0401U, 0x0000U), 0x4031U, {})); // Z15
-        transport.queueResponse(makeResponse3E(makeGenericRequest3E(0x0401U, 0x0000U), 0x4031U, {})); // ZR0
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0000U), 0x0000U, makeWordPayload(registers)));
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0000U), 0x4031U, {})); // Z15
+        transport.queueResponse(makeResponse(makeGenericRequest(0x0401U, 0x0000U), 0x4031U, {})); // ZR0
 
         slmp::highlevel::DeviceRangeCatalog catalog;
         assert(slmp::highlevel::readDeviceRangeCatalogForPlcProfile(
             plc,
-            slmp::highlevel::PlcProfile::QCpu,
+            slmp::highlevel::PlcProfile::QCpuQj71E71100,
             catalog) == slmp::Error::Ok);
+        assert(catalog.plc_profile == slmp::highlevel::PlcProfile::QCpuQj71E71100);
+        assert(catalog.model == "QCPU via QJ71E71-100");
 
         const slmp::highlevel::DeviceRangeEntry* z = findDeviceRangeEntry(catalog, "Z");
         assert(z != nullptr);
@@ -2736,6 +2776,28 @@ void testHighLevelplcProfileDefaults() {
         assert(defaults.range_profile == slmp::highlevel::PlcProfile::IqL);
         assert(std::string(slmp::highlevel::plcProfileLabel(slmp::highlevel::PlcProfile::IqL)) == "melsec:iq-l");
         assert(std::string(slmp::highlevel::plcProfileLabel(slmp::highlevel::PlcProfile::Unspecified)).empty());
+    }
+
+    {
+        const slmp::highlevel::PlcProfileDefaults defaults =
+            slmp::highlevel::plcProfileDefaults(slmp::highlevel::PlcProfile::IqRRj71En71);
+        assert(defaults.frame_type == slmp::FrameType::Frame4E);
+        assert(defaults.compatibility_mode == slmp::CompatibilityMode::iQR);
+        assert(defaults.address_profile == slmp::highlevel::PlcProfile::IqR);
+        assert(defaults.range_profile == slmp::highlevel::PlcProfile::IqRRj71En71);
+        assert(std::string(slmp::highlevel::plcProfileLabel(slmp::highlevel::PlcProfile::IqRRj71En71)) ==
+               "melsec:iq-r:rj71en71");
+    }
+
+    {
+        const slmp::highlevel::PlcProfileDefaults defaults =
+            slmp::highlevel::plcProfileDefaults(slmp::highlevel::PlcProfile::QCpuQj71E71100);
+        assert(defaults.frame_type == slmp::FrameType::Frame4E);
+        assert(defaults.compatibility_mode == slmp::CompatibilityMode::Legacy);
+        assert(defaults.address_profile == slmp::highlevel::PlcProfile::QCpu);
+        assert(defaults.range_profile == slmp::highlevel::PlcProfile::QCpuQj71E71100);
+        assert(std::string(slmp::highlevel::plcProfileLabel(slmp::highlevel::PlcProfile::QCpuQj71E71100)) ==
+               "melsec:qcpu:qj71e71-100");
     }
 
     {
@@ -2788,7 +2850,7 @@ void testHighLevelplcProfileDefaults() {
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
         plc.setPlcProfile(slmp::PlcProfile::IqR);
         const slmp::highlevel::PlcProfile q_profiles[] = {
-            slmp::highlevel::PlcProfile::QCpu,
+            slmp::highlevel::PlcProfile::LCpu,
             slmp::highlevel::PlcProfile::QnU,
         };
         for (size_t i = 0; i < sizeof(q_profiles) / sizeof(q_profiles[0]); ++i) {
@@ -2800,6 +2862,29 @@ void testHighLevelplcProfileDefaults() {
             plc.setBlockAccessEnabled(true);
             assert(!plc.blockAccessEnabled());
         }
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[64] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::IqR);
+        slmp::highlevel::configureClientForPlcProfile(plc, slmp::highlevel::PlcProfile::QCpu);
+        assert(plc.plcProfile() == slmp::PlcProfile::Unspecified);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[64] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::IqR);
+        slmp::highlevel::configureClientForPlcProfile(plc, slmp::highlevel::PlcProfile::QCpuQj71E71100);
+        assert(plc.plcProfile() == slmp::PlcProfile::QCpuQj71E71100);
+        assert(plc.frameType() == slmp::FrameType::Frame4E);
+        assert(plc.compatibilityMode() == slmp::CompatibilityMode::Legacy);
+        assert(plc.blockAccessEnabled());
     }
 
     {
@@ -2837,7 +2922,7 @@ void testHighLevelplcProfileDefaults() {
 
 void testQSeriesBlockRouteGuard() {
     const slmp::highlevel::PlcProfile q_profiles[] = {
-        slmp::highlevel::PlcProfile::QCpu,
+        slmp::highlevel::PlcProfile::LCpu,
         slmp::highlevel::PlcProfile::QnU,
     };
     for (size_t i = 0; i < sizeof(q_profiles) / sizeof(q_profiles[0]); ++i) {
@@ -2891,19 +2976,24 @@ void testQSeriesBlockRouteGuard() {
 void testCapabilityProfileFixtureSnapshot() {
     const std::string json = readTextFile("tests/fixtures/slmp_builtin_ethernet_profiles.json");
     assertContains(json, "\"schema_version\": 1");
-    assertContains(json, "\"scope\": \"builtin-ethernet-port\"");
+    assertContains(json, "\"scope\": \"slmp-ethernet-port\"");
     assertContains(json, "\"default_strict\": true");
 
     const char* profiles[] = {
         "\"melsec:iq-r\"",
+        "\"melsec:iq-r:rj71en71\"",
         "\"melsec:iq-l\"",
         "\"melsec:mx-r\"",
         "\"melsec:mx-f\"",
         "\"melsec:iq-f\"",
         "\"melsec:qcpu\"",
+        "\"melsec:qcpu:qj71e71-100\"",
         "\"melsec:lcpu\"",
+        "\"melsec:lcpu:lj71e71-100\"",
         "\"melsec:qnu\"",
+        "\"melsec:qnu:qj71e71-100\"",
         "\"melsec:qnudv\"",
+        "\"melsec:qnudv:qj71e71-100\"",
     };
     for (size_t i = 0; i < sizeof(profiles) / sizeof(profiles[0]); ++i) {
         assertContains(json, profiles[i]);
@@ -3001,7 +3091,6 @@ void testUnspecifiedProfileDoesNotSend() {
 
 void testCapabilityProfileGuards() {
     const slmp::PlcProfile measured_blocked_profiles[] = {
-        slmp::PlcProfile::QCpu,
         slmp::PlcProfile::LCpu,
         slmp::PlcProfile::QnU,
         slmp::PlcProfile::QnUDV,
@@ -3028,6 +3117,23 @@ void testCapabilityProfileGuards() {
         plc.setStrictProfile(false);
         std::vector<uint8_t> dummy_request = {0x50, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00};
         transport.queueResponse(makeResponse3E(dummy_request, 0x0000U, {0x34, 0x12}));
+        assert(plc.readBlock(word_blocks, 1, nullptr, 0, word_values, 1, nullptr, 0) == slmp::Error::Ok);
+        assert(!transport.lastWrite().empty());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        plc.setPlcProfile(slmp::PlcProfile::QCpuQj71E71100);
+
+        const slmp::DeviceBlockRead word_blocks[] = {
+            slmp::dev::blockRead(slmp::dev::D(slmp::dev::dec(100)), 1),
+        };
+        uint16_t word_values[1] = {};
+        std::vector<uint8_t> dummy_request = makeGenericRequest(0x0406U, 0x0000U);
+        transport.queueResponse(makeResponse(dummy_request, 0x0000U, {0x34, 0x12}));
         assert(plc.readBlock(word_blocks, 1, nullptr, 0, word_values, 1, nullptr, 0) == slmp::Error::Ok);
         assert(!transport.lastWrite().empty());
     }

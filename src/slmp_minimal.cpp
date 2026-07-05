@@ -91,18 +91,31 @@ inline bool isSpecifiedPlcProfile(PlcProfile profile) {
     switch (profile) {
         case PlcProfile::IqF:
         case PlcProfile::IqR:
+        case PlcProfile::IqRRj71En71:
         case PlcProfile::IqL:
         case PlcProfile::MxF:
         case PlcProfile::MxR:
         case PlcProfile::QCpu:
+        case PlcProfile::QCpuQj71E71100:
         case PlcProfile::LCpu:
+        case PlcProfile::LCpuLj71E71100:
         case PlcProfile::QnU:
+        case PlcProfile::QnUQj71E71100:
         case PlcProfile::QnUDV:
+        case PlcProfile::QnUDVQj71E71100:
             return true;
         case PlcProfile::Unspecified:
             return false;
     }
     return false;
+}
+
+inline bool isBasePlcProfile(PlcProfile profile) {
+    return profile == PlcProfile::QCpu;
+}
+
+inline bool isConnectionSelectablePlcProfile(PlcProfile profile) {
+    return isSpecifiedPlcProfile(profile) && !isBasePlcProfile(profile);
 }
 
 inline bool profileDisablesBlockAccess(PlcProfile profile) {
@@ -236,6 +249,19 @@ static const FeatureEntry kQnUDVFeatures[] = {
     SLMP_FEATURE_DELEGATED(Lz32BitPath),
 };
 
+static const FeatureEntry kQLUnitFeatures[] = {
+    SLMP_FEATURE_SUPPORTED(TypeName),
+    SLMP_FEATURE_SUPPORTED(Direct),
+    SLMP_FEATURE_SUPPORTED(Random),
+    SLMP_FEATURE_SUPPORTED(Block),
+    SLMP_FEATURE_SUPPORTED(Monitor),
+    SLMP_FEATURE_CONFIG(ExtModuleAccess),
+    SLMP_FEATURE_CONFIG(ExtLinkDirect),
+    SLMP_FEATURE_BLOCKED(HgCpuBuffer, "CPU-buffer HG is an iQ-R-only path"),
+    SLMP_FEATURE_BLOCKED(LongDevicePath, "Blocked for Q/L Ethernet unit profiles"),
+    SLMP_FEATURE_BLOCKED(Lz32BitPath, "Blocked for Q/L Ethernet unit profiles"),
+};
+
 #undef SLMP_FEATURE_SUPPORTED
 #undef SLMP_FEATURE_CONFIG
 #undef SLMP_FEATURE_DELEGATED
@@ -294,13 +320,53 @@ static const LimitEntry kQLMeasuredLimits[] = {
     SLMP_LIMIT(DirectBitRead, 7168U),
     SLMP_LIMIT(DirectBitWrite, 7168U),
     SLMP_LIMIT(RandomReadWord, 192U),
-    SLMP_LIMIT(RandomReadWordExt, 96U),
     SLMP_LIMIT_WEIGHTED(RandomWriteWord, 160U, 1920U),
-    SLMP_LIMIT_WEIGHTED(RandomWriteWordExt, 80U, 960U),
     SLMP_LIMIT(RandomWriteBit, 188U),
-    SLMP_LIMIT(RandomWriteBitExt, 94U),
     SLMP_LIMIT(MonitorRegisterWord, 192U),
-    SLMP_LIMIT(MonitorRegisterWordExt, 96U),
+};
+
+static const LimitEntry kQLUnitQCpuLimits[] = {
+    SLMP_LIMIT(DirectWordRead, 960U),
+    SLMP_LIMIT(DirectWordWrite, 960U),
+    SLMP_LIMIT(DirectBitRead, 7168U),
+    SLMP_LIMIT(DirectBitWrite, 7168U),
+    SLMP_LIMIT(RandomReadWord, 192U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWord, 160U, 1920U),
+    SLMP_LIMIT(RandomWriteBit, 188U),
+    SLMP_LIMIT(MonitorRegisterWord, 192U),
+    SLMP_LIMIT(RandomReadWordExt, 185U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWordExt, 160U, 1920U),
+    SLMP_LIMIT(RandomWriteBitExt, 188U),
+    SLMP_LIMIT(MonitorRegisterWordExt, 192U),
+};
+
+static const LimitEntry kQLUnitLimits[] = {
+    SLMP_LIMIT(DirectWordRead, 960U),
+    SLMP_LIMIT(DirectWordWrite, 960U),
+    SLMP_LIMIT(DirectBitRead, 7168U),
+    SLMP_LIMIT(DirectBitWrite, 7168U),
+    SLMP_LIMIT(RandomReadWord, 192U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWord, 160U, 1920U),
+    SLMP_LIMIT(RandomWriteBit, 188U),
+    SLMP_LIMIT(MonitorRegisterWord, 192U),
+    SLMP_LIMIT(RandomReadWordExt, 192U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWordExt, 160U, 1920U),
+    SLMP_LIMIT(RandomWriteBitExt, 188U),
+    SLMP_LIMIT(MonitorRegisterWordExt, 192U),
+};
+
+static const LimitEntry kQLUnitLCpuLimits[] = {
+    SLMP_LIMIT(DirectWordRead, 960U),
+    SLMP_LIMIT(DirectWordWrite, 960U),
+    SLMP_LIMIT(DirectBitRead, 7168U),
+    SLMP_LIMIT(DirectBitWrite, 7168U),
+    SLMP_LIMIT(RandomReadWord, 192U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWord, 160U, 1920U),
+    SLMP_LIMIT(RandomWriteBit, 188U),
+    SLMP_LIMIT(MonitorRegisterWord, 192U),
+    SLMP_LIMIT(RandomReadWordExt, 192U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWordExt, 160U, 1920U),
+    SLMP_LIMIT(MonitorRegisterWordExt, 192U),
 };
 
 #undef SLMP_LIMIT
@@ -312,27 +378,37 @@ static const WritePolicyEntry kSWritePolicy[] = {
 
 static const CapabilityProfile kCapabilityProfiles[] = {
     {PlcProfile::IqR, kIqRFeatures, sizeof(kIqRFeatures) / sizeof(kIqRFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::IqRRj71En71, kIqRFeatures, sizeof(kIqRFeatures) / sizeof(kIqRFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
     {PlcProfile::IqL, kIqLFeatures, sizeof(kIqLFeatures) / sizeof(kIqLFeatures[0]), kIqLLimits, sizeof(kIqLLimits) / sizeof(kIqLLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
     {PlcProfile::MxR, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
     {PlcProfile::MxF, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
     {PlcProfile::IqF, kIqFFeatures, sizeof(kIqFFeatures) / sizeof(kIqFFeatures[0]), kIqFLimits, sizeof(kIqFLimits) / sizeof(kIqFLimits[0]), nullptr, 0U},
     {PlcProfile::QCpu, kQnUDVFeatures, sizeof(kQnUDVFeatures) / sizeof(kQnUDVFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::QCpuQj71E71100, kQLUnitFeatures, sizeof(kQLUnitFeatures) / sizeof(kQLUnitFeatures[0]), kQLUnitQCpuLimits, sizeof(kQLUnitQCpuLimits) / sizeof(kQLUnitQCpuLimits[0]), nullptr, 0U},
     {PlcProfile::LCpu, kLCpuFeatures, sizeof(kLCpuFeatures) / sizeof(kLCpuFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::LCpuLj71E71100, kQLUnitFeatures, sizeof(kQLUnitFeatures) / sizeof(kQLUnitFeatures[0]), kQLUnitLCpuLimits, sizeof(kQLUnitLCpuLimits) / sizeof(kQLUnitLCpuLimits[0]), nullptr, 0U},
     {PlcProfile::QnU, kQnUDVFeatures, sizeof(kQnUDVFeatures) / sizeof(kQnUDVFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::QnUQj71E71100, kQLUnitFeatures, sizeof(kQLUnitFeatures) / sizeof(kQLUnitFeatures[0]), kQLUnitLimits, sizeof(kQLUnitLimits) / sizeof(kQLUnitLimits[0]), nullptr, 0U},
     {PlcProfile::QnUDV, kQnUDVFeatures, sizeof(kQnUDVFeatures) / sizeof(kQnUDVFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::QnUDVQj71E71100, kQLUnitFeatures, sizeof(kQLUnitFeatures) / sizeof(kQLUnitFeatures[0]), kQLUnitLimits, sizeof(kQLUnitLimits) / sizeof(kQLUnitLimits[0]), nullptr, 0U},
 };
 
 static const char* profileLabel(PlcProfile profile) {
     switch (profile) {
         case PlcProfile::IqF: return "melsec:iq-f";
         case PlcProfile::IqR: return "melsec:iq-r";
+        case PlcProfile::IqRRj71En71: return "melsec:iq-r:rj71en71";
         case PlcProfile::IqL: return "melsec:iq-l";
         case PlcProfile::MxF: return "melsec:mx-f";
         case PlcProfile::MxR: return "melsec:mx-r";
         case PlcProfile::QCpu: return "melsec:qcpu";
+        case PlcProfile::QCpuQj71E71100: return "melsec:qcpu:qj71e71-100";
         case PlcProfile::LCpu: return "melsec:lcpu";
+        case PlcProfile::LCpuLj71E71100: return "melsec:lcpu:lj71e71-100";
         case PlcProfile::QnU: return "melsec:qnu";
+        case PlcProfile::QnUQj71E71100: return "melsec:qnu:qj71e71-100";
         case PlcProfile::QnUDV: return "melsec:qnudv";
+        case PlcProfile::QnUDVQj71E71100: return "melsec:qnudv:qj71e71-100";
         case PlcProfile::Unspecified:
             return "";
     }
@@ -417,9 +493,14 @@ static bool isProfileReadOnlyDevice(PlcProfile profile, DeviceCode code) {
 inline FrameType frameTypeForPlcProfile(PlcProfile profile) {
     switch (profile) {
         case PlcProfile::IqR:
+        case PlcProfile::IqRRj71En71:
         case PlcProfile::IqL:
         case PlcProfile::MxF:
         case PlcProfile::MxR:
+        case PlcProfile::QCpuQj71E71100:
+        case PlcProfile::LCpuLj71E71100:
+        case PlcProfile::QnUQj71E71100:
+        case PlcProfile::QnUDVQj71E71100:
             return FrameType::Frame4E;
         case PlcProfile::IqF:
         case PlcProfile::QCpu:
@@ -435,15 +516,20 @@ inline FrameType frameTypeForPlcProfile(PlcProfile profile) {
 inline CompatibilityMode compatibilityModeForPlcProfile(PlcProfile profile) {
     switch (profile) {
         case PlcProfile::IqR:
+        case PlcProfile::IqRRj71En71:
         case PlcProfile::IqL:
         case PlcProfile::MxF:
         case PlcProfile::MxR:
             return CompatibilityMode::iQR;
         case PlcProfile::IqF:
         case PlcProfile::QCpu:
+        case PlcProfile::QCpuQj71E71100:
         case PlcProfile::LCpu:
+        case PlcProfile::LCpuLj71E71100:
         case PlcProfile::QnU:
+        case PlcProfile::QnUQj71E71100:
         case PlcProfile::QnUDV:
+        case PlcProfile::QnUDVQj71E71100:
         case PlcProfile::Unspecified:
             return CompatibilityMode::Legacy;
     }
@@ -1226,7 +1312,7 @@ CompatibilityMode SlmpClient::compatibilityMode() const {
 }
 
 void SlmpClient::setPlcProfile(PlcProfile profile) {
-    if (!isSpecifiedPlcProfile(profile)) {
+    if (!isConnectionSelectablePlcProfile(profile)) {
         plc_profile_ = PlcProfile::Unspecified;
         return;
     }
@@ -1237,7 +1323,7 @@ void SlmpClient::setPlcProfile(PlcProfile profile) {
 }
 
 void SlmpClient::setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode) {
-    if (!isSpecifiedPlcProfile(profile)) {
+    if (!isConnectionSelectablePlcProfile(profile)) {
         plc_profile_ = PlcProfile::Unspecified;
         return;
     }

@@ -41,7 +41,9 @@ Call `slmp::highlevel::configureClientForPlcProfile` before the first read or wr
 | MELSEC iQ-R | `slmp::highlevel::PlcProfile::IqR` |
 | MELSEC iQ-F | `slmp::highlevel::PlcProfile::IqF` |
 | MELSEC iQ-L | `slmp::highlevel::PlcProfile::IqL` |
-| Q/L legacy CPU | `slmp::highlevel::PlcProfile::QCpu` or `slmp::highlevel::PlcProfile::LCpu` |
+| QCPU via QJ71E71-100 | `slmp::highlevel::PlcProfile::QCpuQj71E71100` |
+| LCPU built-in or via LJ71E71-100 | `slmp::highlevel::PlcProfile::LCpu` or `slmp::highlevel::PlcProfile::LCpuLj71E71100` |
+| QnU/QnUDV built-in or via QJ71E71-100 | `slmp::highlevel::PlcProfile::QnU`, `slmp::highlevel::PlcProfile::QnUQj71E71100`, `slmp::highlevel::PlcProfile::QnUDV`, or `slmp::highlevel::PlcProfile::QnUDVQj71E71100` |
 
 The complete sketches below show where the profile configuration belongs.
 

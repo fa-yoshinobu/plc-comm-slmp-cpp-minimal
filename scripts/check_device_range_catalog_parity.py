@@ -15,14 +15,19 @@ FIXTURE = ROOT / "tests" / "fixtures" / "slmp_device_range_rules.json"
 
 PROFILE_ARRAYS = {
     "melsec:iq-r": "kIqRRangeRules",
+    "melsec:iq-r:rj71en71": "kIqRRangeRules",
     "melsec:iq-l": "kIqLRangeRules",
     "melsec:mx-f": "kMxFRangeRules",
     "melsec:mx-r": "kMxRRangeRules",
     "melsec:iq-f": "kIqFRangeRules",
     "melsec:qcpu": "kQCpuRangeRules",
+    "melsec:qcpu:qj71e71-100": "kQCpuRangeRules",
     "melsec:lcpu": "kLCpuRangeRules",
+    "melsec:lcpu:lj71e71-100": "kLCpuRangeRules",
     "melsec:qnu": "kQnURangeRules",
+    "melsec:qnu:qj71e71-100": "kQnURangeRules",
     "melsec:qnudv": "kQnUDVRangeRules",
+    "melsec:qnudv:qj71e71-100": "kQnUDVRangeRules",
 }
 
 KIND_FUNCTIONS = {

@@ -36,6 +36,8 @@ static PlcProfileDefaults plcProfileDefaultsImpl(PlcProfile family) {
             return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::IqF, PlcProfile::IqF};
         case PlcProfile::IqR:
             return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::IqR, PlcProfile::IqR};
+        case PlcProfile::IqRRj71En71:
+            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::IqR, PlcProfile::IqRRj71En71};
         case PlcProfile::IqL:
             return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::IqL, PlcProfile::IqL};
         case PlcProfile::MxF:
@@ -44,12 +46,20 @@ static PlcProfileDefaults plcProfileDefaultsImpl(PlcProfile family) {
             return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::MxR, PlcProfile::MxR};
         case PlcProfile::QCpu:
             return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::QCpu, PlcProfile::QCpu};
+        case PlcProfile::QCpuQj71E71100:
+            return {FrameType::Frame4E, CompatibilityMode::Legacy, PlcProfile::QCpu, PlcProfile::QCpuQj71E71100};
         case PlcProfile::LCpu:
             return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::LCpu, PlcProfile::LCpu};
+        case PlcProfile::LCpuLj71E71100:
+            return {FrameType::Frame4E, CompatibilityMode::Legacy, PlcProfile::LCpu, PlcProfile::LCpuLj71E71100};
         case PlcProfile::QnU:
             return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::QnU, PlcProfile::QnU};
+        case PlcProfile::QnUQj71E71100:
+            return {FrameType::Frame4E, CompatibilityMode::Legacy, PlcProfile::QnU, PlcProfile::QnUQj71E71100};
         case PlcProfile::QnUDV:
             return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::QnUDV, PlcProfile::QnUDV};
+        case PlcProfile::QnUDVQj71E71100:
+            return {FrameType::Frame4E, CompatibilityMode::Legacy, PlcProfile::QnUDV, PlcProfile::QnUDVQj71E71100};
     }
     return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::Unspecified, PlcProfile::Unspecified};
 }
@@ -58,13 +68,18 @@ static bool isSpecifiedPlcProfile(PlcProfile family) {
     switch (family) {
         case PlcProfile::IqF:
         case PlcProfile::IqR:
+        case PlcProfile::IqRRj71En71:
         case PlcProfile::IqL:
         case PlcProfile::MxF:
         case PlcProfile::MxR:
         case PlcProfile::QCpu:
+        case PlcProfile::QCpuQj71E71100:
         case PlcProfile::LCpu:
+        case PlcProfile::LCpuLj71E71100:
         case PlcProfile::QnU:
+        case PlcProfile::QnUQj71E71100:
         case PlcProfile::QnUDV:
+        case PlcProfile::QnUDVQj71E71100:
             return true;
         case PlcProfile::Unspecified:
             return false;
@@ -999,21 +1014,27 @@ const DeviceRangeProfileSpec kDeviceRangeProfiles[] = {
 static const char* deviceRangeProfileLabelImpl(PlcProfile profile) {
     switch (profile) {
         case PlcProfile::IqR: return "IQ-R";
+        case PlcProfile::IqRRj71En71: return "iQ-R via RJ71EN71";
         case PlcProfile::IqL: return "iQ-L";
         case PlcProfile::MxF: return "MX-F";
         case PlcProfile::MxR: return "MX-R";
         case PlcProfile::IqF: return "IQ-F";
         case PlcProfile::QCpu: return "QCPU";
+        case PlcProfile::QCpuQj71E71100: return "QCPU via QJ71E71-100";
         case PlcProfile::LCpu: return "LCPU";
+        case PlcProfile::LCpuLj71E71100: return "LCPU via LJ71E71-100";
         case PlcProfile::QnU: return "QnU";
+        case PlcProfile::QnUQj71E71100: return "QnU via QJ71E71-100";
         case PlcProfile::QnUDV: return "QnUDV";
+        case PlcProfile::QnUDVQj71E71100: return "QnUDV via QJ71E71-100";
         default: return "";
     }
 }
 
 static const DeviceRangeProfileSpec* findDeviceRangeProfile(PlcProfile profile) {
+    const PlcProfile rule_profile = plcProfileDefaultsImpl(profile).address_profile;
     for (size_t i = 0; i < countOf(kDeviceRangeProfiles); ++i) {
-        if (kDeviceRangeProfiles[i].plc_profile == profile) return &kDeviceRangeProfiles[i];
+        if (kDeviceRangeProfiles[i].plc_profile == rule_profile) return &kDeviceRangeProfiles[i];
     }
     return nullptr;
 }
@@ -1120,10 +1141,11 @@ static std::string formatDeviceRangeAddress(const char* device, DeviceRangeNotat
 }
 
 static bool usesRuntimeRangeProbe(PlcProfile profile) {
-    return profile == PlcProfile::QCpu ||
-           profile == PlcProfile::LCpu ||
-           profile == PlcProfile::QnU ||
-           profile == PlcProfile::QnUDV;
+    const PlcProfile address_profile = plcProfileDefaultsImpl(profile).address_profile;
+    return address_profile == PlcProfile::QCpu ||
+           address_profile == PlcProfile::LCpu ||
+           address_profile == PlcProfile::QnU ||
+           address_profile == PlcProfile::QnUDV;
 }
 
 static DeviceRangeEntry* findMutableDeviceRangeEntry(DeviceRangeCatalog& catalog, const char* device) {
@@ -1203,8 +1225,9 @@ static uint32_t resolveReadablePointCount(SlmpClient& client, DeviceCode code) {
 
 static void resolveRuntimeRangeLimits(SlmpClient& client, PlcProfile profile, DeviceRangeCatalog& catalog) {
     if (!usesRuntimeRangeProbe(profile)) return;
+    const PlcProfile address_profile = plcProfileDefaultsImpl(profile).address_profile;
 
-    if (profile == PlcProfile::QCpu) {
+    if (address_profile == PlcProfile::QCpu) {
         replaceDeviceRangePointCount(
             catalog,
             "Z",
@@ -1232,13 +1255,18 @@ const char* plcProfileLabel(PlcProfile family) {
         case PlcProfile::Unspecified: return "";
         case PlcProfile::IqF: return "melsec:iq-f";
         case PlcProfile::IqR: return "melsec:iq-r";
+        case PlcProfile::IqRRj71En71: return "melsec:iq-r:rj71en71";
         case PlcProfile::IqL: return "melsec:iq-l";
         case PlcProfile::MxF: return "melsec:mx-f";
         case PlcProfile::MxR: return "melsec:mx-r";
         case PlcProfile::QCpu: return "melsec:qcpu";
+        case PlcProfile::QCpuQj71E71100: return "melsec:qcpu:qj71e71-100";
         case PlcProfile::LCpu: return "melsec:lcpu";
+        case PlcProfile::LCpuLj71E71100: return "melsec:lcpu:lj71e71-100";
         case PlcProfile::QnU: return "melsec:qnu";
+        case PlcProfile::QnUQj71E71100: return "melsec:qnu:qj71e71-100";
         case PlcProfile::QnUDV: return "melsec:qnudv";
+        case PlcProfile::QnUDVQj71E71100: return "melsec:qnudv:qj71e71-100";
     }
     return "";
 }

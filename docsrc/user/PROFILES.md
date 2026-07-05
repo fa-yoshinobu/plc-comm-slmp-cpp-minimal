@@ -22,13 +22,20 @@ compatibility settings do not imply a PLC model.
 | --- | --- | --- | --- | --- | --- |
 | `melsec:iq-f` | MELSEC iQ-F | `slmp::highlevel::PlcProfile::IqF` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | iQ-F string `X` and `Y` addresses use octal notation; `DX` and `DY` are rejected. |
 | `melsec:iq-r` | MELSEC iQ-R | `slmp::highlevel::PlcProfile::IqR` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for modern iQ-R targets. |
+| `melsec:iq-r:rj71en71` | MELSEC iQ-R via RJ71EN71 | `slmp::highlevel::PlcProfile::IqRRj71En71` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Ethernet-unit profile using iQ-R compatibility. |
 | `melsec:iq-l` | MELSEC iQ-L | `slmp::highlevel::PlcProfile::IqL` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for MELSEC iQ-L targets. |
 | `melsec:mx-f` | MELSEC MX-F | `slmp::highlevel::PlcProfile::MxF` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for MELSEC MX-F targets. |
 | `melsec:mx-r` | MELSEC MX-R | `slmp::highlevel::PlcProfile::MxR` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for MELSEC MX-R targets. |
-| `melsec:qcpu` | MELSEC QCPU | `slmp::highlevel::PlcProfile::QCpu` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Q CPU profile. Use direct or random device commands for normal access. |
 | `melsec:lcpu` | MELSEC LCPU | `slmp::highlevel::PlcProfile::LCpu` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Legacy L CPU profile. |
+| `melsec:lcpu:lj71e71-100` | MELSEC LCPU via LJ71E71-100 | `slmp::highlevel::PlcProfile::LCpuLj71E71100` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::Legacy` | Ethernet unit profile using Q/L compatibility. |
+| `melsec:qcpu:qj71e71-100` | MELSEC QCPU via QJ71E71-100 | `slmp::highlevel::PlcProfile::QCpuQj71E71100` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::Legacy` | Ethernet unit profile for QCPU connections. |
 | `melsec:qnu` | MELSEC QnU | `slmp::highlevel::PlcProfile::QnU` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnU profile. Use direct or random device commands for normal access. |
+| `melsec:qnu:qj71e71-100` | MELSEC QnU via QJ71E71-100 | `slmp::highlevel::PlcProfile::QnUQj71E71100` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::Legacy` | Ethernet unit profile using Q/L compatibility. |
 | `melsec:qnudv` | MELSEC QnUDV | `slmp::highlevel::PlcProfile::QnUDV` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | QnUDV profile. Use direct or random device commands for normal access. |
+| `melsec:qnudv:qj71e71-100` | MELSEC QnUDV via QJ71E71-100 | `slmp::highlevel::PlcProfile::QnUDVQj71E71100` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::Legacy` | Ethernet unit profile using Q/L compatibility. |
+
+`melsec:qcpu` is base-only and remains for inherited address and range rules.
+Use `melsec:qcpu:qj71e71-100` for QCPU Ethernet unit connections.
 
 ## How to select
 
