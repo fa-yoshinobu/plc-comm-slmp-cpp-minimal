@@ -56,7 +56,7 @@ void loop() {
 ## Routing / target station
 
 Most applications keep the default target, which means the directly connected
-own station/control CPU. Change the target only when your PLC network is
+own station. Change the target only when your PLC network is
 configured for another station, multi-CPU module I/O, or multidrop access.
 
 `slmp::TargetAddress` controls the SLMP destination header. It is not a device
@@ -72,7 +72,7 @@ target.multidrop = 0x00;
 plc.setTarget(target);
 ```
 
-Use `slmp::module_io` constants such as `slmp::module_io::Cpu2` when routing
+Use `slmp::module_io` constants such as `slmp::module_io::MultipleCpu2` when routing
 to multi-CPU targets. Use the default target unless the PLC routing setup gives
 you specific values.
 

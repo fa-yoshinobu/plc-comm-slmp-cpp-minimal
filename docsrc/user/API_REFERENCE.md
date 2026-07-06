@@ -153,7 +153,7 @@ Returns: Descriptor suitable for SlmpClient::writeBlock and related APIs.
 
 ### Namespace `slmp::module_io`
 
-Named SLMP request-header module I/O numbers for CPU routing.
+Named SLMP request-header module I/O numbers for CPU routing from SLMP specification SH080956.
 
 #### Variables And Constants
 
@@ -163,71 +163,103 @@ Named SLMP request-header module I/O numbers for CPU routing.
 uint16_t slmp::module_io::ControlCpu = 0x03D0
 ```
 
-Control or active CPU in a redundant CPU system
+Control-system CPU route in a redundant CPU system
 
-#### `ActiveCpu`
+#### `ControlSystemCpu`
 
 ```cpp
-uint16_t slmp::module_io::ActiveCpu = ControlCpu
+uint16_t slmp::module_io::ControlSystemCpu = ControlCpu
 ```
 
-Alias for ControlCpu
+Control system CPU in a redundant CPU system
 
-#### `StandbyCpu`
+#### `StandbySystemCpu`
 
 ```cpp
-uint16_t slmp::module_io::StandbyCpu = 0x03D1
+uint16_t slmp::module_io::StandbySystemCpu = 0x03D1
 ```
 
-Standby CPU in a redundant CPU system
+Standby system CPU in a redundant CPU system
 
-#### `TypeACpu`
+#### `SystemACpu`
 
 ```cpp
-uint16_t slmp::module_io::TypeACpu = 0x03D2
+uint16_t slmp::module_io::SystemACpu = 0x03D2
 ```
 
-Type A CPU in a redundant CPU system
+System A CPU in a redundant CPU system
 
-#### `TypeBCpu`
+#### `SystemBCpu`
 
 ```cpp
-uint16_t slmp::module_io::TypeBCpu = 0x03D3
+uint16_t slmp::module_io::SystemBCpu = 0x03D3
 ```
 
-Type B CPU in a redundant CPU system
+System B CPU in a redundant CPU system
 
-#### `Cpu1`
+#### `MultipleCpu1`
 
 ```cpp
-uint16_t slmp::module_io::Cpu1 = 0x03E0
+uint16_t slmp::module_io::MultipleCpu1 = 0x03E0
 ```
 
 CPU No. 1 in a multi-CPU system
 
-#### `Cpu2`
+#### `MultipleCpu2`
 
 ```cpp
-uint16_t slmp::module_io::Cpu2 = 0x03E1
+uint16_t slmp::module_io::MultipleCpu2 = 0x03E1
 ```
 
 CPU No. 2 in a multi-CPU system
 
-#### `Cpu3`
+#### `MultipleCpu3`
 
 ```cpp
-uint16_t slmp::module_io::Cpu3 = 0x03E2
+uint16_t slmp::module_io::MultipleCpu3 = 0x03E2
 ```
 
 CPU No. 3 in a multi-CPU system
 
-#### `Cpu4`
+#### `MultipleCpu4`
 
 ```cpp
-uint16_t slmp::module_io::Cpu4 = 0x03E3
+uint16_t slmp::module_io::MultipleCpu4 = 0x03E3
 ```
 
 CPU No. 4 in a multi-CPU system
+
+#### `RemoteHead1`
+
+```cpp
+uint16_t slmp::module_io::RemoteHead1 = MultipleCpu1
+```
+
+Remote head No. 1 route
+
+#### `RemoteHead2`
+
+```cpp
+uint16_t slmp::module_io::RemoteHead2 = MultipleCpu2
+```
+
+Remote head No. 2 route
+
+#### `ControlSystemRemoteHead`
+
+```cpp
+uint16_t slmp::module_io::ControlSystemRemoteHead = ControlCpu
+```
+
+Control system remote head route
+
+#### `StandbySystemRemoteHead`
+
+```cpp
+uint16_t slmp::module_io::StandbySystemRemoteHead = StandbySystemCpu
+```
+
+Standby system remote head route
 
 #### `ConnectedCpu`
 
@@ -3200,7 +3232,7 @@ Network number (0=Local)
 uint8_t slmp::TargetAddress::station = 0xFF
 ```
 
-Station number (255=Control CPU)
+Station number (255=connected station)
 
 #### `module_io`
 
