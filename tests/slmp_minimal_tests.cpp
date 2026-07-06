@@ -958,8 +958,7 @@ void testLinkDirectWriteDeviceGuards() {
 }
 
 void testTargetAndMonitoringTimerHeaders() {
-    assert(slmp::module_io::ControlCpu == 0x03D0U);
-    assert(slmp::module_io::ControlSystemCpu == slmp::module_io::ControlCpu);
+    assert(slmp::module_io::ControlSystemCpu == 0x03D0U);
     assert(slmp::module_io::StandbySystemCpu == 0x03D1U);
     assert(slmp::module_io::SystemACpu == 0x03D2U);
     assert(slmp::module_io::SystemBCpu == 0x03D3U);
@@ -969,11 +968,10 @@ void testTargetAndMonitoringTimerHeaders() {
     assert(slmp::module_io::MultipleCpu4 == 0x03E3U);
     assert(slmp::module_io::RemoteHead1 == slmp::module_io::MultipleCpu1);
     assert(slmp::module_io::RemoteHead2 == slmp::module_io::MultipleCpu2);
-    assert(slmp::module_io::ControlSystemRemoteHead == slmp::module_io::ControlCpu);
+    assert(slmp::module_io::ControlSystemRemoteHead == slmp::module_io::ControlSystemCpu);
     assert(slmp::module_io::StandbySystemRemoteHead == slmp::module_io::StandbySystemCpu);
-    assert(slmp::module_io::ConnectedCpu == 0x03FFU);
-    assert(slmp::module_io::Default == slmp::module_io::ConnectedCpu);
-    assert(slmp::TargetAddress{}.module_io == slmp::module_io::ConnectedCpu);
+    assert(slmp::module_io::OwnStation == 0x03FFU);
+    assert(slmp::TargetAddress{}.module_io == slmp::module_io::OwnStation);
 
     MockTransport transport;
     uint8_t tx_buffer[128] = {};

@@ -157,18 +157,10 @@ Named SLMP request-header module I/O numbers for CPU routing from SLMP specifica
 
 #### Variables And Constants
 
-#### `ControlCpu`
-
-```cpp
-uint16_t slmp::module_io::ControlCpu = 0x03D0
-```
-
-Control-system CPU route in a redundant CPU system
-
 #### `ControlSystemCpu`
 
 ```cpp
-uint16_t slmp::module_io::ControlSystemCpu = ControlCpu
+uint16_t slmp::module_io::ControlSystemCpu = 0x03D0
 ```
 
 Control system CPU in a redundant CPU system
@@ -248,7 +240,7 @@ Remote head No. 2 route
 #### `ControlSystemRemoteHead`
 
 ```cpp
-uint16_t slmp::module_io::ControlSystemRemoteHead = ControlCpu
+uint16_t slmp::module_io::ControlSystemRemoteHead = ControlSystemCpu
 ```
 
 Control system remote head route
@@ -261,29 +253,13 @@ uint16_t slmp::module_io::StandbySystemRemoteHead = StandbySystemCpu
 
 Standby system remote head route
 
-#### `ConnectedCpu`
-
-```cpp
-uint16_t slmp::module_io::ConnectedCpu = 0x03FF
-```
-
-Default connected CPU route
-
-#### `Default`
-
-```cpp
-uint16_t slmp::module_io::Default = ConnectedCpu
-```
-
-Alias for ConnectedCpu
-
 #### `OwnStation`
 
 ```cpp
-uint16_t slmp::module_io::OwnStation = ConnectedCpu
+uint16_t slmp::module_io::OwnStation = 0x03FF
 ```
 
-Alias for ConnectedCpu
+Own station route
 
 ## Classes
 
@@ -3237,7 +3213,7 @@ Station number (255=connected station)
 #### `module_io`
 
 ```cpp
-uint16_t slmp::TargetAddress::module_io = ::slmp::module_io::ConnectedCpu
+uint16_t slmp::TargetAddress::module_io = ::slmp::module_io::OwnStation
 ```
 
 Module I/O number (0x03FF=Own Station)

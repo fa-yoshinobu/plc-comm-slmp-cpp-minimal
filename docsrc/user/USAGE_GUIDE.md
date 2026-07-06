@@ -67,7 +67,7 @@ own address syntax.
 slmp::TargetAddress target{};
 target.network = 0x01;
 target.station = 0x02;
-target.module_io = slmp::module_io::ConnectedCpu;
+target.module_io = slmp::module_io::OwnStation;
 target.multidrop = 0x00;
 plc.setTarget(target);
 ```

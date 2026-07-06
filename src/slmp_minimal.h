@@ -524,8 +524,7 @@ struct ExtDeviceSpec {
  */
 namespace module_io {
 
-constexpr uint16_t ControlCpu = 0x03D0;        ///< Control-system CPU route in a redundant CPU system.
-constexpr uint16_t ControlSystemCpu = ControlCpu; ///< Control system CPU in a redundant CPU system.
+constexpr uint16_t ControlSystemCpu = 0x03D0; ///< Control system CPU in a redundant CPU system.
 constexpr uint16_t StandbySystemCpu = 0x03D1;  ///< Standby system CPU in a redundant CPU system.
 constexpr uint16_t SystemACpu = 0x03D2;        ///< System A CPU in a redundant CPU system.
 constexpr uint16_t SystemBCpu = 0x03D3;        ///< System B CPU in a redundant CPU system.
@@ -535,11 +534,9 @@ constexpr uint16_t MultipleCpu3 = 0x03E2;      ///< CPU No. 3 in a multi-CPU sys
 constexpr uint16_t MultipleCpu4 = 0x03E3;      ///< CPU No. 4 in a multi-CPU system.
 constexpr uint16_t RemoteHead1 = MultipleCpu1; ///< Remote head No. 1 route.
 constexpr uint16_t RemoteHead2 = MultipleCpu2; ///< Remote head No. 2 route.
-constexpr uint16_t ControlSystemRemoteHead = ControlCpu; ///< Control system remote head route.
+constexpr uint16_t ControlSystemRemoteHead = ControlSystemCpu; ///< Control system remote head route.
 constexpr uint16_t StandbySystemRemoteHead = StandbySystemCpu; ///< Standby system remote head route.
-constexpr uint16_t ConnectedCpu = 0x03FF;      ///< Default connected CPU route.
-constexpr uint16_t Default = ConnectedCpu;     ///< Alias for @ref ConnectedCpu.
-constexpr uint16_t OwnStation = ConnectedCpu; ///< Alias for @ref ConnectedCpu.
+constexpr uint16_t OwnStation = 0x03FF;        ///< Own station route.
 
 }  // namespace module_io
 
@@ -550,7 +547,7 @@ constexpr uint16_t OwnStation = ConnectedCpu; ///< Alias for @ref ConnectedCpu.
 struct TargetAddress {
     uint8_t network = 0x00;     ///< Network number (0=Local).
     uint8_t station = 0xFF;     ///< Station number (255=connected station).
-    uint16_t module_io = ::slmp::module_io::ConnectedCpu; ///< Module I/O number (0x03FF=Own Station).
+    uint16_t module_io = ::slmp::module_io::OwnStation; ///< Module I/O number (0x03FF=Own Station).
     uint8_t multidrop = 0x00;   ///< Multidrop station number.
 };
 
