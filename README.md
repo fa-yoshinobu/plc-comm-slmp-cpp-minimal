@@ -6,6 +6,10 @@
 
 C++ library for MELSEC SLMP (Binary 3E/4E) PLC communication on ESP32/RP2040-class boards using Arduino-compatible cores or PlatformIO.
 
+## PLC Comm Family
+
+This library is part of the plc-comm family. See the [package matrix](https://fa-yoshinobu.github.io/plc-comm-docs-site/package-matrix/) for protocol, language, registry, and install-command mapping.
+
 ## Supported PLC profiles
 
 The maintained profile table is in [PLC profiles](docsrc/user/PROFILES.md). Choose one exact canonical PLC profile from that table.
@@ -24,7 +28,7 @@ Add the PlatformIO Registry package to your `platformio.ini`:
 
 ```ini
 lib_deps =
-  fa-yoshinobu/slmp-connect-cpp-minimal@^0.8.0
+  fa-yoshinobu/slmp-connect-cpp-minimal@^2.0.0
 ```
 
 ## Quick example
