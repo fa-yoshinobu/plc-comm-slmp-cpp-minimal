@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Library: Added `slmp::module_io` named constants for multi-CPU target routing while keeping `TargetAddress{}` on the default connected CPU.
+- Docs: Documented `slmp::module_io` in the routing guide and generated API reference source comments.
+- Tests: Added request-header coverage proving `TargetAddress::module_io` accepts the named constants.
 - Library: Synced the embedded SLMP capability fixture to `plc-comm-slmp-profiles` `v1.2.2`, including inferred Q/L 008x extended random/monitor limit keys and iQ-F `not-adopted` monitor limit placeholders.
 - Tooling: Changed the canonical profile update script default ref to `v1.2.2`.
 

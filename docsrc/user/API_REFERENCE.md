@@ -151,6 +151,108 @@ device First device in the block. values Caller-owned word values in PLC order. 
 
 Returns: Descriptor suitable for SlmpClient::writeBlock and related APIs.
 
+### Namespace `slmp::module_io`
+
+Named SLMP request-header module I/O numbers for CPU routing.
+
+#### Variables And Constants
+
+#### `ControlCpu`
+
+```cpp
+uint16_t slmp::module_io::ControlCpu = 0x03D0
+```
+
+Control or active CPU in a redundant CPU system
+
+#### `ActiveCpu`
+
+```cpp
+uint16_t slmp::module_io::ActiveCpu = ControlCpu
+```
+
+Alias for ControlCpu
+
+#### `StandbyCpu`
+
+```cpp
+uint16_t slmp::module_io::StandbyCpu = 0x03D1
+```
+
+Standby CPU in a redundant CPU system
+
+#### `TypeACpu`
+
+```cpp
+uint16_t slmp::module_io::TypeACpu = 0x03D2
+```
+
+Type A CPU in a redundant CPU system
+
+#### `TypeBCpu`
+
+```cpp
+uint16_t slmp::module_io::TypeBCpu = 0x03D3
+```
+
+Type B CPU in a redundant CPU system
+
+#### `Cpu1`
+
+```cpp
+uint16_t slmp::module_io::Cpu1 = 0x03E0
+```
+
+CPU No. 1 in a multi-CPU system
+
+#### `Cpu2`
+
+```cpp
+uint16_t slmp::module_io::Cpu2 = 0x03E1
+```
+
+CPU No. 2 in a multi-CPU system
+
+#### `Cpu3`
+
+```cpp
+uint16_t slmp::module_io::Cpu3 = 0x03E2
+```
+
+CPU No. 3 in a multi-CPU system
+
+#### `Cpu4`
+
+```cpp
+uint16_t slmp::module_io::Cpu4 = 0x03E3
+```
+
+CPU No. 4 in a multi-CPU system
+
+#### `ConnectedCpu`
+
+```cpp
+uint16_t slmp::module_io::ConnectedCpu = 0x03FF
+```
+
+Default connected CPU route
+
+#### `Default`
+
+```cpp
+uint16_t slmp::module_io::Default = ConnectedCpu
+```
+
+Alias for ConnectedCpu
+
+#### `OwnStation`
+
+```cpp
+uint16_t slmp::module_io::OwnStation = ConnectedCpu
+```
+
+Alias for ConnectedCpu
+
 ## Classes
 
 ### Class `slmp::ArduinoClientTransport`
@@ -3103,7 +3205,7 @@ Station number (255=Control CPU)
 #### `module_io`
 
 ```cpp
-uint16_t slmp::TargetAddress::module_io = 0x03FF
+uint16_t slmp::TargetAddress::module_io = ::slmp::module_io::ConnectedCpu
 ```
 
 Module I/O number (0x03FF=Own Station)
