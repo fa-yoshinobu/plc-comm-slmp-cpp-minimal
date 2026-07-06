@@ -151,6 +151,116 @@ device First device in the block. values Caller-owned word values in PLC order. 
 
 Returns: Descriptor suitable for SlmpClient::writeBlock and related APIs.
 
+### Namespace `slmp::module_io`
+
+Named SLMP request-header module I/O numbers for CPU routing from SLMP specification SH080956.
+
+#### Variables And Constants
+
+#### `ControlSystemCpu`
+
+```cpp
+uint16_t slmp::module_io::ControlSystemCpu = 0x03D0
+```
+
+Control system CPU in a redundant CPU system
+
+#### `StandbySystemCpu`
+
+```cpp
+uint16_t slmp::module_io::StandbySystemCpu = 0x03D1
+```
+
+Standby system CPU in a redundant CPU system
+
+#### `SystemACpu`
+
+```cpp
+uint16_t slmp::module_io::SystemACpu = 0x03D2
+```
+
+System A CPU in a redundant CPU system
+
+#### `SystemBCpu`
+
+```cpp
+uint16_t slmp::module_io::SystemBCpu = 0x03D3
+```
+
+System B CPU in a redundant CPU system
+
+#### `MultipleCpu1`
+
+```cpp
+uint16_t slmp::module_io::MultipleCpu1 = 0x03E0
+```
+
+CPU No. 1 in a multi-CPU system
+
+#### `MultipleCpu2`
+
+```cpp
+uint16_t slmp::module_io::MultipleCpu2 = 0x03E1
+```
+
+CPU No. 2 in a multi-CPU system
+
+#### `MultipleCpu3`
+
+```cpp
+uint16_t slmp::module_io::MultipleCpu3 = 0x03E2
+```
+
+CPU No. 3 in a multi-CPU system
+
+#### `MultipleCpu4`
+
+```cpp
+uint16_t slmp::module_io::MultipleCpu4 = 0x03E3
+```
+
+CPU No. 4 in a multi-CPU system
+
+#### `RemoteHead1`
+
+```cpp
+uint16_t slmp::module_io::RemoteHead1 = MultipleCpu1
+```
+
+Remote head No. 1 route
+
+#### `RemoteHead2`
+
+```cpp
+uint16_t slmp::module_io::RemoteHead2 = MultipleCpu2
+```
+
+Remote head No. 2 route
+
+#### `ControlSystemRemoteHead`
+
+```cpp
+uint16_t slmp::module_io::ControlSystemRemoteHead = ControlSystemCpu
+```
+
+Control system remote head route
+
+#### `StandbySystemRemoteHead`
+
+```cpp
+uint16_t slmp::module_io::StandbySystemRemoteHead = StandbySystemCpu
+```
+
+Standby system remote head route
+
+#### `OwnStation`
+
+```cpp
+uint16_t slmp::module_io::OwnStation = 0x03FF
+```
+
+Own station route
+
 ## Classes
 
 ### Class `slmp::ArduinoClientTransport`
@@ -3098,12 +3208,12 @@ Network number (0=Local)
 uint8_t slmp::TargetAddress::station = 0xFF
 ```
 
-Station number (255=Control CPU)
+Station number (255=connected station)
 
 #### `module_io`
 
 ```cpp
-uint16_t slmp::TargetAddress::module_io = 0x03FF
+uint16_t slmp::TargetAddress::module_io = ::slmp::module_io::OwnStation
 ```
 
 Module I/O number (0x03FF=Own Station)

@@ -958,6 +958,21 @@ void testLinkDirectWriteDeviceGuards() {
 }
 
 void testTargetAndMonitoringTimerHeaders() {
+    assert(slmp::module_io::ControlSystemCpu == 0x03D0U);
+    assert(slmp::module_io::StandbySystemCpu == 0x03D1U);
+    assert(slmp::module_io::SystemACpu == 0x03D2U);
+    assert(slmp::module_io::SystemBCpu == 0x03D3U);
+    assert(slmp::module_io::MultipleCpu1 == 0x03E0U);
+    assert(slmp::module_io::MultipleCpu2 == 0x03E1U);
+    assert(slmp::module_io::MultipleCpu3 == 0x03E2U);
+    assert(slmp::module_io::MultipleCpu4 == 0x03E3U);
+    assert(slmp::module_io::RemoteHead1 == slmp::module_io::MultipleCpu1);
+    assert(slmp::module_io::RemoteHead2 == slmp::module_io::MultipleCpu2);
+    assert(slmp::module_io::ControlSystemRemoteHead == slmp::module_io::ControlSystemCpu);
+    assert(slmp::module_io::StandbySystemRemoteHead == slmp::module_io::StandbySystemCpu);
+    assert(slmp::module_io::OwnStation == 0x03FFU);
+    assert(slmp::TargetAddress{}.module_io == slmp::module_io::OwnStation);
+
     MockTransport transport;
     uint8_t tx_buffer[128] = {};
     uint8_t rx_buffer[128] = {};
@@ -967,7 +982,7 @@ void testTargetAndMonitoringTimerHeaders() {
     slmp::TargetAddress target = {};
     target.network = 0x12;
     target.station = 0x34;
-    target.module_io = 0x0567;
+    target.module_io = slmp::module_io::MultipleCpu2;
     target.multidrop = 0x89;
     plc.setTarget(target);
     plc.setMonitoringTimer(0x4321U);
