@@ -312,6 +312,8 @@ static const LimitEntry kIqFLimits[] = {
     SLMP_LIMIT_WEIGHTED(RandomWriteWordExt, 80U, 960U),
     SLMP_LIMIT(RandomWriteBit, 188U),
     SLMP_LIMIT(RandomWriteBitExt, 94U),
+    SLMP_LIMIT(MonitorRegisterWord, 192U),
+    SLMP_LIMIT(MonitorRegisterWordExt, 96U),
 };
 
 static const LimitEntry kQLMeasuredLimits[] = {
@@ -323,6 +325,10 @@ static const LimitEntry kQLMeasuredLimits[] = {
     SLMP_LIMIT_WEIGHTED(RandomWriteWord, 160U, 1920U),
     SLMP_LIMIT(RandomWriteBit, 188U),
     SLMP_LIMIT(MonitorRegisterWord, 192U),
+    SLMP_LIMIT(RandomReadWordExt, 192U),
+    SLMP_LIMIT_WEIGHTED(RandomWriteWordExt, 160U, 1920U),
+    SLMP_LIMIT(RandomWriteBitExt, 188U),
+    SLMP_LIMIT(MonitorRegisterWordExt, 192U),
 };
 
 static const LimitEntry kQLUnitQCpuLimits[] = {
@@ -366,6 +372,7 @@ static const LimitEntry kQLUnitLCpuLimits[] = {
     SLMP_LIMIT(MonitorRegisterWord, 192U),
     SLMP_LIMIT(RandomReadWordExt, 192U),
     SLMP_LIMIT_WEIGHTED(RandomWriteWordExt, 160U, 1920U),
+    SLMP_LIMIT(RandomWriteBitExt, 188U),
     SLMP_LIMIT(MonitorRegisterWordExt, 192U),
 };
 
@@ -383,7 +390,7 @@ static const CapabilityProfile kCapabilityProfiles[] = {
     {PlcProfile::MxR, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
     {PlcProfile::MxF, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
     {PlcProfile::IqF, kIqFFeatures, sizeof(kIqFFeatures) / sizeof(kIqFFeatures[0]), kIqFLimits, sizeof(kIqFLimits) / sizeof(kIqFLimits[0]), nullptr, 0U},
-    {PlcProfile::QCpu, kQnUDVFeatures, sizeof(kQnUDVFeatures) / sizeof(kQnUDVFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::QCpu, kQnUDVFeatures, sizeof(kQnUDVFeatures) / sizeof(kQnUDVFeatures[0]), kQLUnitQCpuLimits, sizeof(kQLUnitQCpuLimits) / sizeof(kQLUnitQCpuLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
     {PlcProfile::QCpuQj71E71100, kQLUnitFeatures, sizeof(kQLUnitFeatures) / sizeof(kQLUnitFeatures[0]), kQLUnitQCpuLimits, sizeof(kQLUnitQCpuLimits) / sizeof(kQLUnitQCpuLimits[0]), nullptr, 0U},
     {PlcProfile::LCpu, kLCpuFeatures, sizeof(kLCpuFeatures) / sizeof(kLCpuFeatures[0]), kQLMeasuredLimits, sizeof(kQLMeasuredLimits) / sizeof(kQLMeasuredLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
     {PlcProfile::LCpuLj71E71100, kQLUnitFeatures, sizeof(kQLUnitFeatures) / sizeof(kQLUnitFeatures[0]), kQLUnitLCpuLimits, sizeof(kQLUnitLCpuLimits) / sizeof(kQLUnitLCpuLimits[0]), nullptr, 0U},
