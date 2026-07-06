@@ -17,12 +17,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-07-06
+
+### BREAKING
+- Library: Removed short `slmp::module_io` aliases in favor of the canonical module I/O vocabulary.
+
+| Removed name | Use instead |
+| --- | --- |
+| `ControlCpu`, `ConnectedCpu`, `Default` | `OwnStation` |
+| `ActiveCpu` | `ControlSystemCpu` |
+| `StandbyCpu` | `StandbySystemCpu` |
+| `TypeACpu` | `SystemACpu` |
+| `TypeBCpu` | `SystemBCpu` |
+| `Cpu1` to `Cpu4` | `MultipleCpu1` to `MultipleCpu4` |
+
 ### Changed
+- Release: Bumped PlatformIO and Arduino metadata to `2.0.0`; the PlatformIO package name remains `fa-yoshinobu/slmp-connect-cpp-minimal` because it is already published under that name.
 - Library: Added `slmp::module_io` named constants for multi-CPU target routing while keeping `TargetAddress{}` on the default own station.
-- Library: Removed short module I/O aliases as a breaking terminology cleanup; use `ControlCpu` -> `OwnStation` for the previous connected-CPU behavior or `ControlSystemCpu` for the redundant control-system route, `ConnectedCpu` / `Default` -> `OwnStation`, `ActiveCpu` -> `ControlSystemCpu`, `StandbyCpu` -> `StandbySystemCpu`, `TypeACpu` -> `SystemACpu`, `TypeBCpu` -> `SystemBCpu`, and `Cpu1`-`Cpu4` -> `MultipleCpu1`-`MultipleCpu4`.
-- Docs: Documented `slmp::module_io` in the routing guide and generated API reference source comments.
-- Tests: Added request-header coverage proving `TargetAddress::module_io` accepts the named constants.
-- Library: Synced the embedded SLMP capability fixture to `plc-comm-slmp-profiles` `v1.2.2`, including inferred Q/L 008x extended random/monitor limit keys and iQ-F `not-adopted` monitor limit placeholders.
+- Library: Synced the embedded SLMP capability fixture to `plc-comm-slmp-profiles` `v1.2.2`.
+- Docs: Added the plc-comm family package matrix link to the README and updated PlatformIO install examples to `@^2.0.0`.
 - Tooling: Changed the canonical profile update script default ref to `v1.2.2`.
 
 ## [1.2.1] - 2026-07-05
