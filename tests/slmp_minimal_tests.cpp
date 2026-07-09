@@ -2897,8 +2897,9 @@ void testHighLevelplcProfileDefaults() {
         uint8_t rx_buffer[64] = {};
         slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
         plc.setPlcProfile(slmp::PlcProfile::IqR);
-        slmp::highlevel::configureClientForPlcProfile(plc, slmp::highlevel::PlcProfile::QCpu);
-        assert(plc.plcProfile() == slmp::PlcProfile::Unspecified);
+        assert(slmp::highlevel::configureClientForPlcProfile(plc, slmp::highlevel::PlcProfile::QCpu) ==
+               slmp::Error::InvalidArgument);
+        assert(plc.plcProfile() == slmp::PlcProfile::IqR);
     }
 
     {

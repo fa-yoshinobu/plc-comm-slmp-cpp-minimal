@@ -704,6 +704,10 @@ Error slmp::SlmpClient::setPlcProfile(PlcProfile profile)
 
 Set a concrete PLC profile and apply its frame/compatibility defaults.
 
+Error::Ok on success, or Error::InvalidArgument when the profile is not connection-selectable. The existing configuration is kept when the profile is rejected.
+
+Returns: Error::Ok on success, or Error::InvalidArgument when the profile is not connection-selectable. The existing configuration is kept when the profile is rejected.
+
 #### `plcProfile`
 
 ```cpp
