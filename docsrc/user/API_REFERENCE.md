@@ -699,7 +699,7 @@ Get current compatibility mode.
 #### `setPlcProfile`
 
 ```cpp
-void slmp::SlmpClient::setPlcProfile(PlcProfile profile)
+Error slmp::SlmpClient::setPlcProfile(PlcProfile profile)
 ```
 
 Set a concrete PLC profile and apply its frame/compatibility defaults.
@@ -715,7 +715,7 @@ Return the currently selected PLC profile, or Unspecified after manual low-level
 #### `setManualProfile`
 
 ```cpp
-void slmp::SlmpClient::setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode)
+Error slmp::SlmpClient::setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode)
 ```
 
 Set an explicit PLC profile while manually selecting frame and compatibility mode.

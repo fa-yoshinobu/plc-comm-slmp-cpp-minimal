@@ -1329,26 +1329,26 @@ CompatibilityMode SlmpClient::compatibilityMode() const {
     return compatibility_mode_;
 }
 
-void SlmpClient::setPlcProfile(PlcProfile profile) {
+Error SlmpClient::setPlcProfile(PlcProfile profile) {
     if (!isConnectionSelectablePlcProfile(profile)) {
-        plc_profile_ = PlcProfile::Unspecified;
-        return;
+        return Error::InvalidArgument;
     }
     plc_profile_ = profile;
     frame_type_ = frameTypeForPlcProfile(profile);
     compatibility_mode_ = compatibilityModeForPlcProfile(profile);
     block_access_enabled_ = !profileDisablesBlockAccess(profile);
+    return Error::Ok;
 }
 
-void SlmpClient::setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode) {
+Error SlmpClient::setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode) {
     if (!isConnectionSelectablePlcProfile(profile)) {
-        plc_profile_ = PlcProfile::Unspecified;
-        return;
+        return Error::InvalidArgument;
     }
     plc_profile_ = profile;
     frame_type_ = frame_type;
     compatibility_mode_ = mode;
     block_access_enabled_ = !profileDisablesBlockAccess(profile);
+    return Error::Ok;
 }
 
 PlcProfile SlmpClient::plcProfile() const {

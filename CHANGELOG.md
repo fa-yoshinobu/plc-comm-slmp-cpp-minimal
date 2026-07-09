@@ -17,6 +17,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-07-10
+
+### Changed
+- Release: Bumped `library.json` and synchronized `library.properties` metadata to `2.0.1`.
+
+### BREAKING
+- Library: `SlmpClient::setPlcProfile`, `setManualProfile`, and `highlevel::configureClientForPlcProfile` now return `Error` so invalid profiles are reported without silently resetting state.
+
+### Added
+- Library: Added `plcProfileCanonicalName`, `parsePlcProfile`, and `availablePlcProfiles` to the high-level profile API.
+
+### Docs
+- Docs: Clarified canonical profile names, display names, device-range labels, and connection-selectable profiles.
+
 ## [2.0.0] - 2026-07-06
 
 ### BREAKING

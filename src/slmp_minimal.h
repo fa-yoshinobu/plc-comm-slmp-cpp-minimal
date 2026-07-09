@@ -694,8 +694,13 @@ class SlmpClient {
     /** @brief Get current compatibility mode. */
     CompatibilityMode compatibilityMode() const;
 
-    /** @brief Set a concrete PLC profile and apply its frame/compatibility defaults. */
-    void setPlcProfile(PlcProfile profile);
+    /**
+     * @brief Set a concrete PLC profile and apply its frame/compatibility defaults.
+     * @return @ref Error::Ok on success, or @ref Error::InvalidArgument when the
+     * profile is not connection-selectable. The existing configuration is kept
+     * when the profile is rejected.
+     */
+    Error setPlcProfile(PlcProfile profile);
     /** @brief Return the currently selected PLC profile, or Unspecified after manual low-level overrides. */
     PlcProfile plcProfile() const;
 
@@ -706,7 +711,7 @@ class SlmpClient {
      * emit a specific SLMP frame shape while still keeping profile-based guards active.
      * Normal applications should prefer @ref setPlcProfile.
      */
-    void setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode);
+    Error setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode);
 
     /** @brief Enable or disable strict built-in Ethernet profile feature guards. Default is enabled. */
     void setStrictProfile(bool enabled);

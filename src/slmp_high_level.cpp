@@ -1250,7 +1250,7 @@ static void resolveRuntimeRangeLimits(SlmpClient& client, PlcProfile profile, De
 
 }  // namespace
 
-const char* plcProfileLabel(PlcProfile family) {
+const char* plcProfileCanonicalName(PlcProfile family) {
     switch (family) {
         case PlcProfile::Unspecified: return "";
         case PlcProfile::IqF: return "melsec:iq-f";
@@ -1269,6 +1269,59 @@ const char* plcProfileLabel(PlcProfile family) {
         case PlcProfile::QnUDVQj71E71100: return "melsec:qnudv:qj71e71-100";
     }
     return "";
+}
+
+const char* plcProfileLabel(PlcProfile family) {
+    return plcProfileCanonicalName(family);
+}
+
+Error parsePlcProfile(const char* text, PlcProfile& out_profile) {
+    if (text == nullptr) {
+        return Error::InvalidArgument;
+    }
+    static const PlcProfile profiles[] = {
+        PlcProfile::IqF,
+        PlcProfile::IqR,
+        PlcProfile::IqRRj71En71,
+        PlcProfile::IqL,
+        PlcProfile::MxF,
+        PlcProfile::MxR,
+        PlcProfile::QCpu,
+        PlcProfile::QCpuQj71E71100,
+        PlcProfile::LCpu,
+        PlcProfile::LCpuLj71E71100,
+        PlcProfile::QnU,
+        PlcProfile::QnUQj71E71100,
+        PlcProfile::QnUDV,
+        PlcProfile::QnUDVQj71E71100,
+    };
+    for (const PlcProfile profile : profiles) {
+        if (strcmp(text, plcProfileCanonicalName(profile)) == 0) {
+            out_profile = profile;
+            return Error::Ok;
+        }
+    }
+    return Error::InvalidArgument;
+}
+
+const PlcProfile* availablePlcProfiles(size_t& count) {
+    static const PlcProfile profiles[] = {
+        PlcProfile::IqF,
+        PlcProfile::IqR,
+        PlcProfile::IqRRj71En71,
+        PlcProfile::IqL,
+        PlcProfile::MxF,
+        PlcProfile::MxR,
+        PlcProfile::QCpuQj71E71100,
+        PlcProfile::LCpu,
+        PlcProfile::LCpuLj71E71100,
+        PlcProfile::QnU,
+        PlcProfile::QnUQj71E71100,
+        PlcProfile::QnUDV,
+        PlcProfile::QnUDVQj71E71100,
+    };
+    count = sizeof(profiles) / sizeof(profiles[0]);
+    return profiles;
 }
 
 const char* plcProfileDisplayName(PlcProfile family) {
@@ -1296,9 +1349,9 @@ PlcProfileDefaults plcProfileDefaults(PlcProfile family) {
     return plcProfileDefaultsImpl(family);
 }
 
-void configureClientForPlcProfile(SlmpClient& client, PlcProfile family) {
-    if (!isSpecifiedPlcProfile(family)) return;
-    client.setPlcProfile(family);
+Error configureClientForPlcProfile(SlmpClient& client, PlcProfile family) {
+    if (!isSpecifiedPlcProfile(family)) return Error::InvalidArgument;
+    return client.setPlcProfile(family);
 }
 
 const char* deviceRangeProfileLabel(PlcProfile profile) {
