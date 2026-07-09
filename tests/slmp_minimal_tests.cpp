@@ -3001,7 +3001,7 @@ void testQSeriesBlockRouteGuard() {
 }
 
 void testCapabilityProfileFixtureSnapshot() {
-    const std::string json = readTextFile("tests/fixtures/slmp_builtin_ethernet_profiles.json");
+    const std::string json = readTextFile("tests/fixtures/slmp_ethernet_profiles.json");
     assertContains(json, "\"schema_version\": 1");
     assertContains(json, "\"scope\": \"slmp-ethernet-port\"");
     assertContains(json, "\"default_strict\": true");
