@@ -5,6 +5,7 @@
 
 #include "slmp_minimal.h"
 
+#include <new>
 #include <string.h>
 
 #ifdef ARDUINO
@@ -31,6 +32,16 @@ namespace slmp {
  */
 static uint32_t getTimeMs() {
     return millis();
+}
+
+static bool isAligned(const void* pointer, size_t alignment) {
+    return (reinterpret_cast<uintptr_t>(pointer) % alignment) == 0U;
+}
+
+static void initializeLongTimerResults(LongTimerResult* results, int points) {
+    for (int i = 0; i < points; ++i) {
+        ::new (static_cast<void*>(results + i)) LongTimerResult{};
+    }
 }
 
 namespace {
@@ -1318,26 +1329,26 @@ CompatibilityMode SlmpClient::compatibilityMode() const {
     return compatibility_mode_;
 }
 
-void SlmpClient::setPlcProfile(PlcProfile profile) {
+Error SlmpClient::setPlcProfile(PlcProfile profile) {
     if (!isConnectionSelectablePlcProfile(profile)) {
-        plc_profile_ = PlcProfile::Unspecified;
-        return;
+        return Error::InvalidArgument;
     }
     plc_profile_ = profile;
     frame_type_ = frameTypeForPlcProfile(profile);
     compatibility_mode_ = compatibilityModeForPlcProfile(profile);
     block_access_enabled_ = !profileDisablesBlockAccess(profile);
+    return Error::Ok;
 }
 
-void SlmpClient::setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode) {
+Error SlmpClient::setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode) {
     if (!isConnectionSelectablePlcProfile(profile)) {
-        plc_profile_ = PlcProfile::Unspecified;
-        return;
+        return Error::InvalidArgument;
     }
     plc_profile_ = profile;
     frame_type_ = frame_type;
     compatibility_mode_ = mode;
     block_access_enabled_ = !profileDisablesBlockAccess(profile);
+    return Error::Ok;
 }
 
 PlcProfile SlmpClient::plcProfile() const {
@@ -1661,6 +1672,7 @@ void SlmpClient::update(uint32_t now_ms) {
     if (state_ == State::Idle) return;
 
     if (now_ms - last_activity_ms_ >= timeout_ms_) {
+        transport_.close();
         setError(Error::TransportError);
         state_ = State::Idle;
         return;
@@ -1693,12 +1705,14 @@ void SlmpClient::update(uint32_t now_ms) {
                 uint16_t response_data_length = 0;
                 if (frame_type_ == FrameType::Frame4E) {
                     if (rx_buffer_[0] != kResponseSubheader4E0 || rx_buffer_[1] != kResponseSubheader4E1) {
+                        transport_.close();
                         setError(Error::ProtocolError);
                         state_ = State::Idle;
                         return;
                     }
                     uint16_t serial = (frame_type_ == FrameType::Frame4E) ? readLe16(tx_buffer_ + 2) : 0;
                     if (readLe16(rx_buffer_ + 2) != serial) {
+                        transport_.close();
                         setError(Error::ProtocolError);
                         state_ = State::Idle;
                         return;
@@ -1706,6 +1720,7 @@ void SlmpClient::update(uint32_t now_ms) {
                     response_data_length = readLe16(rx_buffer_ + 11);
                 } else {
                     if (rx_buffer_[0] != kResponseSubheader3E0 || rx_buffer_[1] != kResponseSubheader3E1) {
+                        transport_.close();
                         setError(Error::ProtocolError);
                         state_ = State::Idle;
                         return;
@@ -1714,12 +1729,14 @@ void SlmpClient::update(uint32_t now_ms) {
                 }
 
                 if (response_data_length < 2U) {
+                    transport_.close();
                     setError(Error::ProtocolError);
                     state_ = State::Idle;
                     return;
                 }
                 last_response_length_ = response_prefix_size + response_data_length;
                 if (rx_capacity_ < last_response_length_) {
+                    transport_.close();
                     setError(Error::BufferTooSmall);
                     state_ = State::Idle;
                     return;
@@ -2585,12 +2602,17 @@ Error SlmpClient::readLtcStates(int head_no, int points, bool* out, size_t capac
         setError(Error::InvalidArgument);
         return last_error_;
     }
+    if (!isAligned(rx_buffer_, alignof(LongTimerResult))) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
     LongTimerResult* tmp = reinterpret_cast<LongTimerResult*>(rx_buffer_);
     size_t tmp_capacity = rx_capacity_ / sizeof(LongTimerResult);
     if (tmp_capacity < static_cast<size_t>(points)) {
         setError(Error::BufferTooSmall);
         return last_error_;
     }
+    initializeLongTimerResults(tmp, points);
     Error err = readLongTimer(head_no, points, tmp, tmp_capacity);
     if (err != Error::Ok) return err;
     for (int i = 0; i < points; ++i) out[i] = tmp[i].coil;
@@ -2602,12 +2624,17 @@ Error SlmpClient::readLtsStates(int head_no, int points, bool* out, size_t capac
         setError(Error::InvalidArgument);
         return last_error_;
     }
+    if (!isAligned(rx_buffer_, alignof(LongTimerResult))) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
     LongTimerResult* tmp = reinterpret_cast<LongTimerResult*>(rx_buffer_);
     size_t tmp_capacity = rx_capacity_ / sizeof(LongTimerResult);
     if (tmp_capacity < static_cast<size_t>(points)) {
         setError(Error::BufferTooSmall);
         return last_error_;
     }
+    initializeLongTimerResults(tmp, points);
     Error err = readLongTimer(head_no, points, tmp, tmp_capacity);
     if (err != Error::Ok) return err;
     for (int i = 0; i < points; ++i) out[i] = tmp[i].contact;
@@ -2619,12 +2646,17 @@ Error SlmpClient::readLstcStates(int head_no, int points, bool* out, size_t capa
         setError(Error::InvalidArgument);
         return last_error_;
     }
+    if (!isAligned(rx_buffer_, alignof(LongTimerResult))) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
     LongTimerResult* tmp = reinterpret_cast<LongTimerResult*>(rx_buffer_);
     size_t tmp_capacity = rx_capacity_ / sizeof(LongTimerResult);
     if (tmp_capacity < static_cast<size_t>(points)) {
         setError(Error::BufferTooSmall);
         return last_error_;
     }
+    initializeLongTimerResults(tmp, points);
     Error err = readLongRetentiveTimer(head_no, points, tmp, tmp_capacity);
     if (err != Error::Ok) return err;
     for (int i = 0; i < points; ++i) out[i] = tmp[i].coil;
@@ -2636,12 +2668,17 @@ Error SlmpClient::readLstsStates(int head_no, int points, bool* out, size_t capa
         setError(Error::InvalidArgument);
         return last_error_;
     }
+    if (!isAligned(rx_buffer_, alignof(LongTimerResult))) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
     LongTimerResult* tmp = reinterpret_cast<LongTimerResult*>(rx_buffer_);
     size_t tmp_capacity = rx_capacity_ / sizeof(LongTimerResult);
     if (tmp_capacity < static_cast<size_t>(points)) {
         setError(Error::BufferTooSmall);
         return last_error_;
     }
+    initializeLongTimerResults(tmp, points);
     Error err = readLongRetentiveTimer(head_no, points, tmp, tmp_capacity);
     if (err != Error::Ok) return err;
     for (int i = 0; i < points; ++i) out[i] = tmp[i].contact;

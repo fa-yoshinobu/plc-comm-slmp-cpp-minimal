@@ -11,7 +11,9 @@ catalog. Keep the final profile choice in the application, configuration UI, or
 operator workflow.
 
 Use `slmp::highlevel::plcProfileDisplayName(profile)` for UI labels. Store the
-canonical profile string from `plcProfileLabel(profile)`, not the display name.
+canonical profile string from `plcProfileCanonicalName(profile)`, not the display name.
+Use `availablePlcProfiles(count)` when a UI or configuration schema needs only
+profiles that can open a connection; the base `melsec:qcpu` profile is excluded.
 
 Profile selection is the supported way to apply target-specific behavior. Use
 `slmp::highlevel::configureClientForPlcProfile` in normal applications. If an
@@ -39,6 +41,10 @@ compatibility settings do not imply a PLC model.
 
 `melsec:qcpu` is base-only and remains for inherited address and range rules.
 Use `melsec:qcpu:qj71e71-100` for QCPU Ethernet unit connections.
+
+For configuration files, `parsePlcProfile(text, profile)` converts one exact
+canonical profile string to `PlcProfile`. It returns `Error::InvalidArgument`
+for unknown text and does not accept an empty or unspecified profile.
 
 ## How to select
 
@@ -69,8 +75,10 @@ int main() {
     slmp::SlmpClient plc(transport, tx, sizeof(tx), rx, sizeof(rx));
 
     constexpr auto profile = slmp::highlevel::PlcProfile::IqR;
-    slmp::highlevel::configureClientForPlcProfile(plc, profile);
-    std::printf("%s\n", slmp::highlevel::plcProfileLabel(profile));
+    if (slmp::highlevel::configureClientForPlcProfile(plc, profile) != slmp::Error::Ok) {
+        return 1;
+    }
+    std::printf("%s\n", slmp::highlevel::plcProfileCanonicalName(profile));
 
     return plc.frameType() == slmp::FrameType::Frame4E ? 0 : 1;
 }

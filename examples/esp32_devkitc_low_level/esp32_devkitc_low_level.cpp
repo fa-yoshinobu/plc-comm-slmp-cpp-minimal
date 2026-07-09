@@ -42,7 +42,9 @@ bool ensurePlc() {
     }
 
     // Keep low-level calls while still selecting a concrete PLC profile.
-    g_plc.setPlcProfile(slmp::PlcProfile::IqR);
+    if (g_plc.setPlcProfile(slmp::PlcProfile::IqR) != slmp::Error::Ok) {
+        return false;
+    }
     return g_plc.connect(kPlcHost, kPlcPort);
 }
 

@@ -210,11 +210,34 @@ struct PlcProfileDefaults {
 };
 
 /**
- * @brief Return the canonical lowercase profile label.
+ * @brief Return the canonical lowercase profile name.
  * @param family Selected PLC profile.
  * @return Profile name such as `melsec:iq-f`.
  */
+const char* plcProfileCanonicalName(PlcProfile family);
+
+/**
+ * @brief Return the canonical lowercase profile name (legacy alias).
+ * @deprecated Use @ref plcProfileCanonicalName for clarity.
+ */
 const char* plcProfileLabel(PlcProfile family);
+
+/**
+ * @brief Parse one canonical profile name.
+ * @param text Canonical profile name such as `melsec:iq-r`.
+ * @param out_profile Receives the parsed profile.
+ * @return @ref Error::Ok on success, or @ref Error::InvalidArgument for null,
+ * unknown, or unspecified names.
+ */
+Error parsePlcProfile(const char* text, PlcProfile& out_profile);
+
+/**
+ * @brief Return the connection-selectable built-in profiles.
+ * @param count Receives the number of entries in the returned array.
+ * @return Pointer to a stable, library-owned array. The array excludes
+ * `Unspecified` and the abstract `melsec:qcpu` base profile.
+ */
+const PlcProfile* availablePlcProfiles(size_t& count);
 
 /**
  * @brief Return the canonical human-readable display name for a PLC profile.
@@ -237,7 +260,7 @@ PlcProfileDefaults plcProfileDefaults(PlcProfile family);
  *
  * This helper only applies deterministic local defaults. It does not probe the PLC.
  */
-void configureClientForPlcProfile(SlmpClient& client, PlcProfile family);
+Error configureClientForPlcProfile(SlmpClient& client, PlcProfile family);
 
 /**
  * @enum DeviceRangeCategory
