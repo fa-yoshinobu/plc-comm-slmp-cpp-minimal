@@ -3297,6 +3297,48 @@ void testCapabilityProfileGuards() {
     }
 }
 
+void testPlcProfileDescriptors() {
+    size_t count = 0U;
+    const slmp::highlevel::PlcProfileDescriptor* descriptors =
+        slmp::highlevel::plcProfileDescriptors(count);
+    assert(descriptors != nullptr);
+    assert(count == 14U);
+
+    const char* expected_names[] = {
+        "melsec:iq-f", "melsec:iq-r", "melsec:iq-r:rj71en71", "melsec:iq-l", "melsec:mx-f", "melsec:mx-r",
+        "melsec:qcpu", "melsec:qcpu:qj71e71-100", "melsec:lcpu", "melsec:lcpu:lj71e71-100", "melsec:qnu",
+        "melsec:qnu:qj71e71-100", "melsec:qnudv", "melsec:qnudv:qj71e71-100",
+    };
+    for (size_t i = 0U; i < count; ++i) {
+        assert(std::string(descriptors[i].canonical_name) == expected_names[i]);
+        assert(!std::string(descriptors[i].display_name).empty());
+    }
+
+    const std::string json = readTextFile("tests/fixtures/slmp_ethernet_profiles.json");
+    for (size_t i = 0U; i < count; ++i) {
+        const std::string marker = std::string("\"") + descriptors[i].canonical_name + "\": {";
+        const size_t marker_pos = json.find(marker);
+        assert(marker_pos != std::string::npos);
+        const size_t next_profile_pos = json.find("\n    \"", marker_pos + marker.size());
+        const size_t block_end = next_profile_pos == std::string::npos ? json.size() : next_profile_pos;
+        const std::string profile_block = json.substr(marker_pos, block_end - marker_pos);
+        assertContains(profile_block, (std::string("\"display_name\": \"") + descriptors[i].display_name + "\"").c_str());
+        if (descriptors[i].base_profile == nullptr) {
+            assert(profile_block.find("\"base_profile\"") == std::string::npos);
+        } else {
+            assertContains(profile_block, (std::string("\"base_profile\": \"") + descriptors[i].base_profile + "\"").c_str());
+        }
+        assert(descriptors[i].connectable == (profile_block.find("\"role\": \"base\"") == std::string::npos));
+    }
+
+    const slmp::highlevel::PlcProfileDescriptor& qcpu = descriptors[6];
+    assert(!qcpu.connectable);
+    assert(std::string(qcpu.base_profile) == "melsec:qnu");
+    assert(descriptors[2].connectable);
+    assert(std::string(descriptors[2].base_profile) == "melsec:iq-r");
+    assert(descriptors[0].base_profile == nullptr);
+}
+
 void testCpuOperationState() {
     {
         MockTransport transport;
@@ -3371,6 +3413,7 @@ int main() {
     testHighLevelNamedReadAndPoller();
     testHighLevelDeviceRangeCatalog();
     testHighLevelplcProfileDefaults();
+    testPlcProfileDescriptors();
     testQSeriesBlockRouteGuard();
     testCapabilityProfileFixtureSnapshot();
     testUnspecifiedProfileDoesNotSend();

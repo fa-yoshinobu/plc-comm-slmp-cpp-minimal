@@ -2455,6 +2455,46 @@ PlcProfile slmp::highlevel::PlcProfileDefaults::range_profile
 
 PLC profile used for SD-range helpers
 
+### Struct `slmp::highlevel::PlcProfileDescriptor`
+
+Canonical metadata used to select and describe one PLC profile.
+
+A null base_profile means that the canonical profile has no declared base profile.
+
+#### Fields
+
+#### `canonical_name`
+
+```cpp
+const char* slmp::highlevel::PlcProfileDescriptor::canonical_name
+```
+
+Stable configuration identifier
+
+#### `display_name`
+
+```cpp
+const char* slmp::highlevel::PlcProfileDescriptor::display_name
+```
+
+Human-readable UI label
+
+#### `connectable`
+
+```cpp
+bool slmp::highlevel::PlcProfileDescriptor::connectable
+```
+
+True when standard connection helpers accept it
+
+#### `base_profile`
+
+```cpp
+const char* slmp::highlevel::PlcProfileDescriptor::base_profile
+```
+
+Canonical base profile, or null
+
 ### Struct `slmp::highlevel::DeviceRangeEntry`
 
 One device-range row for one public device code such as D or STS.

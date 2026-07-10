@@ -1324,6 +1324,27 @@ const PlcProfile* availablePlcProfiles(size_t& count) {
     return profiles;
 }
 
+const PlcProfileDescriptor* plcProfileDescriptors(size_t& count) {
+    static const PlcProfileDescriptor descriptors[] = {
+        {"melsec:iq-f", "MELSEC iQ-F (built-in)", true, nullptr},
+        {"melsec:iq-r", "MELSEC iQ-R (built-in)", true, nullptr},
+        {"melsec:iq-r:rj71en71", "MELSEC iQ-R (RJ71EN71)", true, "melsec:iq-r"},
+        {"melsec:iq-l", "MELSEC iQ-L (built-in)", true, nullptr},
+        {"melsec:mx-f", "MELSEC MX-F (built-in)", true, "melsec:iq-r"},
+        {"melsec:mx-r", "MELSEC MX-R (built-in)", true, "melsec:iq-r"},
+        {"melsec:qcpu", "MELSEC-Q (base profile)", false, "melsec:qnu"},
+        {"melsec:qcpu:qj71e71-100", "MELSEC-Q (QJ71E71-100)", true, "melsec:qcpu"},
+        {"melsec:lcpu", "MELSEC-L (built-in)", true, nullptr},
+        {"melsec:lcpu:lj71e71-100", "MELSEC-L (LJ71E71-100)", true, "melsec:lcpu"},
+        {"melsec:qnu", "MELSEC QnU (built-in)", true, nullptr},
+        {"melsec:qnu:qj71e71-100", "MELSEC QnU (QJ71E71-100)", true, "melsec:qnu"},
+        {"melsec:qnudv", "MELSEC QnUDV (built-in)", true, nullptr},
+        {"melsec:qnudv:qj71e71-100", "MELSEC QnUDV (QJ71E71-100)", true, "melsec:qnudv"},
+    };
+    count = sizeof(descriptors) / sizeof(descriptors[0]);
+    return descriptors;
+}
+
 const char* plcProfileDisplayName(PlcProfile family) {
     switch (family) {
         case PlcProfile::IqF: return "MELSEC iQ-F (built-in)";
