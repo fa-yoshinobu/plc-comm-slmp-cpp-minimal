@@ -25,7 +25,7 @@ The default CI workflow intentionally stays host-only so normal development does
 
 This repository also ships a `library.json` manifest for PlatformIO-compatible packaging.
 
-No automatic `PlatformIO Registry` publish is configured in GitHub Actions. Keep publication manual until board-level validation is complete.
+The release workflow always builds and checks the PlatformIO package. Registry publication is disabled by default; a maintainer can explicitly enable the `publish_platformio` workflow-dispatch input after board-level validation. That path checks for an existing version and requires the `PLATFORMIO_AUTH_TOKEN` repository secret.
 
 Validate the package locally with:
 
@@ -39,10 +39,10 @@ Run the heavier PlatformIO sample gate only when you intentionally validate embe
 .\run_ci.bat --with-platformio
 ```
 
-Manual publish step after validation:
+Manual fallback publish step after validation:
 
 ```powershell
-$owner = "your-platformio-owner"
+$owner = "fa-yoshinobu"
 & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" pkg publish --owner $owner
 ```
 

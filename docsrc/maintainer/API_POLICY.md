@@ -1,6 +1,6 @@
 # API Policy
 
-This library is still in the `0.x` phase, but the public API is being stabilized deliberately.
+This library has a stable `3.x` public API and follows Semantic Versioning.
 
 Public API surface:
 
@@ -15,13 +15,10 @@ Stability intent:
 - additive changes are preferred
 - source-compatible changes are preferred over renames
 - behavior changes should be accompanied by host tests and changelog entries
+- deprecated public names remain available for at least one minor release when practical
+- breaking public API changes require a new major version
 
-What may still change before `1.0.0`:
-
-- naming of newer helper APIs
-- example sketch structure
-- CI and test utilities
-- library metadata and packaging details
+The example sketch structure, CI/test utilities, maintainer documentation, and packaging implementation are not public API. Changes to them still require the relevant build or packaging checks.
 
 What should remain stable unless there is a strong reason:
 
@@ -37,4 +34,4 @@ Breaking changes policy:
 
 - document them in `CHANGELOG.md`
 - update examples and host tests in the same change
-- keep the old form for at least one `0.x` release when practical
+- use a major-version release unless the old form can remain as a source-compatible deprecation
