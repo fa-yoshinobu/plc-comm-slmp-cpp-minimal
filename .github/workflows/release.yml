@@ -94,6 +94,18 @@ jobs:
           grep -x 'library.properties' /tmp/platformio-package-files.txt
           grep -x 'src/slmp_minimal.h' /tmp/platformio-package-files.txt
 
+      - name: Check PlatformIO registry for an existing version
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_platformio }}
+        shell: pwsh
+        run: >-
+          ./scripts/check_registry_duplicate.ps1
+          -Registry platformio
+          -Package fa-yoshinobu/slmp-connect-cpp-minimal
+          -VersionSource library-properties
+          -ManifestPath library.properties
+          -CompareSource library-json
+          -CompareManifestPath library.json
+
       - name: Publish PlatformIO package
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_platformio }}
         env:
