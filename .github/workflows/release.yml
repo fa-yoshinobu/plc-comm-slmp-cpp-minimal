@@ -15,6 +15,11 @@ on:
         required: false
         default: false
         type: boolean
+      confirm_publish:
+        description: "Must exactly match version to publish the PlatformIO package"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -22,6 +27,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - name: Resolve release version
         id: version
@@ -94,29 +102,6 @@ jobs:
           grep -x 'library.properties' /tmp/platformio-package-files.txt
           grep -x 'src/slmp_minimal.h' /tmp/platformio-package-files.txt
 
-      - name: Check PlatformIO registry for an existing version
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_platformio }}
-        shell: pwsh
-        run: >-
-          ./scripts/check_registry_duplicate.ps1
-          -Registry platformio
-          -Package fa-yoshinobu/slmp-connect-cpp-minimal
-          -VersionSource library-properties
-          -ManifestPath library.properties
-          -CompareSource library-json
-          -CompareManifestPath library.json
-
-      - name: Publish PlatformIO package
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_platformio }}
-        env:
-          PLATFORMIO_AUTH_TOKEN: ${{ secrets.PLATFORMIO_AUTH_TOKEN }}
-        run: |
-          if [ -z "${PLATFORMIO_AUTH_TOKEN}" ]; then
-            echo "::error::PLATFORMIO_AUTH_TOKEN secret is not configured."
-            exit 1
-          fi
-          python -m platformio pkg publish . --owner fa-yoshinobu --type library --no-interactive
-
       - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -128,5 +113,46 @@ jobs:
           if gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" > /dev/null 2>&1; then
             gh release upload "${tag}" "${asset}" "${pio_asset}" --clobber --repo "${GITHUB_REPOSITORY}"
           else
-            gh release create "${tag}" "${asset}" "${pio_asset}" --repo "${GITHUB_REPOSITORY}" --title "Release ${tag}" --generate-notes --target main
+            gh release create "${tag}" "${asset}" "${pio_asset}" --repo "${GITHUB_REPOSITORY}" --title "Release ${tag}" --generate-notes --verify-tag --draft
           fi
+
+  publish-platformio:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_platformio && inputs.confirm_publish == inputs.version }}
+    needs: release
+    runs-on: ubuntu-latest
+    environment: platformio-publish
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install platformio
+
+      - name: Check PlatformIO registry for an existing version
+        shell: pwsh
+        run: >-
+          ./scripts/check_registry_duplicate.ps1
+          -Registry platformio
+          -Package fa-yoshinobu/slmp-connect-cpp-minimal
+          -VersionSource library-properties
+          -ManifestPath library.properties
+          -CompareSource library-json
+          -CompareManifestPath library.json
+
+      - name: Publish PlatformIO package
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_platformio && inputs.confirm_publish == inputs.version }}
+        env:
+          PLATFORMIO_AUTH_TOKEN: ${{ secrets.PLATFORMIO_AUTH_TOKEN }}
+        run: |
+          if [ -z "${PLATFORMIO_AUTH_TOKEN}" ]; then
+            echo "::error::PLATFORMIO_AUTH_TOKEN secret is not configured."
+            exit 1
+          fi
+          python -m platformio pkg publish . --owner fa-yoshinobu --type library --no-interactive

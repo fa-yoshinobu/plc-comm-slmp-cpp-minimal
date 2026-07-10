@@ -19,7 +19,7 @@ Add the PlatformIO Registry package to your `platformio.ini`:
 
 ```ini
 lib_deps =
-  fa-yoshinobu/slmp-connect-cpp-minimal@^3.0.1
+  fa-yoshinobu/slmp-connect-cpp-minimal@^3.1.0
 ```
 
 ## Include the right headers
