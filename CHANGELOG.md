@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -17,13 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.1] - 2026-07-10
+## [3.0.0] - 2026-07-10
 
 ### Changed
-- Release: Bumped `library.json` and synchronized `library.properties` metadata to `2.0.1`.
+- Release: Bumped `library.json` and synchronized `library.properties` metadata to `3.0.0`.
 
 ### BREAKING
-- Library: `SlmpClient::setPlcProfile`, `setManualProfile`, and `highlevel::configureClientForPlcProfile` now return `Error` so invalid profiles are reported without silently resetting state.
+- Library: Breaking: `SlmpClient::setPlcProfile`, `setManualProfile`, and `highlevel::configureClientForPlcProfile` now return `Error` so invalid profiles are reported without silently resetting state.
+- Migration: Check for `Error::Ok` after each profile-setting call. Invalid profiles leave the prior client configuration unchanged; callers must handle `Error::InvalidArgument` before starting communication.
 
 ### Added
 - Library: Added `plcProfileCanonicalName`, `parsePlcProfile`, and `availablePlcProfiles` to the high-level profile API.
