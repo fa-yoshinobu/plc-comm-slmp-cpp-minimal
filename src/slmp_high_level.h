@@ -220,6 +220,7 @@ const char* plcProfileCanonicalName(PlcProfile family);
  * @brief Return the canonical lowercase profile name (legacy alias).
  * @deprecated Use @ref plcProfileCanonicalName for clarity.
  */
+[[deprecated("Use plcProfileCanonicalName")]]
 const char* plcProfileLabel(PlcProfile family);
 
 /**
