@@ -173,7 +173,7 @@ void loop() {
 
 1. The board joins the same network as your PLC.
 2. The serial monitor prints `PLC connected`.
-3. The PLC-side communication data code is Binary and the port/open setting matches your transport; see the [MELSEC SLMP PLC Setup Guide](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/).
+3. The PLC-side communication data code is Binary and the port/open setting matches your transport; see the [MELSEC PLC Setup Guide](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/).
 4. PLC-side RUN-time write permission is enabled before you run a write example where the PLC exposes that setting.
 5. `D100:U` prints a stable value or a value you expect from the PLC.
 6. The write test uses a safe address reserved for bring-up.
@@ -190,8 +190,3 @@ void loop() {
 | Address parsing fails | Check that your `slmp::highlevel::PlcProfile` matches your actual hardware. |
 | `profile_feature_blocked` is returned | The selected profile does not support that operation. Use a supported operation, or intentionally call `plc.setStrictProfile(false)` for verification. |
 | `X` or `Y` looks wrong | Use the profile-aware overloads of `slmp::highlevel::readTyped` and `slmp::highlevel::writeTyped`. |
-
-## Next steps
-
-- Open the runnable samples: [examples README](https://github.com/fa-yoshinobu/plc-comm-slmp-cpp-minimal/tree/main/examples).
-- Continue with the [Usage guide](USAGE_GUIDE.md) and [Gotchas](GOTCHAS.md).

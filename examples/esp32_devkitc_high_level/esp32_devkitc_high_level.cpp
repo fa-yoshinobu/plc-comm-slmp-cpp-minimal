@@ -77,7 +77,7 @@ bool ensurePlc() {
 
     Serial.printf(
         "connected family=%s frame=%u compat=%u model=%s\n",
-        slmp::highlevel::plcProfileLabel(kPlcProfile),
+        slmp::highlevel::plcProfileCanonicalName(kPlcProfile),
         static_cast<unsigned>(g_plc.frameType()),
         static_cast<unsigned>(g_plc.compatibilityMode()),
         type_name_ok ? info.model : "unknown");
