@@ -210,6 +210,20 @@ struct PlcProfileDefaults {
 };
 
 /**
+ * @struct PlcProfileDescriptor
+ * @brief Canonical metadata used to select and describe one PLC profile.
+ *
+ * A null @ref base_profile means that the canonical profile has no declared
+ * base profile.
+ */
+struct PlcProfileDescriptor {
+    const char* canonical_name;  ///< Stable configuration identifier.
+    const char* display_name;    ///< Human-readable UI label.
+    bool connectable;            ///< True when standard connection helpers accept it.
+    const char* base_profile;    ///< Canonical base profile, or null.
+};
+
+/**
  * @brief Return the canonical lowercase profile name.
  * @param family Selected PLC profile.
  * @return Profile name such as `melsec:iq-f`.
@@ -239,6 +253,15 @@ Error parsePlcProfile(const char* text, PlcProfile& out_profile);
  * `Unspecified` and the abstract `melsec:qcpu` base profile.
  */
 const PlcProfile* availablePlcProfiles(size_t& count);
+
+/**
+ * @brief Return all canonical profiles with display, connection, and base-profile metadata.
+ * @param count Receives the number of descriptors in the returned array.
+ * @return Pointer to a stable, library-owned descriptor array. The abstract
+ * `melsec:qcpu` entry is included with @ref PlcProfileDescriptor::connectable
+ * set to false.
+ */
+const PlcProfileDescriptor* plcProfileDescriptors(size_t& count);
 
 /**
  * @brief Return the canonical human-readable display name for a PLC profile.

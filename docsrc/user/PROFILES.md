@@ -10,10 +10,11 @@ name data, and a wrong inference can select the wrong address grammar or range
 catalog. Keep the final profile choice in the application, configuration UI, or
 operator workflow.
 
-Use `slmp::highlevel::plcProfileDisplayName(profile)` for UI labels. Store the
-canonical profile string from `plcProfileCanonicalName(profile)`, not the display name.
-Use `availablePlcProfiles(count)` when a UI or configuration schema needs only
-profiles that can open a connection; the base `melsec:qcpu` profile is excluded.
+Use `slmp::highlevel::plcProfileDescriptors(count)` when a UI or configuration
+schema needs the canonical name, display name, connection availability, and
+base-profile relationship in one list. The abstract `melsec:qcpu` entry is
+included with `connectable == false`; a null `base_profile` means no declared
+base profile. Store `canonical_name`, not `display_name`.
 
 Profile selection is the supported way to apply target-specific behavior. Use
 `slmp::highlevel::configureClientForPlcProfile` in normal applications. If an

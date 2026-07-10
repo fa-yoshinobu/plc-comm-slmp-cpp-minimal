@@ -6,6 +6,7 @@
 #include <deque>
 #include <fstream>
 #include <iterator>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -53,6 +54,53 @@ void assertProfileDisplayName(const std::string& json, const char* profile_id, s
     const std::string expected = std::string("\"display_name\": \"") +
                                  slmp::highlevel::plcProfileDisplayName(profile) + "\"";
     assert(json.find(expected, marker_pos) < block_end);
+}
+
+std::vector<std::string> extractProfileIds(const std::string& json) {
+    const size_t profiles_key = json.find("\"profiles\": {");
+    assert(profiles_key != std::string::npos);
+    const size_t profiles_start = json.find('{', profiles_key);
+    assert(profiles_start != std::string::npos);
+
+    std::vector<std::string> profiles;
+    int depth = 0;
+    bool in_string = false;
+    bool escaping = false;
+    for (size_t i = profiles_start; i < json.size(); ++i) {
+        const char ch = json[i];
+        if (in_string) {
+            if (escaping) {
+                escaping = false;
+            } else if (ch == '\\') {
+                escaping = true;
+            } else if (ch == '"') {
+                in_string = false;
+            }
+            continue;
+        }
+
+        if (ch == '"') {
+            if (depth == 1) {
+                const size_t key_start = i + 1U;
+                const size_t key_end = json.find('"', key_start);
+                assert(key_end != std::string::npos);
+                const size_t colon = json.find(':', key_end + 1U);
+                assert(colon != std::string::npos);
+                if (json.find_first_not_of(" \t\r\n", key_end + 1U) == colon) {
+                    profiles.push_back(json.substr(key_start, key_end - key_start));
+                }
+                i = key_end;
+            } else {
+                in_string = true;
+            }
+        } else if (ch == '{') {
+            ++depth;
+        } else if (ch == '}') {
+            --depth;
+            if (depth == 0) break;
+        }
+    }
+    return profiles;
 }
 
 void appendLe16(std::vector<uint8_t>& out, uint16_t value) {
@@ -3007,24 +3055,11 @@ void testCapabilityProfileFixtureSnapshot() {
     assertContains(json, "\"scope\": \"slmp-ethernet-port\"");
     assertContains(json, "\"default_strict\": true");
 
-    const char* profiles[] = {
-        "\"melsec:iq-r\"",
-        "\"melsec:iq-r:rj71en71\"",
-        "\"melsec:iq-l\"",
-        "\"melsec:mx-r\"",
-        "\"melsec:mx-f\"",
-        "\"melsec:iq-f\"",
-        "\"melsec:qcpu\"",
-        "\"melsec:qcpu:qj71e71-100\"",
-        "\"melsec:lcpu\"",
-        "\"melsec:lcpu:lj71e71-100\"",
-        "\"melsec:qnu\"",
-        "\"melsec:qnu:qj71e71-100\"",
-        "\"melsec:qnudv\"",
-        "\"melsec:qnudv:qj71e71-100\"",
-    };
-    for (size_t i = 0; i < sizeof(profiles) / sizeof(profiles[0]); ++i) {
-        assertContains(json, profiles[i]);
+    size_t descriptor_count = 0U;
+    const slmp::highlevel::PlcProfileDescriptor* descriptors =
+        slmp::highlevel::plcProfileDescriptors(descriptor_count);
+    for (size_t i = 0U; i < descriptor_count; ++i) {
+        assertContains(json, (std::string("\"") + descriptors[i].canonical_name + "\"").c_str());
     }
 
     assertContains(json, "\"type_name\"");
@@ -3049,20 +3084,11 @@ void testCapabilityProfileFixtureSnapshot() {
     assertContains(json, "\"S\": \"read-only\"");
     assertContains(json, "\"S\": \"read-write\"");
 
-    assertProfileDisplayName(json, "melsec:iq-r", slmp::highlevel::PlcProfile::IqR);
-    assertProfileDisplayName(json, "melsec:iq-r:rj71en71", slmp::highlevel::PlcProfile::IqRRj71En71);
-    assertProfileDisplayName(json, "melsec:iq-l", slmp::highlevel::PlcProfile::IqL);
-    assertProfileDisplayName(json, "melsec:mx-r", slmp::highlevel::PlcProfile::MxR);
-    assertProfileDisplayName(json, "melsec:mx-f", slmp::highlevel::PlcProfile::MxF);
-    assertProfileDisplayName(json, "melsec:iq-f", slmp::highlevel::PlcProfile::IqF);
-    assertProfileDisplayName(json, "melsec:qcpu", slmp::highlevel::PlcProfile::QCpu);
-    assertProfileDisplayName(json, "melsec:qcpu:qj71e71-100", slmp::highlevel::PlcProfile::QCpuQj71E71100);
-    assertProfileDisplayName(json, "melsec:lcpu", slmp::highlevel::PlcProfile::LCpu);
-    assertProfileDisplayName(json, "melsec:lcpu:lj71e71-100", slmp::highlevel::PlcProfile::LCpuLj71E71100);
-    assertProfileDisplayName(json, "melsec:qnu", slmp::highlevel::PlcProfile::QnU);
-    assertProfileDisplayName(json, "melsec:qnu:qj71e71-100", slmp::highlevel::PlcProfile::QnUQj71E71100);
-    assertProfileDisplayName(json, "melsec:qnudv", slmp::highlevel::PlcProfile::QnUDV);
-    assertProfileDisplayName(json, "melsec:qnudv:qj71e71-100", slmp::highlevel::PlcProfile::QnUDVQj71E71100);
+    for (size_t i = 0U; i < descriptor_count; ++i) {
+        slmp::highlevel::PlcProfile profile = slmp::highlevel::PlcProfile::Unspecified;
+        assert(slmp::highlevel::parsePlcProfile(descriptors[i].canonical_name, profile) == slmp::Error::Ok);
+        assertProfileDisplayName(json, descriptors[i].canonical_name, profile);
+    }
 }
 
 void testUnspecifiedProfileDoesNotSend() {
@@ -3297,6 +3323,48 @@ void testCapabilityProfileGuards() {
     }
 }
 
+void testPlcProfileDescriptors() {
+    size_t count = 0U;
+    const slmp::highlevel::PlcProfileDescriptor* descriptors =
+        slmp::highlevel::plcProfileDescriptors(count);
+    assert(descriptors != nullptr);
+
+    const std::string json = readTextFile("tests/fixtures/slmp_ethernet_profiles.json");
+    const std::vector<std::string> expected_names = extractProfileIds(json);
+    std::set<std::string> expected_set(expected_names.begin(), expected_names.end());
+    std::set<std::string> actual_set;
+
+    for (size_t i = 0U; i < count; ++i) {
+        actual_set.insert(descriptors[i].canonical_name);
+        assert(!std::string(descriptors[i].display_name).empty());
+    }
+    assert(count == expected_names.size());
+    assert(actual_set == expected_set);
+
+    for (size_t i = 0U; i < count; ++i) {
+        const std::string marker = std::string("\"") + descriptors[i].canonical_name + "\": {";
+        const size_t marker_pos = json.find(marker);
+        assert(marker_pos != std::string::npos);
+        const size_t next_profile_pos = json.find("\n    \"", marker_pos + marker.size());
+        const size_t block_end = next_profile_pos == std::string::npos ? json.size() : next_profile_pos;
+        const std::string profile_block = json.substr(marker_pos, block_end - marker_pos);
+        assertContains(profile_block, (std::string("\"display_name\": \"") + descriptors[i].display_name + "\"").c_str());
+        if (descriptors[i].base_profile == nullptr) {
+            assert(profile_block.find("\"base_profile\"") == std::string::npos);
+        } else {
+            assertContains(profile_block, (std::string("\"base_profile\": \"") + descriptors[i].base_profile + "\"").c_str());
+        }
+        assert(descriptors[i].connectable == (profile_block.find("\"role\": \"base\"") == std::string::npos));
+    }
+
+    const slmp::highlevel::PlcProfileDescriptor& qcpu = descriptors[6];
+    assert(!qcpu.connectable);
+    assert(std::string(qcpu.base_profile) == "melsec:qnu");
+    assert(descriptors[2].connectable);
+    assert(std::string(descriptors[2].base_profile) == "melsec:iq-r");
+    assert(descriptors[0].base_profile == nullptr);
+}
+
 void testCpuOperationState() {
     {
         MockTransport transport;
@@ -3371,6 +3439,7 @@ int main() {
     testHighLevelNamedReadAndPoller();
     testHighLevelDeviceRangeCatalog();
     testHighLevelplcProfileDefaults();
+    testPlcProfileDescriptors();
     testQSeriesBlockRouteGuard();
     testCapabilityProfileFixtureSnapshot();
     testUnspecifiedProfileDoesNotSend();
