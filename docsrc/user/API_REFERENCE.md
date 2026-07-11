@@ -17,44 +17,13 @@ Do not edit it manually; run `scripts/generate_api_reference.py` instead.
 
 Root namespace for all SLMP communication components.
 
-#### Enums
+#### Aliases
 
-#### `EndCodeLanguage`
-
-Language selector retained for optional external end-code catalogs.
-
-| Value | Description |
-| --- | --- |
-| `English = 0` |  |
-| `Japanese = 1` |  |
-
-#### Functions
-
-#### `endCodeMessage`
+#### `TcpKeepAliveConfigurator`
 
 ```cpp
-const char * slmp::endCodeMessage(uint16_t end_code, EndCodeLanguage language=EndCodeLanguage::English)
+using slmp::TcpKeepAliveConfigurator = bool (*)(::Client& client, uint32_t idle_seconds)
 ```
-
-Get a user-facing SLMP end-code message.
-
-Localized message text is not embedded in this library; resolve endCodeString(end_code) in an application-owned catalog. This function is retained as a compatibility hook and returns nullptr.
-
-#### `endCodeMessageEnglish`
-
-```cpp
-const char * slmp::endCodeMessageEnglish(uint16_t end_code)
-```
-
-Compatibility hook for English message lookup; returns nullptr.
-
-#### `endCodeMessageJapanese`
-
-```cpp
-const char * slmp::endCodeMessageJapanese(uint16_t end_code)
-```
-
-Compatibility hook for Japanese message lookup; returns nullptr.
 
 ### Namespace `slmp::dev`
 
@@ -62,7 +31,7 @@ Fluent API for defining device addresses.
 
 This namespace is the recommended way to create DeviceAddress values in application code. It keeps the call site explicit about whether the PLC uses decimal numbering or MELSEC hexadecimal numbering.
 
-Typical usage: autod100=slmp::dev::D(slmp::dev::dec(100));//decimal-numberedDregister autox1a=slmp::dev::X(slmp::dev::hex(0x1A));//hexadecimal-numberedXinput autord10=slmp::dev::RD(slmp::dev::dec(10));//refreshdataregister autoltn0=slmp::dev::LTN(slmp::dev::dec(0));//longtimercurrentvalue
+Typical usage: autod100=slmp::dev::D(profile,slmp::dev::dec(100)); autox1a=slmp::dev::X(profile,slmp::dev::hex(0x1A)); autord10=slmp::dev::RD(profile,slmp::dev::dec(10)); autoltn0=slmp::dev::LTN(profile,slmp::dev::dec(0));
 
 Device families exposed here match the generic direct-access helpers in SlmpClient. Extended devices such as U\\G, U\\HG, and J\\device use ExtDeviceSpec instead of these factory helpers.
 
@@ -103,15 +72,16 @@ Returns: Hexadecimal-number wrapper consumed by the device helper factories.
 #### `FDevice`
 
 ```cpp
-DeviceAddress slmp::dev::FDevice(DecNo number)
+DeviceAddress slmp::dev::FDevice(PlcProfile profile, DecNo number)
 ```
 
 Create an annunciator (F) device address.
 
-number Decimal annunciator number such as slmp::dev::dec(10). Device address for F<number>. This helper is named FDevice instead of F because some embedded toolchains define F as a macro.
+profile Canonical PLC profile bound to the address. number Decimal annunciator number such as slmp::dev::dec(10). Device address for F<number>. This helper is named FDevice instead of F because some embedded toolchains define F as a macro.
 
 | Parameter | Description |
 | --- | --- |
+| `profile` | Canonical PLC profile bound to the address. |
 | `number` | Decimal annunciator number such as slmp::dev::dec(10). |
 
 Returns: Device address for F<number>.
@@ -274,16 +244,17 @@ Wraps classes like WiFiClient, EthernetClient, or GSMClient. Implements reliable
 #### `ArduinoClientTransport`
 
 ```cpp
-slmp::ArduinoClientTransport::ArduinoClientTransport(::Client &client)
+slmp::ArduinoClientTransport::ArduinoClientTransport(::Client &client, TcpKeepAliveConfigurator keepalive_configurator)
 ```
 
 Wrap an existing Arduino Client.
 
-client Reference to an Arduino Client object (e.g., WiFiClient).
+client Reference to an Arduino Client object (e.g., WiFiClient). keepalive_configurator Platform adapter that applies the fixed 30-second TCP keepalive idle after connection.
 
 | Parameter | Description |
 | --- | --- |
 | `client` | Reference to an Arduino Client object (e.g., WiFiClient). |
+| `keepalive_configurator` | Platform adapter that applies the fixed 30-second TCP keepalive idle after connection. |
 
 #### `connect`
 
@@ -367,12 +338,12 @@ slmp::ArduinoUdpTransport::ArduinoUdpTransport(::UDP &udp, uint16_t local_port=0
 
 Wrap an existing Arduino UDP object.
 
-udp Reference to UDP object. local_port Local port to bind to (0 = use same as remote port).
+udp Reference to UDP object. local_port Local port to bind to (0 = request an ephemeral port).
 
 | Parameter | Description |
 | --- | --- |
 | `udp` | Reference to UDP object. |
-| `local_port` | Local port to bind to (0 = use same as remote port). |
+| `local_port` | Local port to bind to (0 = request an ephemeral port). |
 
 #### `connect`
 
@@ -459,22 +430,6 @@ slmp::highlevel::Poller::Poller(const ReadPlan &plan)
 ```
 
 Construct a poller from an already-compiled plan.
-
-#### `compile`
-
-```cpp
-Error slmp::highlevel::Poller::compile(const std::vector< std::string > &addresses)
-```
-
-Compile and store one reusable read plan.
-
-addresses Caller-provided high-level addresses. Error::Ok on success. This overload is retained for source compatibility but returns Error::InvalidArgument. Use the overload that receives a PLC profile.
-
-| Parameter | Description |
-| --- | --- |
-| `addresses` | Caller-provided high-level addresses. |
-
-Returns: Error::Ok on success.
 
 #### `compile`
 
@@ -595,21 +550,40 @@ This class is the core low-level client. It is designed to be: - Memory Efficien
 
 Use this class directly when you want deterministic firmware behavior. If you prefer string device addresses such as D100 or D200:F, see the optional helper facade in slmp_high_level.h.
 
+#### Enums
+
+#### `RemoteMode`
+
+| Value | Description |
+| --- | --- |
+| `Normal = 0x0001U` |  |
+| `Force = 0x0003U` |  |
+
+#### `RemoteClearMode`
+
+| Value | Description |
+| --- | --- |
+| `NoClear = 0x0000U` |  |
+| `ClearExceptLatch = 0x0001U` |  |
+| `ClearAll = 0x0002U` |  |
+
 #### Member Functions
 
 #### `SlmpClient`
 
 ```cpp
-slmp::SlmpClient::SlmpClient(ITransport &transport, uint8_t *tx_buffer, size_t tx_capacity, uint8_t *rx_buffer, size_t rx_capacity)
+slmp::SlmpClient::SlmpClient(ITransport &transport, PlcProfile profile, const TargetAddress &target, uint8_t *tx_buffer, size_t tx_capacity, uint8_t *rx_buffer, size_t rx_capacity)
 ```
 
 Initialize client with transport and buffers.
 
-transport Reference to transport implementation (must remain valid). tx_buffer Pointer to transmission buffer. tx_capacity Capacity of tx_buffer in bytes. rx_buffer Pointer to reception buffer. rx_capacity Capacity of rx_buffer in bytes.
+transport Reference to transport implementation (must remain valid). profile Concrete PLC profile. Unspecified profiles cannot connect or send. target Complete SLMP route used by requests. tx_buffer Pointer to transmission buffer. tx_capacity Capacity of tx_buffer in bytes. rx_buffer Pointer to reception buffer. rx_capacity Capacity of rx_buffer in bytes.
 
 | Parameter | Description |
 | --- | --- |
 | `transport` | Reference to transport implementation (must remain valid). |
+| `profile` | Concrete PLC profile. Unspecified profiles cannot connect or send. |
+| `target` | Complete SLMP route used by requests. |
 | `tx_buffer` | Pointer to transmission buffer. |
 | `tx_capacity` | Capacity of tx_buffer in bytes. |
 | `rx_buffer` | Pointer to reception buffer. |
@@ -647,14 +621,6 @@ bool slmp::SlmpClient::connected() const
 ```
 
 Check whether the transport is currently connected.
-
-#### `setTarget`
-
-```cpp
-void slmp::SlmpClient::setTarget(const TargetAddress &target)
-```
-
-Set target station routing (e.g. for multi-network routing).
 
 #### `target`
 
@@ -726,22 +692,6 @@ Set an explicit PLC profile while manually selecting frame and compatibility mod
 
 This is intended for low-level verification and compatibility tooling that must emit a specific SLMP frame shape while still keeping profile-based guards active. Normal applications should prefer setPlcProfile.
 
-#### `setStrictProfile`
-
-```cpp
-void slmp::SlmpClient::setStrictProfile(bool enabled)
-```
-
-Enable or disable strict built-in Ethernet profile feature guards. Default is enabled.
-
-#### `strictProfile`
-
-```cpp
-bool slmp::SlmpClient::strictProfile() const
-```
-
-Return whether strict built-in Ethernet profile feature guards are enabled.
-
 #### `setBlockAccessEnabled`
 
 ```cpp
@@ -777,10 +727,10 @@ Get current monitoring timer value.
 #### `setTimeoutMs`
 
 ```cpp
-void slmp::SlmpClient::setTimeoutMs(uint32_t timeout_ms)
+Error slmp::SlmpClient::setTimeoutMs(uint32_t timeout_ms)
 ```
 
-Set internal transport timeout in milliseconds.
+Set internal transport timeout in milliseconds. Zero is rejected.
 
 #### `timeoutMs`
 
@@ -1208,18 +1158,10 @@ Error slmp::SlmpClient::writeBlock(const DeviceBlockWrite *word_blocks, size_t w
 
 Write multiple contiguous blocks in one request.
 
-#### `writeBlock`
-
-```cpp
-Error slmp::SlmpClient::writeBlock(const DeviceBlockWrite *word_blocks, size_t word_block_count, const DeviceBlockWrite *bit_blocks, size_t bit_block_count, const BlockWriteOptions &options)
-```
-
-Write multiple contiguous blocks with options. Supports automatic splitting of mixed word/bit blocks if the PLC doesn't support them.
-
 #### `remoteRun`
 
 ```cpp
-Error slmp::SlmpClient::remoteRun(bool force=false, uint16_t clear_mode=0U)
+Error slmp::SlmpClient::remoteRun(RemoteMode mode, RemoteClearMode clear_mode)
 ```
 
 Remote RUN command. Set PLC to RUN state.
@@ -1235,7 +1177,7 @@ Remote STOP command. Set PLC to STOP state.
 #### `remotePause`
 
 ```cpp
-Error slmp::SlmpClient::remotePause(bool force=false)
+Error slmp::SlmpClient::remotePause(RemoteMode mode)
 ```
 
 Remote PAUSE command. Set PLC to PAUSE state.
@@ -1251,7 +1193,7 @@ Remote LATCH CLEAR command.
 #### `remoteReset`
 
 ```cpp
-Error slmp::SlmpClient::remoteReset(uint16_t subcommand=0x0000U, bool expect_response=false)
+Error slmp::SlmpClient::remoteReset()
 ```
 
 Remote RESET command. (Warning: Connection will likely be lost).
@@ -1465,7 +1407,7 @@ Start async ReadBlock.
 #### `beginWriteBlock`
 
 ```cpp
-Error slmp::SlmpClient::beginWriteBlock(const DeviceBlockWrite *word_blocks, size_t word_block_count, const DeviceBlockWrite *bit_blocks, size_t bit_block_count, const BlockWriteOptions &options, uint32_t now_ms)
+Error slmp::SlmpClient::beginWriteBlock(const DeviceBlockWrite *word_blocks, size_t word_block_count, const DeviceBlockWrite *bit_blocks, size_t bit_block_count, uint32_t now_ms)
 ```
 
 Start async WriteBlock.
@@ -1473,7 +1415,7 @@ Start async WriteBlock.
 #### `beginRemoteRun`
 
 ```cpp
-Error slmp::SlmpClient::beginRemoteRun(bool force, uint16_t clear_mode, uint32_t now_ms)
+Error slmp::SlmpClient::beginRemoteRun(RemoteMode mode, RemoteClearMode clear_mode, uint32_t now_ms)
 ```
 
 Start async RemoteRun.
@@ -1489,7 +1431,7 @@ Start async RemoteStop.
 #### `beginRemotePause`
 
 ```cpp
-Error slmp::SlmpClient::beginRemotePause(bool force, uint32_t now_ms)
+Error slmp::SlmpClient::beginRemotePause(RemoteMode mode, uint32_t now_ms)
 ```
 
 Start async RemotePause.
@@ -1505,7 +1447,7 @@ Start async RemoteLatchClear.
 #### `beginRemoteReset`
 
 ```cpp
-Error slmp::SlmpClient::beginRemoteReset(uint16_t subcommand, bool expect_response, uint32_t now_ms)
+Error slmp::SlmpClient::beginRemoteReset(uint32_t now_ms)
 ```
 
 Start async RemoteReset.
@@ -1525,14 +1467,6 @@ Error slmp::SlmpClient::beginClearError(uint32_t now_ms)
 ```
 
 Start async ClearError.
-
-#### `beginWriteBlock`
-
-```cpp
-Error slmp::SlmpClient::beginWriteBlock(const DeviceBlockWrite *word_blocks, size_t word_block_count, const DeviceBlockWrite *bit_blocks, size_t bit_block_count, uint32_t now_ms)
-```
-
-Start async WriteBlock (simple version).
 
 #### `beginRemotePasswordUnlock`
 
@@ -1907,23 +1841,23 @@ Write single DWord (2 words, little-endian) to an extend unit.
 #### `readCpuBufferBytes`
 
 ```cpp
-Error slmp::SlmpClient::readCpuBufferBytes(uint32_t head_address, uint16_t byte_length, uint8_t *out, size_t capacity)
+Error slmp::SlmpClient::readCpuBufferBytes(CpuModule module, uint32_t head_address, uint16_t byte_length, uint8_t *out, size_t capacity)
 ```
 
-Read bytes from the CPU buffer (extend unit 0x03E0).
+Read bytes from the explicitly selected CPU buffer.
 
 #### `readCpuBufferWords`
 
 ```cpp
-Error slmp::SlmpClient::readCpuBufferWords(uint32_t head_address, uint16_t word_length, uint16_t *out, size_t capacity)
+Error slmp::SlmpClient::readCpuBufferWords(CpuModule module, uint32_t head_address, uint16_t word_length, uint16_t *out, size_t capacity)
 ```
 
-Read words from the CPU buffer (extend unit 0x03E0).
+Read words from the explicitly selected CPU buffer.
 
 #### `readCpuBufferWord`
 
 ```cpp
-Error slmp::SlmpClient::readCpuBufferWord(uint32_t head_address, uint16_t &value)
+Error slmp::SlmpClient::readCpuBufferWord(CpuModule module, uint32_t head_address, uint16_t &value)
 ```
 
 Read single word from the CPU buffer.
@@ -1931,7 +1865,7 @@ Read single word from the CPU buffer.
 #### `readCpuBufferDWord`
 
 ```cpp
-Error slmp::SlmpClient::readCpuBufferDWord(uint32_t head_address, uint32_t &value)
+Error slmp::SlmpClient::readCpuBufferDWord(CpuModule module, uint32_t head_address, uint32_t &value)
 ```
 
 Read single DWord (2 words, little-endian) from the CPU buffer.
@@ -1939,23 +1873,23 @@ Read single DWord (2 words, little-endian) from the CPU buffer.
 #### `writeCpuBufferBytes`
 
 ```cpp
-Error slmp::SlmpClient::writeCpuBufferBytes(uint32_t head_address, const uint8_t *data, size_t byte_length)
+Error slmp::SlmpClient::writeCpuBufferBytes(CpuModule module, uint32_t head_address, const uint8_t *data, size_t byte_length)
 ```
 
-Write bytes to the CPU buffer (extend unit 0x03E0).
+Write bytes to the explicitly selected CPU buffer.
 
 #### `writeCpuBufferWords`
 
 ```cpp
-Error slmp::SlmpClient::writeCpuBufferWords(uint32_t head_address, const uint16_t *values, size_t count)
+Error slmp::SlmpClient::writeCpuBufferWords(CpuModule module, uint32_t head_address, const uint16_t *values, size_t count)
 ```
 
-Write words to the CPU buffer (extend unit 0x03E0).
+Write words to the explicitly selected CPU buffer.
 
 #### `writeCpuBufferWord`
 
 ```cpp
-Error slmp::SlmpClient::writeCpuBufferWord(uint32_t head_address, uint16_t value)
+Error slmp::SlmpClient::writeCpuBufferWord(CpuModule module, uint32_t head_address, uint16_t value)
 ```
 
 Write single word to the CPU buffer.
@@ -1963,7 +1897,7 @@ Write single word to the CPU buffer.
 #### `writeCpuBufferDWord`
 
 ```cpp
-Error slmp::SlmpClient::writeCpuBufferDWord(uint32_t head_address, uint32_t value)
+Error slmp::SlmpClient::writeCpuBufferDWord(CpuModule module, uint32_t head_address, uint32_t value)
 ```
 
 Write single DWord (2 words, little-endian) to the CPU buffer.
@@ -2112,6 +2046,14 @@ Returns true only ONCE when a new connection is established. Useful for triggeri
 true if a NEW connection was established since the last call to this method.
 
 Returns: true if a NEW connection was established since the last call to this method.
+
+#### `valid`
+
+```cpp
+bool slmp::ReconnectHelper::valid() const
+```
+
+Return whether endpoint and retry options passed construction validation.
 
 #### `forceReconnect`
 
@@ -2302,10 +2244,10 @@ The .bit notation is valid only for word devices and maps to a read-modify-write
 #### `device`
 
 ```cpp
-DeviceAddress slmp::highlevel::AddressSpec::device {}
+DeviceAddress slmp::highlevel::AddressSpec::device {PlcProfile::Unspecified, DeviceCode::D, 0U}
 ```
 
-Base device address used by the low-level API
+Populated by the profile-required parser
 
 #### `type`
 
@@ -2370,6 +2312,14 @@ Compiled snapshot plan reused by readNamed and Poller.
 The entries vector preserves caller order for user-facing results. The word_devices and dword_devices vectors hold deduplicated batchable devices in the order chosen by the compiler so the runtime can perform one random-read request for many named addresses.
 
 #### Fields
+
+#### `profile`
+
+```cpp
+PlcProfile slmp::highlevel::ReadPlan::profile = PlcProfile::Unspecified
+```
+
+Profile used to compile every address in this plan
 
 #### `entries`
 
@@ -2775,19 +2725,19 @@ const char* slmp::ProfileFeatureErrorInfo::evidence = nullptr
 
 Evidence or policy note from the embedded table
 
-#### `disable_hint`
-
-```cpp
-const char* slmp::ProfileFeatureErrorInfo::disable_hint = nullptr
-```
-
-How to intentionally bypass the feature guard
-
 ### Struct `slmp::DeviceAddress`
 
 Represents a specific device and its numeric address.
 
 #### Fields
+
+#### `profile`
+
+```cpp
+PlcProfile slmp::DeviceAddress::profile
+```
+
+Canonical PLC profile used to interpret this address
 
 #### `code`
 
@@ -2804,6 +2754,14 @@ uint32_t slmp::DeviceAddress::number
 ```
 
 Numeric address (index). Use dev::dec or dev::hex
+
+#### Member Functions
+
+#### `DeviceAddress`
+
+```cpp
+slmp::DeviceAddress::DeviceAddress(PlcProfile profile_value, DeviceCode code_value, uint32_t number_value)
+```
 
 ### Struct `slmp::DeviceBlockRead`
 
@@ -2856,20 +2814,6 @@ uint16_t slmp::DeviceBlockWrite::points
 ```
 
 Number of points to write
-
-### Struct `slmp::BlockWriteOptions`
-
-Configuration for block write operations.
-
-#### Fields
-
-#### `split_mixed_blocks`
-
-```cpp
-bool slmp::BlockWriteOptions::split_mixed_blocks
-```
-
-Split bit and word blocks into separate requests
 
 ### Struct `slmp::dev::DecNo`
 
@@ -3241,34 +3185,42 @@ SLMP target station routing information.
 #### `network`
 
 ```cpp
-uint8_t slmp::TargetAddress::network = 0x00
+uint8_t slmp::TargetAddress::network
 ```
 
-Network number (0=Local)
+Network number
 
 #### `station`
 
 ```cpp
-uint8_t slmp::TargetAddress::station = 0xFF
+uint8_t slmp::TargetAddress::station
 ```
 
-Station number (255=connected station)
+Station number
 
 #### `module_io`
 
 ```cpp
-uint16_t slmp::TargetAddress::module_io = ::slmp::module_io::OwnStation
+uint16_t slmp::TargetAddress::module_io
 ```
 
-Module I/O number (0x03FF=Own Station)
+Module I/O number
 
 #### `multidrop`
 
 ```cpp
-uint8_t slmp::TargetAddress::multidrop = 0x00
+uint8_t slmp::TargetAddress::multidrop
 ```
 
 Multidrop station number
+
+#### Member Functions
+
+#### `TargetAddress`
+
+```cpp
+slmp::TargetAddress::TargetAddress(uint8_t network_value, uint8_t station_value, uint16_t module_io_value, uint8_t multidrop_value)
+```
 
 ### Struct `slmp::TypeNameInfo`
 
@@ -3386,14 +3338,6 @@ Lower 4-bit masked status code from SD203
 | `RegisterMonitorDevicesExt` | Register monitor devices ext (0x0801 sub 0x0080/0x0082) |
 | `RunMonitorCycle` | Run monitor cycle (0x0802) |
 
-#### `WriteBlockStage`
-
-| Value | Description |
-| --- | --- |
-| `Direct` |  |
-| `SplitWord` |  |
-| `SplitBit` |  |
-
 #### Fields
 
 #### `type`
@@ -3486,24 +3430,6 @@ size_t slmp::SlmpClient::AsyncContext::total_bit_points
 size_t slmp::SlmpClient::AsyncContext::total_word_points
 ```
 
-#### `expect_response`
-
-```cpp
-bool slmp::SlmpClient::AsyncContext::expect_response
-```
-
-#### `remoteReset`
-
-```cpp
-struct slmp::SlmpClient::AsyncContext slmp::SlmpClient::AsyncContext::remoteReset
-```
-
-#### `subcommand`
-
-```cpp
-uint16_t slmp::SlmpClient::AsyncContext::subcommand
-```
-
 #### `out`
 
 ```cpp
@@ -3550,24 +3476,6 @@ const DeviceBlockWrite* slmp::SlmpClient::AsyncContext::bit_blocks
 
 ```cpp
 size_t slmp::SlmpClient::AsyncContext::bit_block_count
-```
-
-#### `options`
-
-```cpp
-BlockWriteOptions slmp::SlmpClient::AsyncContext::options
-```
-
-#### `stage`
-
-```cpp
-WriteBlockStage slmp::SlmpClient::AsyncContext::stage
-```
-
-#### `has_mixed_blocks`
-
-```cpp
-bool slmp::SlmpClient::AsyncContext::has_mixed_blocks
 ```
 
 #### `writeBlock`

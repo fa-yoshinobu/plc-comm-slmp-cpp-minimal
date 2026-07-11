@@ -190,7 +190,7 @@ void runMatrix(slmp::SlmpClient& plc, slmp::FrameType frame) {
 
     for (const auto& tc : kTestDevices) {
         printf("Device %s: ", tc.name);
-        slmp::DeviceAddress dev = {tc.code, tc.addr};
+        slmp::DeviceAddress dev{slmp::PlcProfile::IqR, tc.code, tc.addr};
 
         // 1. Sync Pattern
         if (tc.is_bit) {
@@ -231,12 +231,17 @@ void runMatrix(slmp::SlmpClient& plc, slmp::FrameType frame) {
 
     // 3. Random/Block Mixed Test (Async)
     printf("Random/Block Mixed Async: ");
-    const slmp::DeviceAddress rw[] = { {slmp::DeviceCode::D, 500}, {slmp::DeviceCode::D, 501} };
+    const slmp::DeviceAddress rw[] = {
+        {slmp::PlcProfile::IqR, slmp::DeviceCode::D, 500},
+        {slmp::PlcProfile::IqR, slmp::DeviceCode::D, 501},
+    };
     const uint16_t rv[] = { 0x1234, 0x5678 };
     ASSERT_OK_PLC(plc.beginWriteRandomWords(rw, rv, 2, nullptr, nullptr, 0, getNow()));
     runAsync(plc); ASSERT_OK_PLC(plc.lastError());
 
-    const slmp::DeviceBlockRead blks[] = { slmp::dev::blockRead({slmp::DeviceCode::D, 500}, 2) };
+    const slmp::DeviceBlockRead blks[] = {
+        slmp::dev::blockRead({slmp::PlcProfile::IqR, slmp::DeviceCode::D, 500}, 2),
+    };
     uint16_t br[2];
     ASSERT_OK_PLC(plc.beginReadBlock(blks, 1, nullptr, 0, br, 2, nullptr, 0, getNow()));
     runAsync(plc); ASSERT_OK_PLC(plc.lastError());
@@ -254,7 +259,7 @@ int main(int argc, char** argv) {
 
     SocketTransport transport;
     uint8_t tx[1024], rx[1024];
-    slmp::SlmpClient plc(transport, tx, sizeof(tx), rx, sizeof(rx));
+    slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx, sizeof(tx), rx, sizeof(rx));
     plc.setTimeoutMs(2000);
 
     if (!plc.connect(host, port)) {

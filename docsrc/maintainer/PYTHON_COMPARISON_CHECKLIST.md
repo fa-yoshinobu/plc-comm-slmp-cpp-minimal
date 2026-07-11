@@ -99,9 +99,7 @@ Keep the Python-side check as close as possible to the C++ run:
 
 Important first-pass rule:
 
-- keep `split_mixed_blocks=False`
-- capture the original one-request mixed frame and the first PLC response before
-  any caller-chosen split behavior is enabled
+- capture the one-request mixed frame and the first PLC response
 
 Recommended device set:
 
@@ -121,8 +119,9 @@ Recommended device set:
 ## Historical Fallback Verification
 
 The practical workaround was also checked live after the first-pass capture.
-This used a now-removed Python API option; current clients should use explicit
-split mode instead of automatic retry.
+This used a now-removed Python API option. Current clients require the
+application to issue separate calls when it deliberately needs separate
+requests.
 
 | Scenario | API/options | Python result | End code(s) | Notes |
 |---|---|---|---|---|
@@ -130,16 +129,13 @@ split mode instead of automatic retry.
 
 ## Current C++ Behavior
 
-The minimal C++ library exposes explicit split behavior for callers that
-intentionally want separate word-only and bit-only requests:
-
-- `slmp::BlockWriteOptions::split_mixed_blocks`
+The minimal C++ library does not expose automatic or optional split behavior.
 
 Current scope:
 
 - corrected mixed Write Block layout is implemented in
-  `slmp::SlmpClient::writeBlock(...)` and `beginWriteBlock(..., options, now_ms)`
-- explicit `split_mixed_blocks` is implemented and host-tested in both paths
+  `slmp::SlmpClient::writeBlock(...)` and `beginWriteBlock(..., now_ms)`
+- both paths emit one request and reject invalid input before transport
 - automatic mixed-write retry is not part of the API; PLC end codes are
   returned unchanged
 - typed remote control helpers now cover `remoteRun`, `remoteStop`, `remotePause`, and `remoteLatchClear`

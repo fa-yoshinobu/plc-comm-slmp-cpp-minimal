@@ -137,7 +137,6 @@ struct ProfileFeatureErrorInfo {
     const char* feature_key = nullptr;  ///< Capability feature key such as `block`.
     const char* state = nullptr;        ///< Capability state, `blocked` or `unverified`.
     const char* evidence = nullptr;     ///< Evidence or policy note from the embedded table.
-    const char* disable_hint = nullptr; ///< How to intentionally bypass the feature guard.
 };
 
 /** @} */ // end of SLMP_Core
@@ -201,6 +200,10 @@ enum class DeviceCode : uint16_t {
  * @brief Represents a specific device and its numeric address.
  */
 struct DeviceAddress {
+    constexpr DeviceAddress(PlcProfile profile_value, DeviceCode code_value, uint32_t number_value)
+        : profile(profile_value), code(code_value), number(number_value) {}
+
+    PlcProfile profile;      ///< Canonical PLC profile used to interpret this address.
     DeviceCode code;        ///< Device type code (e.g. D, M, X).
     uint32_t number;        ///< Numeric address (index). Use @ref dev::dec or @ref dev::hex.
 };
@@ -225,14 +228,6 @@ struct DeviceBlockWrite {
 };
 
 /**
- * @struct BlockWriteOptions
- * @brief Configuration for block write operations.
- */
-struct BlockWriteOptions {
-    bool split_mixed_blocks;    ///< Split bit and word blocks into separate requests.
-};
-
-/**
  * @namespace slmp::dev
  * @brief Fluent API for defining device addresses.
  *
@@ -242,10 +237,10 @@ struct BlockWriteOptions {
  *
  * Typical usage:
  * @code
- * auto d100 = slmp::dev::D(slmp::dev::dec(100));     // decimal-numbered D register
- * auto x1a  = slmp::dev::X(slmp::dev::hex(0x1A));    // hexadecimal-numbered X input
- * auto rd10 = slmp::dev::RD(slmp::dev::dec(10));     // refresh data register
- * auto ltn0 = slmp::dev::LTN(slmp::dev::dec(0));     // long timer current value
+ * auto d100 = slmp::dev::D(profile, slmp::dev::dec(100));
+ * auto x1a  = slmp::dev::X(profile, slmp::dev::hex(0x1A));
+ * auto rd10 = slmp::dev::RD(profile, slmp::dev::dec(10));
+ * auto ltn0 = slmp::dev::LTN(profile, slmp::dev::dec(0));
  * @endcode
  *
  * Device families exposed here match the generic direct-access helpers in
@@ -273,13 +268,13 @@ constexpr DecNo dec(uint32_t value) { return {value}; }
 constexpr HexNo hex(uint32_t value) { return {value}; }
 
 #define SLMP_DEC_DEVICE_HELPER(name)           \
-    constexpr DeviceAddress name(DecNo number) { \
-        return {DeviceCode::name, number.value}; \
+    constexpr DeviceAddress name(PlcProfile profile, DecNo number) { \
+        return {profile, DeviceCode::name, number.value}; \
     }
 
 #define SLMP_HEX_DEVICE_HELPER(name)           \
-    constexpr DeviceAddress name(HexNo number) { \
-        return {DeviceCode::name, number.value}; \
+    constexpr DeviceAddress name(PlcProfile profile, HexNo number) { \
+        return {profile, DeviceCode::name, number.value}; \
     }
 
 /** @name Decimal Device Helpers
@@ -291,9 +286,9 @@ constexpr HexNo hex(uint32_t value) { return {value}; }
  *
  * Example:
  * @code
- * auto word = slmp::dev::D(slmp::dev::dec(100));
- * auto coil = slmp::dev::LCC(slmp::dev::dec(5));
- * auto reg  = slmp::dev::RD(slmp::dev::dec(10));
+ * auto word = slmp::dev::D(profile, slmp::dev::dec(100));
+ * auto coil = slmp::dev::LCC(profile, slmp::dev::dec(5));
+ * auto reg  = slmp::dev::RD(profile, slmp::dev::dec(10));
  * @endcode
  * @{
  */
@@ -337,8 +332,8 @@ SLMP_DEC_DEVICE_HELPER(RD)
  *
  * Example:
  * @code
- * auto x1a = slmp::dev::X(slmp::dev::hex(0x1A));
- * auto w20 = slmp::dev::W(slmp::dev::hex(0x20));
+ * auto x1a = slmp::dev::X(profile, slmp::dev::hex(0x1A));
+ * auto w20 = slmp::dev::W(profile, slmp::dev::hex(0x20));
  * @endcode
  * @{
  */
@@ -354,14 +349,15 @@ SLMP_HEX_DEVICE_HELPER(DY)
 
 /**
  * @brief Create an annunciator (`F`) device address.
+ * @param profile Canonical PLC profile bound to the address.
  * @param number Decimal annunciator number such as `slmp::dev::dec(10)`.
  * @return Device address for `F<number>`.
  *
  * @details This helper is named `FDevice` instead of `F` because some
  * embedded toolchains define `F` as a macro.
  */
-constexpr DeviceAddress FDevice(DecNo number) {
-    return {DeviceCode::F, number.value};
+constexpr DeviceAddress FDevice(PlcProfile profile, DecNo number) {
+    return {profile, DeviceCode::F, number.value};
 }
 
 #undef SLMP_DEC_DEVICE_HELPER
@@ -540,15 +536,26 @@ constexpr uint16_t OwnStation = 0x03FF;        ///< Own station route.
 
 }  // namespace module_io
 
+/** @brief Explicit CPU-buffer target for multi-CPU systems. */
+enum class CpuModule : uint16_t {
+    Cpu1 = module_io::MultipleCpu1,
+    Cpu2 = module_io::MultipleCpu2,
+    Cpu3 = module_io::MultipleCpu3,
+    Cpu4 = module_io::MultipleCpu4,
+};
+
 /**
  * @struct TargetAddress
  * @brief SLMP target station routing information.
  */
 struct TargetAddress {
-    uint8_t network = 0x00;     ///< Network number (0=Local).
-    uint8_t station = 0xFF;     ///< Station number (255=connected station).
-    uint16_t module_io = ::slmp::module_io::OwnStation; ///< Module I/O number (0x03FF=Own Station).
-    uint8_t multidrop = 0x00;   ///< Multidrop station number.
+    uint8_t network;     ///< Network number.
+    uint8_t station;     ///< Station number.
+    uint16_t module_io;  ///< Module I/O number.
+    uint8_t multidrop;   ///< Multidrop station number.
+
+    constexpr TargetAddress(uint8_t network_value, uint8_t station_value, uint16_t module_io_value, uint8_t multidrop_value)
+        : network(network_value), station(station_value), module_io(module_io_value), multidrop(multidrop_value) {}
 };
 
 /**
@@ -630,16 +637,17 @@ class ITransport {
  * 
  * ### Synchronous Usage Example
  * @code
- * slmp::SlmpClient plc(transport, tx_buf, 256, rx_buf, 256);
+ * slmp::TargetAddress target(0x00, 0xFF, slmp::module_io::OwnStation, 0x00);
+ * slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, target, tx_buf, 256, rx_buf, 256);
  * uint16_t val;
- * if (plc.readOneWord(slmp::dev::D(slmp::dev::dec(100)), val) == slmp::Error::Ok) {
+ * if (plc.readOneWord(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)), val) == slmp::Error::Ok) {
  *     // Success
  * }
  * @endcode
  * 
  * ### Asynchronous Usage Example
  * @code
- * if (plc.beginReadOneWord(slmp::dev::D(slmp::dev::dec(100)), val, millis()) == slmp::Error::Ok) {
+ * if (plc.beginReadOneWord(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)), val, millis()) == slmp::Error::Ok) {
  *     while(plc.isBusy()) {
  *         plc.update(millis());
  *     }
@@ -651,6 +659,8 @@ class SlmpClient {
     /**
      * @brief Initialize client with transport and buffers.
      * @param transport Reference to transport implementation (must remain valid).
+     * @param profile Concrete PLC profile. Unspecified profiles cannot connect or send.
+     * @param target Complete SLMP route used by requests.
      * @param tx_buffer Pointer to transmission buffer.
      * @param tx_capacity Capacity of tx_buffer in bytes.
      * @param rx_buffer Pointer to reception buffer.
@@ -658,6 +668,8 @@ class SlmpClient {
      */
     SlmpClient(
         ITransport& transport,
+        PlcProfile profile,
+        const TargetAddress& target,
         uint8_t* tx_buffer,
         size_t tx_capacity,
         uint8_t* rx_buffer,
@@ -679,8 +691,6 @@ class SlmpClient {
     /** @brief Check whether the transport is currently connected. */
     bool connected() const;
 
-    /** @brief Set target station routing (e.g. for multi-network routing). */
-    void setTarget(const TargetAddress& target);
     /** @brief Get current target station routing. */
     const TargetAddress& target() const;
 
@@ -713,11 +723,6 @@ class SlmpClient {
      */
     Error setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode);
 
-    /** @brief Enable or disable strict built-in Ethernet profile feature guards. Default is enabled. */
-    void setStrictProfile(bool enabled);
-    /** @brief Return whether strict built-in Ethernet profile feature guards are enabled. */
-    bool strictProfile() const;
-
     /** @brief Enable or disable Read/Write Block commands when the selected PLC profile permits them. */
     void setBlockAccessEnabled(bool enabled);
     /** @brief Return whether Read/Write Block commands are effectively enabled after PLC-profile guards. */
@@ -728,8 +733,8 @@ class SlmpClient {
     /** @brief Get current monitoring timer value. */
     uint16_t monitoringTimer() const;
 
-    /** @brief Set internal transport timeout in milliseconds. */
-    void setTimeoutMs(uint32_t timeout_ms);
+    /** @brief Set internal transport timeout in milliseconds. Zero is rejected. */
+    Error setTimeoutMs(uint32_t timeout_ms);
     /** @brief Get current timeout value. */
     uint32_t timeoutMs() const;
 
@@ -959,28 +964,23 @@ class SlmpClient {
         const DeviceBlockWrite* bit_blocks,
         size_t bit_block_count
     );
-    /** 
-     * @brief Write multiple contiguous blocks with options.
-     * Supports automatic splitting of mixed word/bit blocks if the PLC doesn't support them.
-     */
-    Error writeBlock(
-        const DeviceBlockWrite* word_blocks,
-        size_t word_block_count,
-        const DeviceBlockWrite* bit_blocks,
-        size_t bit_block_count,
-        const BlockWriteOptions& options
-    );
+    enum class RemoteMode : uint16_t { Normal = 0x0001U, Force = 0x0003U };
+    enum class RemoteClearMode : uint16_t {
+        NoClear = 0x0000U,
+        ClearExceptLatch = 0x0001U,
+        ClearAll = 0x0002U,
+    };
 
     /** @brief Remote RUN command. Set PLC to RUN state. */
-    Error remoteRun(bool force = false, uint16_t clear_mode = 0U);
+    Error remoteRun(RemoteMode mode, RemoteClearMode clear_mode);
     /** @brief Remote STOP command. Set PLC to STOP state. */
     Error remoteStop();
     /** @brief Remote PAUSE command. Set PLC to PAUSE state. */
-    Error remotePause(bool force = false);
+    Error remotePause(RemoteMode mode);
     /** @brief Remote LATCH CLEAR command. */
     Error remoteLatchClear();
     /** @brief Remote RESET command. (Warning: Connection will likely be lost). */
-    Error remoteReset(uint16_t subcommand = 0x0000U, bool expect_response = false);
+    Error remoteReset();
     
     /** 
      * @brief Execute Self-test loopback.
@@ -1107,19 +1107,18 @@ class SlmpClient {
         size_t word_block_count,
         const DeviceBlockWrite* bit_blocks,
         size_t bit_block_count,
-        const BlockWriteOptions& options,
         uint32_t now_ms
     );
     /** @brief Start async RemoteRun. */
-    Error beginRemoteRun(bool force, uint16_t clear_mode, uint32_t now_ms);
+    Error beginRemoteRun(RemoteMode mode, RemoteClearMode clear_mode, uint32_t now_ms);
     /** @brief Start async RemoteStop. */
     Error beginRemoteStop(uint32_t now_ms);
     /** @brief Start async RemotePause. */
-    Error beginRemotePause(bool force, uint32_t now_ms);
+    Error beginRemotePause(RemoteMode mode, uint32_t now_ms);
     /** @brief Start async RemoteLatchClear. */
     Error beginRemoteLatchClear(uint32_t now_ms);
     /** @brief Start async RemoteReset. */
-    Error beginRemoteReset(uint16_t subcommand, bool expect_response, uint32_t now_ms);
+    Error beginRemoteReset(uint32_t now_ms);
     /** @brief Start async SelfTestLoopback. */
     Error beginSelfTestLoopback(
         const uint8_t* data,
@@ -1131,14 +1130,6 @@ class SlmpClient {
     );
     /** @brief Start async ClearError. */
     Error beginClearError(uint32_t now_ms);
-    /** @brief Start async WriteBlock (simple version). */
-    Error beginWriteBlock(
-        const DeviceBlockWrite* word_blocks,
-        size_t word_block_count,
-        const DeviceBlockWrite* bit_blocks,
-        size_t bit_block_count,
-        uint32_t now_ms
-    );
     /** @brief Start async RemotePasswordUnlock. */
     Error beginRemotePasswordUnlock(const char* password, uint32_t now_ms);
     /** @brief Start async RemotePasswordLock. */
@@ -1272,24 +1263,24 @@ class SlmpClient {
     /** @brief Write single DWord (2 words, little-endian) to an extend unit. */
     Error writeExtendUnitDWord(uint32_t head_address, uint16_t module_no, uint32_t value);
 
-    // --- CPU Buffer convenience wrappers (extend unit module 0x03E0) ---
+    // --- CPU Buffer convenience wrappers ---
 
-    /** @brief Read bytes from the CPU buffer (extend unit 0x03E0). */
-    Error readCpuBufferBytes(uint32_t head_address, uint16_t byte_length, uint8_t* out, size_t capacity);
-    /** @brief Read words from the CPU buffer (extend unit 0x03E0). */
-    Error readCpuBufferWords(uint32_t head_address, uint16_t word_length, uint16_t* out, size_t capacity);
+    /** @brief Read bytes from the explicitly selected CPU buffer. */
+    Error readCpuBufferBytes(CpuModule module, uint32_t head_address, uint16_t byte_length, uint8_t* out, size_t capacity);
+    /** @brief Read words from the explicitly selected CPU buffer. */
+    Error readCpuBufferWords(CpuModule module, uint32_t head_address, uint16_t word_length, uint16_t* out, size_t capacity);
     /** @brief Read single word from the CPU buffer. */
-    Error readCpuBufferWord(uint32_t head_address, uint16_t& value);
+    Error readCpuBufferWord(CpuModule module, uint32_t head_address, uint16_t& value);
     /** @brief Read single DWord (2 words, little-endian) from the CPU buffer. */
-    Error readCpuBufferDWord(uint32_t head_address, uint32_t& value);
-    /** @brief Write bytes to the CPU buffer (extend unit 0x03E0). */
-    Error writeCpuBufferBytes(uint32_t head_address, const uint8_t* data, size_t byte_length);
-    /** @brief Write words to the CPU buffer (extend unit 0x03E0). */
-    Error writeCpuBufferWords(uint32_t head_address, const uint16_t* values, size_t count);
+    Error readCpuBufferDWord(CpuModule module, uint32_t head_address, uint32_t& value);
+    /** @brief Write bytes to the explicitly selected CPU buffer. */
+    Error writeCpuBufferBytes(CpuModule module, uint32_t head_address, const uint8_t* data, size_t byte_length);
+    /** @brief Write words to the explicitly selected CPU buffer. */
+    Error writeCpuBufferWords(CpuModule module, uint32_t head_address, const uint16_t* values, size_t count);
     /** @brief Write single word to the CPU buffer. */
-    Error writeCpuBufferWord(uint32_t head_address, uint16_t value);
+    Error writeCpuBufferWord(CpuModule module, uint32_t head_address, uint16_t value);
     /** @brief Write single DWord (2 words, little-endian) to the CPU buffer. */
-    Error writeCpuBufferDWord(uint32_t head_address, uint32_t value);
+    Error writeCpuBufferDWord(CpuModule module, uint32_t head_address, uint32_t value);
 
     // --- Label Read / Write (commands 0x041A / 0x141A / 0x041C / 0x141B) ---
 
@@ -1404,26 +1395,18 @@ class SlmpClient {
             RunMonitorCycle,           ///< Run monitor cycle (0x0802)
         };
 
-        enum class WriteBlockStage : uint8_t {
-            Direct, SplitWord, SplitBit,
-        };
-
         Type type = Type::None;
         union {
             struct { void* values; uint16_t points; } common;
             struct { TypeNameInfo* out; } readTypeName;
             struct { uint16_t* word_values; uint16_t word_count; uint32_t* dword_values; uint16_t dword_count; } readRandom;
             struct { uint16_t* word_values; size_t total_word_points; uint16_t* bit_values; size_t total_bit_points; } readBlock;
-            struct { uint16_t subcommand; bool expect_response; } remoteReset;
             struct { uint8_t* out; size_t out_capacity; size_t* out_length; } selfTest;
             struct {
                 const DeviceBlockWrite* word_blocks;
                 size_t word_block_count;
                 const DeviceBlockWrite* bit_blocks;
                 size_t bit_block_count;
-                BlockWriteOptions options;
-                WriteBlockStage stage;
-                bool has_mixed_blocks;
             } writeBlock;
             struct { LongTimerResult* out; uint16_t points; } readLongTimer;
             struct { LabelArrayReadResult* out; size_t count; size_t capacity; size_t* out_count; } readArrayLabels;
@@ -1432,20 +1415,6 @@ class SlmpClient {
     };
 
     Error startAsync(AsyncContext::Type type, size_t payload_length, uint32_t now_ms);
-    Error beginWriteBlockRequest(
-        const DeviceBlockWrite* request_word_blocks,
-        size_t request_word_block_count,
-        const DeviceBlockWrite* request_bit_blocks,
-        size_t request_bit_block_count,
-        const DeviceBlockWrite* all_word_blocks,
-        size_t all_word_block_count,
-        const DeviceBlockWrite* all_bit_blocks,
-        size_t all_bit_block_count,
-        const BlockWriteOptions& options,
-        AsyncContext::WriteBlockStage stage,
-        bool has_mixed_blocks,
-        uint32_t now_ms
-    );
     void completeAsync();
 
     Error request(
@@ -1468,7 +1437,7 @@ class SlmpClient {
     size_t tx_capacity_;
     uint8_t* rx_buffer_;
     size_t rx_capacity_;
-    TargetAddress target_;
+    const TargetAddress target_;
     PlcProfile plc_profile_;
     FrameType frame_type_;
     CompatibilityMode compatibility_mode_;

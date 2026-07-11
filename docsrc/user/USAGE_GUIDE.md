@@ -5,7 +5,7 @@
 | Layer | Header | Use it when |
 | --- | --- | --- |
 | Low-level core | `slmp_minimal.h` | You want fixed caller-owned buffers, explicit `slmp::DeviceAddress` values, and direct sync or async SLMP calls. |
-| High-level facade | `slmp_high_level.h` | You want string addresses, typed values, named snapshots, chunked reads, and reusable polling plans. |
+| High-level facade | `slmp_high_level.h` | You want string addresses, typed values, named snapshots, and reusable polling plans. |
 
 The high-level layer is optional. Include `slmp_high_level.h` explicitly when you use helpers such as `slmp::highlevel::readTyped`.
 
@@ -29,11 +29,11 @@ constexpr uint16_t kTcpPort = 1025;
 constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient tcp;
-slmp::ArduinoClientTransport transport(tcp);
+slmp::ArduinoClientTransport transport(tcp, slmp::configureEsp32WifiClientKeepAlive);
 
 uint8_t txBuffer[160] = {};
 uint8_t rxBuffer[160] = {};
-slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+slmp::SlmpClient plc(transport, kProfile, slmp::TargetAddress{0x00, 0xFF, slmp::module_io::OwnStation, 0x00}, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
 
 void setup() {
     Serial.begin(115200);
@@ -41,8 +41,6 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) {
         delay(250);
     }
-
-    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
     if (plc.connect(kPlcHost, kTcpPort)) {
         Serial.println("PLC connected");
     }
@@ -53,28 +51,32 @@ void loop() {
 }
 ```
 
+The TCP adapter applies a 30-second keepalive idle after connecting. The ESP32
+helper configures `WiFiClient`; other Arduino network stacks must provide an
+equivalent `TcpKeepAliveConfigurator`. A missing or failed configurator closes
+the socket and makes `connect` fail.
+
 ## Routing / target station
 
-Most applications keep the default target, which means the directly connected
-own station. Change the target only when your PLC network is
-configured for another station, multi-CPU module I/O, or multidrop access.
+Every client must receive a complete target when it is constructed. For a
+directly connected own station, specify all four values explicitly.
 
 `slmp::TargetAddress` controls the SLMP destination header. It is not a device
 family selector; routed devices such as `Un\Gn` and `Jn\...` still need their
 own address syntax.
 
 ```cpp
-slmp::TargetAddress target{};
-target.network = 0x01;
-target.station = 0x02;
-target.module_io = slmp::module_io::OwnStation;
-target.multidrop = 0x00;
-plc.setTarget(target);
+const slmp::TargetAddress target{
+    0x01,
+    0x02,
+    slmp::module_io::OwnStation,
+    0x00,
+};
+slmp::SlmpClient plc(transport, kProfile, target, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
 ```
 
 Use `slmp::module_io` constants such as `slmp::module_io::MultipleCpu2` when routing
-to multi-CPU targets. Use the default target unless the PLC routing setup gives
-you specific values.
+to multi-CPU targets. The target is fixed for the client lifetime.
 
 ## Extended device access
 
@@ -100,7 +102,7 @@ const uint16_t moduleWrite[] = {1, 2, 3, 4};
 err = plc.writeWordsModuleBuf(3, false, 100, moduleWrite, 4);
 
 uint16_t cpuBufferWords[2] = {};
-err = plc.readWordsModuleBuf(0x03E0, true, 0, 2, cpuBufferWords, 2);
+err = plc.readCpuBufferWords(slmp::CpuModule::Cpu1, 0, 2, cpuBufferWords, 2);
 
 uint16_t linkWords[1] = {};
 err = plc.readWordsLinkDirect(2, slmp::DeviceCode::SW, 0x10, 1, linkWords, 1);
@@ -124,7 +126,7 @@ err = plc.readRandomExt(wordDevices, 2, values, 2, nullptr, 0, nullptr, 0);
 
 `SlmpClient` enables strict profile checks by default. With a selected profile, operations known to be unavailable for that PLC are rejected before sending.
 
-Leave this enabled for normal applications. Call `setStrictProfile(false)` only for deliberate verification where you want the PLC to answer directly. Point limits and write policy still apply.
+Profile guard bypass is not part of the normal public API. Profile evidence collection uses separate maintainer tooling.
 
 ## Remote password
 
@@ -191,10 +193,10 @@ constexpr uint16_t kTcpPort = 1025;
 constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient tcp;
-slmp::ArduinoClientTransport transport(tcp);
+slmp::ArduinoClientTransport transport(tcp, slmp::configureEsp32WifiClientKeepAlive);
 uint8_t txBuffer[160] = {};
 uint8_t rxBuffer[160] = {};
-slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+slmp::SlmpClient plc(transport, kProfile, slmp::TargetAddress{0x00, 0xFF, slmp::module_io::OwnStation, 0x00}, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
 
 void setup() {
     Serial.begin(115200);
@@ -202,7 +204,6 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) {
         delay(250);
     }
-    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
     plc.connect(kPlcHost, kTcpPort);
 }
 
@@ -237,10 +238,10 @@ constexpr uint16_t kTcpPort = 1025;
 constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient tcp;
-slmp::ArduinoClientTransport transport(tcp);
+slmp::ArduinoClientTransport transport(tcp, slmp::configureEsp32WifiClientKeepAlive);
 uint8_t txBuffer[160] = {};
 uint8_t rxBuffer[160] = {};
-slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+slmp::SlmpClient plc(transport, kProfile, slmp::TargetAddress{0x00, 0xFF, slmp::module_io::OwnStation, 0x00}, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
 bool wroteOnce = false;
 
 void setup() {
@@ -249,7 +250,6 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) {
         delay(250);
     }
-    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
     plc.connect(kPlcHost, kTcpPort);
 }
 
@@ -289,10 +289,10 @@ constexpr uint16_t kTcpPort = 1025;
 constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient tcp;
-slmp::ArduinoClientTransport transport(tcp);
+slmp::ArduinoClientTransport transport(tcp, slmp::configureEsp32WifiClientKeepAlive);
 uint8_t txBuffer[192] = {};
 uint8_t rxBuffer[192] = {};
-slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+slmp::SlmpClient plc(transport, kProfile, slmp::TargetAddress{0x00, 0xFF, slmp::module_io::OwnStation, 0x00}, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
 bool wroteOnce = false;
 
 void setup() {
@@ -301,7 +301,6 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) {
         delay(250);
     }
-    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
     plc.connect(kPlcHost, kTcpPort);
 }
 
@@ -344,54 +343,9 @@ void loop() {
 
 ## Block reads
 
-Use `slmp::highlevel::readWordsChunked` when you intentionally allow a large contiguous word read to split into multiple low-level requests.
-
-```cpp
-#include <Arduino.h>
-#include <WiFi.h>
-
-#include <vector>
-
-#include <slmp_arduino_transport.h>
-#include <slmp_high_level.h>
-#include <slmp_minimal.h>
-
-constexpr char kWifiSsid[] = "YOUR_WIFI_SSID";
-constexpr char kWifiPassword[] = "YOUR_WIFI_PASSWORD";
-constexpr char kPlcHost[] = "192.168.250.100";
-constexpr uint16_t kTcpPort = 1025;
-constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
-
-WiFiClient tcp;
-slmp::ArduinoClientTransport transport(tcp);
-uint8_t txBuffer[192] = {};
-uint8_t rxBuffer[2048] = {};
-slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
-
-void setup() {
-    Serial.begin(115200);
-    WiFi.begin(kWifiSsid, kWifiPassword);
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(250);
-    }
-    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
-    plc.connect(kPlcHost, kTcpPort);
-}
-
-void loop() {
-    std::vector<uint16_t> words;
-    const slmp::Error err = slmp::highlevel::readWordsChunked(
-        plc,
-        "D1000",
-        1200,
-        words,
-        960,
-        true);
-    Serial.printf("readWordsChunked: %s count=%u\n", slmp::errorString(err), static_cast<unsigned>(words.size()));
-    delay(5000);
-}
-```
-
+Contiguous low-level reads are limited to one protocol request. Requests above
+the point limit fail; the application must explicitly issue and label multiple
+requests when different acquisition times are acceptable.
 ## Polling
 
 `slmp::highlevel::Poller` stores one compiled `slmp::highlevel::ReadPlan` so repeated reads do not re-parse the address strings.
@@ -414,10 +368,10 @@ constexpr uint16_t kTcpPort = 1025;
 constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient tcp;
-slmp::ArduinoClientTransport transport(tcp);
+slmp::ArduinoClientTransport transport(tcp, slmp::configureEsp32WifiClientKeepAlive);
 uint8_t txBuffer[192] = {};
 uint8_t rxBuffer[192] = {};
-slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+slmp::SlmpClient plc(transport, kProfile, slmp::TargetAddress{0x00, 0xFF, slmp::module_io::OwnStation, 0x00}, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
 slmp::highlevel::Poller poller;
 
 void setup() {
@@ -426,7 +380,6 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) {
         delay(250);
     }
-    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
     plc.connect(kPlcHost, kTcpPort);
     poller.compile({"D100:U", "D101:S", "D200:F", "M1000:BIT"}, kProfile);
 }
@@ -460,10 +413,10 @@ constexpr uint16_t kTcpPort = 1025;
 constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient tcp;
-slmp::ArduinoClientTransport transport(tcp);
+slmp::ArduinoClientTransport transport(tcp, slmp::configureEsp32WifiClientKeepAlive);
 uint8_t txBuffer[192] = {};
 uint8_t rxBuffer[192] = {};
-slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+slmp::SlmpClient plc(transport, kProfile, slmp::TargetAddress{0x00, 0xFF, slmp::module_io::OwnStation, 0x00}, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
 bool printedCatalog = false;
 
 void setup() {
@@ -472,7 +425,6 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) {
         delay(250);
     }
-    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
     plc.connect(kPlcHost, kTcpPort);
 }
 

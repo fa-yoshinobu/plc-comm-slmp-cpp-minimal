@@ -43,7 +43,7 @@ pio run -e wiznet-w6300-evb-pico2-polling-reconnect -t upload --project-option "
 | Folder | What it demonstrates |
 | --- | --- |
 | `esp32_devkitc_low_level` | ESP32 `WiFiClient` transport setup, fixed buffers, explicit `slmp::PlcProfile::IqR`, `slmp::SlmpClient::readOneWord`, and `slmp::SlmpClient::readOneBit`. |
-| `esp32_devkitc_high_level` | ESP32 `WiFiClient` transport setup, explicit `slmp::highlevel::PlcProfile::IqR`, `slmp::highlevel::configureClientForPlcProfile`, `slmp::highlevel::readTyped`, and `slmp::highlevel::Poller`. |
+| `esp32_devkitc_high_level` | ESP32 `WiFiClient` transport setup, constructor-required `slmp::highlevel::PlcProfile::IqR` and target, `slmp::highlevel::readTyped`, and `slmp::highlevel::Poller`. |
 | `esp32_devkitc_polling_reconnect` | Read-only UDP `D100` polling with `connected` / `lost` / `reconnecting` / `recovered` logs and exponential reconnect backoff. |
 | `wiznet_w6300_evb_pico2_polling_reconnect` | W6300-EVB-Pico2 wired Ethernet, read-only UDP `D100` polling, and reconnect state logs for live cable-pull evidence. |
 | `high_level_snapshot` | Host-side examples of `slmp::highlevel::readTyped`, `slmp::highlevel::readNamed`, `slmp::highlevel::writeNamed`, and `slmp::highlevel::Poller` without requiring a board. |

@@ -230,7 +230,8 @@ static std::string upperAscii(std::string text) {
 }
 
 static uint64_t deviceKey(const DeviceAddress& device) {
-    return (static_cast<uint64_t>(static_cast<uint16_t>(device.code)) << 32) |
+    return (static_cast<uint64_t>(device.profile) << 56) |
+           (static_cast<uint64_t>(static_cast<uint16_t>(device.code)) << 32) |
            static_cast<uint64_t>(device.number);
 }
 
@@ -291,6 +292,7 @@ static const DeviceMeta* findDeviceMetaByCode(DeviceCode code) {
 }
 
 static Error parseDeviceOnly(const char* text, DeviceAddress& out, const DeviceMeta** out_meta = nullptr, const PlcProfile* family = nullptr) {
+    if (family == nullptr || !isSpecifiedPlcProfile(*family)) return Error::InvalidArgument;
     const std::string trimmed = trimAscii(text);
     if (trimmed.empty()) return Error::InvalidArgument;
     const std::string upper = upperAscii(trimmed);
@@ -299,13 +301,13 @@ static Error parseDeviceOnly(const char* text, DeviceAddress& out, const DeviceM
     const DeviceMeta* meta = findDeviceMeta(upper, number_part);
     if (meta == nullptr) return Error::UnsupportedDevice;
     if (!isDeviceSupportedForPlcProfile(*meta, family)) return Error::UnsupportedDevice;
-    if (family == nullptr && requiresExplicitPlcProfile(*meta)) return Error::InvalidArgument;
 
     uint32_t number = 0U;
     if (!parseUnsignedNumber(number_part, effectiveDeviceRadix(*meta, family), number)) return Error::InvalidArgument;
 
     out.code = meta->code;
     out.number = number;
+    out.profile = *family;
     if (out_meta != nullptr) *out_meta = meta;
     return Error::Ok;
 }
@@ -580,40 +582,28 @@ static Error readRandomMaps(
     std::unordered_map<uint64_t, uint16_t>& word_values,
     std::unordered_map<uint64_t, uint32_t>& dword_values
 ) {
-    size_t word_index = 0U;
-    size_t dword_index = 0U;
     const size_t batch_limit = randomReadBatchLimit(client.compatibilityMode());
-    while (word_index < word_devices.size() || dword_index < dword_devices.size()) {
-        size_t remaining_slots = batch_limit;
-        const size_t word_chunk = std::min(word_devices.size() - word_index, remaining_slots);
-        remaining_slots -= word_chunk;
-        const size_t dword_chunk = std::min(dword_devices.size() - dword_index, remaining_slots);
-        if (word_chunk == 0U && dword_chunk == 0U) {
-            return Error::InvalidArgument;
-        }
+    if (word_devices.size() + dword_devices.size() == 0U ||
+        word_devices.size() + dword_devices.size() > batch_limit) return Error::InvalidArgument;
 
-        std::vector<uint16_t> words(word_chunk);
-        std::vector<uint32_t> dwords(dword_chunk);
-        const Error err = client.readRandom(
-            word_chunk > 0U ? &word_devices[word_index] : nullptr,
-            word_chunk,
-            word_chunk > 0U ? words.data() : nullptr,
-            words.size(),
-            dword_chunk > 0U ? &dword_devices[dword_index] : nullptr,
-            dword_chunk,
-            dword_chunk > 0U ? dwords.data() : nullptr,
-            dwords.size()
-        );
-        if (err != Error::Ok) return err;
+    std::vector<uint16_t> words(word_devices.size());
+    std::vector<uint32_t> dwords(dword_devices.size());
+    const Error err = client.readRandom(
+        word_devices.empty() ? nullptr : word_devices.data(),
+        word_devices.size(),
+        words.empty() ? nullptr : words.data(),
+        words.size(),
+        dword_devices.empty() ? nullptr : dword_devices.data(),
+        dword_devices.size(),
+        dwords.empty() ? nullptr : dwords.data(),
+        dwords.size()
+    );
+    if (err != Error::Ok) return err;
 
-        for (size_t i = 0; i < word_chunk; ++i)
-            word_values[deviceKey(word_devices[word_index + i])] = words[i];
-        for (size_t i = 0; i < dword_chunk; ++i)
-            dword_values[deviceKey(dword_devices[dword_index + i])] = dwords[i];
-
-        word_index += word_chunk;
-        dword_index += dword_chunk;
-    }
+    for (size_t i = 0; i < word_devices.size(); ++i)
+        word_values[deviceKey(word_devices[i])] = words[i];
+    for (size_t i = 0; i < dword_devices.size(); ++i)
+        dword_values[deviceKey(dword_devices[i])] = dwords[i];
     return Error::Ok;
 }
 
@@ -1189,7 +1179,7 @@ static void replaceDeviceRangePointCount(
 
 static bool canReadOneWord(SlmpClient& client, DeviceCode code, uint32_t number) {
     uint16_t value = 0U;
-    return client.readWords({code, number}, 1U, &value, 1U) == Error::Ok;
+    return client.readWords({client.plcProfile(), code, number}, 1U, &value, 1U) == Error::Ok;
 }
 
 static uint32_t resolveReadablePointCount(SlmpClient& client, DeviceCode code) {
@@ -1269,10 +1259,6 @@ const char* plcProfileCanonicalName(PlcProfile family) {
         case PlcProfile::QnUDVQj71E71100: return "melsec:qnudv:qj71e71-100";
     }
     return "";
-}
-
-const char* plcProfileLabel(PlcProfile family) {
-    return plcProfileCanonicalName(family);
 }
 
 Error parsePlcProfile(const char* text, PlcProfile& out_profile) {
@@ -1370,11 +1356,6 @@ PlcProfileDefaults plcProfileDefaults(PlcProfile family) {
     return plcProfileDefaultsImpl(family);
 }
 
-Error configureClientForPlcProfile(SlmpClient& client, PlcProfile family) {
-    if (!isSpecifiedPlcProfile(family)) return Error::InvalidArgument;
-    return client.setPlcProfile(family);
-}
-
 const char* deviceRangeProfileLabel(PlcProfile profile) {
     return deviceRangeProfileLabelImpl(profile);
 }
@@ -1385,7 +1366,7 @@ Error readDeviceRangeCatalogForPlcProfile(SlmpClient& client, PlcProfile profile
 
     std::vector<uint16_t> registers(range_profile->register_count);
     const Error read_error = client.readWords(
-        dev::SD(dev::dec(range_profile->register_start)),
+        dev::SD(profile, dev::dec(range_profile->register_start)),
         range_profile->register_count,
         registers.data(),
         registers.size());
@@ -1495,7 +1476,7 @@ static Error parseAddressSpecImpl(const char* address, const PlcProfile* family,
 
     const size_t colon = text.find(':');
     if (colon != std::string::npos) {
-        DeviceAddress device{};
+        DeviceAddress device{PlcProfile::Unspecified, DeviceCode::D, 0U};
         const DeviceMeta* meta = nullptr;
         const Error err = parseDeviceOnly(text.substr(0, colon).c_str(), device, &meta, family);
         if (err != Error::Ok) return err;
@@ -1514,7 +1495,7 @@ static Error parseAddressSpecImpl(const char* address, const PlcProfile* family,
 
     const size_t dot = text.find('.');
     if (dot != std::string::npos) {
-        DeviceAddress device{};
+        DeviceAddress device{PlcProfile::Unspecified, DeviceCode::D, 0U};
         const DeviceMeta* meta = nullptr;
         const Error err = parseDeviceOnly(text.substr(0, dot).c_str(), device, &meta, family);
         if (err != Error::Ok) return err;
@@ -1533,10 +1514,6 @@ static Error parseAddressSpecImpl(const char* address, const PlcProfile* family,
     }
 
     return Error::InvalidArgument;
-}
-
-Error parseAddressSpec(const char* address, AddressSpec& out) {
-    return parseAddressSpecImpl(address, nullptr, out);
 }
 
 Error parseAddressSpec(const char* address, PlcProfile family, AddressSpec& out) {
@@ -1577,20 +1554,10 @@ static Error formatAddressSpecImpl(const AddressSpec& spec, const PlcProfile* fa
     return copyTextToBuffer(formatted, out, out_size);
 }
 
-Error formatAddressSpec(const AddressSpec& spec, char* out, size_t out_size) {
-    return formatAddressSpecImpl(spec, nullptr, out, out_size);
-}
-
 Error formatAddressSpec(const AddressSpec& spec, PlcProfile family, char* out, size_t out_size) {
     if (!isSpecifiedPlcProfile(family)) return Error::InvalidArgument;
+    if (spec.device.profile != family) return Error::InvalidArgument;
     return formatAddressSpecImpl(spec, &family, out, out_size);
-}
-
-Error normalizeAddress(const char* address, char* out, size_t out_size) {
-    AddressSpec spec{};
-    const Error err = parseAddressSpecImpl(address, nullptr, spec);
-    if (err != Error::Ok) return err;
-    return formatAddressSpecImpl(spec, nullptr, out, out_size);
 }
 
 Error normalizeAddress(const char* address, PlcProfile family, char* out, size_t out_size) {
@@ -1714,7 +1681,7 @@ Error writeBitInWord(SlmpClient& client, const char* device, int bit_index, bool
 
 static Error writeBitInWordImpl(SlmpClient& client, const PlcProfile* family, const char* device, int bit_index, bool value) {
     if (device == nullptr || bit_index < 0 || bit_index > 15) return Error::InvalidArgument;
-    DeviceAddress base{};
+    DeviceAddress base{PlcProfile::Unspecified, DeviceCode::D, 0U};
     const DeviceMeta* meta = nullptr;
     Error err = parseDeviceOnly(device, base, &meta, family);
     if (err != Error::Ok) return err;
@@ -1814,79 +1781,9 @@ Error writeTyped(SlmpClient& client, PlcProfile family, const char* address, con
     return writeTypedImpl(client, &family, address, value);
 }
 
-Error readWordsChunked(
-    SlmpClient& client,
-    const char* start,
-    uint16_t count,
-    std::vector<uint16_t>& out,
-    uint16_t max_per_request,
-    bool allow_split
-) {
-    if (start == nullptr || count == 0U || max_per_request == 0U) return Error::InvalidArgument;
-    PlcProfile family = PlcProfile::Unspecified;
-    Error err = clientPlcProfile(client, family);
-    if (err != Error::Ok) return err;
-    DeviceAddress device{};
-    const DeviceMeta* meta = nullptr;
-    err = parseDeviceOnly(start, device, &meta, &family);
-    if (err != Error::Ok || meta->bit_unit) return Error::InvalidArgument;
-    if (count > max_per_request && !allow_split) return Error::InvalidArgument;
-
-    out.clear();
-    out.reserve(count);
-    uint32_t offset = 0U;
-    uint16_t remaining = count;
-    while (remaining > 0U) {
-        const uint16_t chunk = (remaining > max_per_request) ? max_per_request : remaining;
-        std::vector<uint16_t> buffer(chunk);
-        DeviceAddress current = device;
-        current.number += offset;
-        err = client.readWords(current, chunk, buffer.data(), buffer.size());
-        if (err != Error::Ok) return err;
-        out.insert(out.end(), buffer.begin(), buffer.end());
-        remaining = static_cast<uint16_t>(remaining - chunk);
-        offset += chunk;
-    }
-    return Error::Ok;
-}
-
-Error readDWordsChunked(
-    SlmpClient& client,
-    const char* start,
-    uint16_t count,
-    std::vector<uint32_t>& out,
-    uint16_t max_dwords_per_request,
-    bool allow_split
-) {
-    if (start == nullptr || count == 0U || max_dwords_per_request == 0U) return Error::InvalidArgument;
-    PlcProfile family = PlcProfile::Unspecified;
-    Error err = clientPlcProfile(client, family);
-    if (err != Error::Ok) return err;
-    DeviceAddress device{};
-    const DeviceMeta* meta = nullptr;
-    err = parseDeviceOnly(start, device, &meta, &family);
-    if (err != Error::Ok || meta->bit_unit) return Error::InvalidArgument;
-    if (count > max_dwords_per_request && !allow_split) return Error::InvalidArgument;
-
-    out.clear();
-    out.reserve(count);
-    uint32_t offset = 0U;
-    uint16_t remaining = count;
-    while (remaining > 0U) {
-        const uint16_t chunk = (remaining > max_dwords_per_request) ? max_dwords_per_request : remaining;
-        std::vector<uint32_t> buffer(chunk);
-        DeviceAddress current = device;
-        current.number += offset;
-        err = client.readDWords(current, chunk, buffer.data(), buffer.size());
-        if (err != Error::Ok) return err;
-        out.insert(out.end(), buffer.begin(), buffer.end());
-        remaining = static_cast<uint16_t>(remaining - chunk);
-        offset += static_cast<uint32_t>(chunk) * 2U;
-    }
-    return Error::Ok;
-}
-
 static Error compileReadPlanImpl(const std::vector<std::string>& addresses, const PlcProfile* family, ReadPlan& out) {
+    if (family == nullptr || !isSpecifiedPlcProfile(*family)) return Error::InvalidArgument;
+    out.profile = *family;
     out.entries.clear();
     out.word_devices.clear();
     out.dword_devices.clear();
@@ -1898,7 +1795,7 @@ static Error compileReadPlanImpl(const std::vector<std::string>& addresses, cons
         if (err != Error::Ok) return err;
 
         const DeviceMeta* meta = nullptr;
-        DeviceAddress verified{};
+        DeviceAddress verified{PlcProfile::Unspecified, DeviceCode::D, 0U};
         err = parseDeviceOnly(addresses[i].find('.') != std::string::npos
                 ? addresses[i].substr(0, addresses[i].find('.')).c_str()
                 : addresses[i].find(':') != std::string::npos
@@ -1920,7 +1817,7 @@ static Error compileReadPlanImpl(const std::vector<std::string>& addresses, cons
         } else if (getLongReadAccess(spec.device.code, long_read)) {
             kind = BatchKind::LongTimer;
         } else if (meta->bit_unit && spec.type == ValueType::Bit) {
-            DeviceAddress word_device{};
+            DeviceAddress word_device{spec.device.profile, DeviceCode::D, 0U};
             int bit_index = -1;
             if (plainBitWordRead(spec.device, word_device, bit_index)) {
                 kind = BatchKind::BitInWord;
@@ -1945,14 +1842,6 @@ static Error compileReadPlanImpl(const std::vector<std::string>& addresses, cons
         out.entries.push_back(entry);
     }
     return Error::Ok;
-}
-
-Error compileReadPlan(const std::vector<std::string>& addresses, ReadPlan& out) {
-    (void)addresses;
-    out.entries.clear();
-    out.word_devices.clear();
-    out.dword_devices.clear();
-    return Error::InvalidArgument;
 }
 
 Error compileReadPlan(const std::vector<std::string>& addresses, PlcProfile family, ReadPlan& out) {
@@ -1982,13 +1871,19 @@ Error readNamed(SlmpClient& client, const ReadPlan& plan, Snapshot& out) {
     PlcProfile family = PlcProfile::Unspecified;
     const Error profile_error = clientPlcProfile(client, family);
     if (profile_error != Error::Ok) return profile_error;
+    if (plan.profile != family) return Error::InvalidArgument;
+    if (plan.entries.empty()) return Error::InvalidArgument;
+    for (size_t i = 0; i < plan.entries.size(); ++i) {
+        if (plan.entries[i].kind == BatchKind::None || plan.entries[i].kind == BatchKind::LongTimer) {
+            return Error::InvalidArgument;
+        }
+    }
 
     out.clear();
     out.reserve(plan.entries.size());
 
     std::unordered_map<uint64_t, uint16_t> word_values;
     std::unordered_map<uint64_t, uint32_t> dword_values;
-    std::unordered_map<uint64_t, LongTimerResult> long_values;
     Error err = readRandomMaps(client, plan.word_devices, plan.dword_devices, word_values, dword_values);
     if (err != Error::Ok) return err;
 
@@ -2009,61 +1904,10 @@ Error readNamed(SlmpClient& client, const ReadPlan& plan, Snapshot& out) {
             case BatchKind::Dword:
                 item.value = decodeDwordValue(dword_values[deviceKey(entry.spec.device)], entry.spec.type);
                 break;
-            case BatchKind::LongTimer: {
-                LongReadAccess long_read{};
-                if (!getLongReadAccess(entry.spec.device.code, long_read)) return Error::InvalidArgument;
-                if (long_read.base_code == DeviceCode::LCN && long_read.role == LongReadRole::Current) {
-                    uint32_t raw = 0UL;
-                    err = readRandomDwordScalar(client, entry.spec.device, raw);
-                    if (err != Error::Ok) return err;
-                    item.value = decodeDwordValue(raw, entry.spec.type);
-                    break;
-                }
-                if (isLongCounterStateDevice(entry.spec.device.code)) {
-                    bool value = false;
-                    err = client.readOneBit(entry.spec.device, value);
-                    if (err != Error::Ok) return err;
-                    item.value = Value::bitValue(value);
-                    break;
-                }
-                const DeviceAddress base_device{long_read.base_code, entry.spec.device.number};
-                const uint64_t key = deviceKey(base_device);
-                auto found = long_values.find(key);
-                if (found == long_values.end()) {
-                    LongTimerResult raw{};
-                    err = readLongLikePoint(client, long_read, entry.spec.device.number, raw);
-                    if (err != Error::Ok) return err;
-                    found = long_values.emplace(key, raw).first;
-                }
-                item.value = decodeLongReadValue(found->second, long_read, entry.spec.type);
-                break;
-            }
+            case BatchKind::LongTimer:
             case BatchKind::None:
             default:
-                if (entry.spec.bit_index >= 0) {
-                    uint16_t word = 0U;
-                    err = client.readOneWord(entry.spec.device, word);
-                    if (err != Error::Ok) return err;
-                    item.value = Value::bitValue(((word >> entry.spec.bit_index) & 1U) != 0U);
-                } else if (entry.spec.type == ValueType::Bit) {
-                    bool value = false;
-                    err = client.readOneBit(entry.spec.device, value);
-                    if (err != Error::Ok) return err;
-                    item.value = Value::bitValue(value);
-                } else if (valueTypeUsesDword(entry.spec.type)) {
-                    uint32_t raw = 0UL;
-                    err = isRandomDwordScalarDevice(entry.spec.device.code)
-                        ? readRandomDwordScalar(client, entry.spec.device, raw)
-                        : client.readOneDWord(entry.spec.device, raw);
-                    if (err != Error::Ok) return err;
-                    item.value = decodeDwordValue(raw, entry.spec.type);
-                } else {
-                    uint16_t raw = 0U;
-                    err = client.readOneWord(entry.spec.device, raw);
-                    if (err != Error::Ok) return err;
-                    item.value = decodeWordValue(raw, entry.spec.type);
-                }
-                break;
+                return Error::InvalidArgument;
         }
 
         out.push_back(item);
@@ -2090,14 +1934,6 @@ Error writeNamed(SlmpClient& client, PlcProfile family, const Snapshot& updates)
         if (err != Error::Ok) return err;
     }
     return Error::Ok;
-}
-
-Error Poller::compile(const std::vector<std::string>& addresses) {
-    (void)addresses;
-    plan_.entries.clear();
-    plan_.word_devices.clear();
-    plan_.dword_devices.clear();
-    return Error::InvalidArgument;
 }
 
 Error Poller::compile(const std::vector<std::string>& addresses, PlcProfile family) {

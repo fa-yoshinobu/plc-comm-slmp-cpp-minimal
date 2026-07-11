@@ -73,6 +73,7 @@ class ReconnectHelper {
           host_(host),
           port_(port),
           options_(options),
+          valid_(host != nullptr && port != 0U && options.retry_interval_ms > 0U),
           last_attempt_ms_(0),
           has_attempt_(false),
           connected_edge_(false) {}
@@ -89,6 +90,7 @@ class ReconnectHelper {
      */
     bool ensureConnected(uint32_t now_ms) {
         connected_edge_ = false;
+        if (!valid_) return false;
         if (client_.connected()) {
             return true;
         }
@@ -126,6 +128,9 @@ class ReconnectHelper {
         return value;
     }
 
+    /** @brief Return whether endpoint and retry options passed construction validation. */
+    bool valid() const { return valid_; }
+
     /**
      * @brief Manually trigger a reconnection attempt on the next call to @ref ensureConnected.
      * 
@@ -144,6 +149,7 @@ class ReconnectHelper {
     const char* host_;
     uint16_t port_;
     ReconnectOptions options_;
+    bool valid_;
     uint32_t last_attempt_ms_;
     bool has_attempt_;
     bool connected_edge_;

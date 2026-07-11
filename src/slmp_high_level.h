@@ -131,7 +131,7 @@ struct Value {
  * read-modify-write flow on writes.
  */
 struct AddressSpec {
-    DeviceAddress device{};      ///< Base device address used by the low-level API.
+    DeviceAddress device{PlcProfile::Unspecified, DeviceCode::D, 0U}; ///< Populated by the profile-required parser.
     ValueType type = ValueType::U16; ///< Logical value type requested by the caller.
     int bit_index = -1;          ///< Bit index for `D50.3` style access, otherwise -1.
     bool explicit_type = false;  ///< True when the input used an explicit suffix such as `:F`.
@@ -142,11 +142,11 @@ struct AddressSpec {
  * @brief Read-plan batching strategy for one named address.
  */
 enum class BatchKind : uint8_t {
-    None,       ///< Read individually through the fallback path.
+    None,       ///< Not eligible for the single-request named-read contract.
     Word,       ///< Read through batched random word access.
     Dword,      ///< Read through batched random dword access.
     BitInWord,  ///< Read one bit from a batched word value.
-    LongTimer,  ///< Read one long-family point through the helper-selected route.
+    LongTimer,  ///< Long-family route; rejected by the single-request named-read contract.
 };
 
 /**
@@ -173,6 +173,7 @@ struct ReadPlanEntry {
  * random-read request for many named addresses.
  */
 struct ReadPlan {
+    PlcProfile profile = PlcProfile::Unspecified; ///< Profile used to compile every address in this plan.
     std::vector<ReadPlanEntry> entries;   ///< Snapshot entries in caller order.
     std::vector<DeviceAddress> word_devices;  ///< Unique batched word devices.
     std::vector<DeviceAddress> dword_devices; ///< Unique batched dword devices.
@@ -231,13 +232,6 @@ struct PlcProfileDescriptor {
 const char* plcProfileCanonicalName(PlcProfile family);
 
 /**
- * @brief Return the canonical lowercase profile name (legacy alias).
- * @deprecated Use @ref plcProfileCanonicalName for clarity.
- */
-[[deprecated("Use plcProfileCanonicalName")]]
-const char* plcProfileLabel(PlcProfile family);
-
-/**
  * @brief Parse one canonical profile name.
  * @param text Canonical profile name such as `melsec:iq-r`.
  * @param out_profile Receives the parsed profile.
@@ -276,15 +270,6 @@ const char* plcProfileDisplayName(PlcProfile family);
  * @return Derived frame, compatibility mode, address profile, and range profile.
  */
 PlcProfileDefaults plcProfileDefaults(PlcProfile family);
-
-/**
- * @brief Configure the low-level client to the fixed defaults for one PLC profile.
- * @param client Low-level client to update.
- * @param family Selected PLC profile.
- *
- * This helper only applies deterministic local defaults. It does not probe the PLC.
- */
-Error configureClientForPlcProfile(SlmpClient& client, PlcProfile family);
 
 /**
  * @enum DeviceRangeCategory
@@ -390,15 +375,6 @@ Error readDeviceRangeCatalogForPlcProfile(SlmpClient& client, PlcProfile profile
  * bit inside a word device.
  *
  * @param address Address string to parse.
- * @param out Parsed result.
- * @return @ref Error::Ok on success, otherwise an error describing why the
- * address cannot be interpreted by the helper layer.
- */
-Error parseAddressSpec(const char* address, AddressSpec& out);
-
-/**
- * @brief Parse a high-level address string with one explicit PLC profile.
- * @param address Address string to parse.
  * @param family Explicit PLC profile used for string-device interpretation.
  * @param out Parsed result.
  * @return @ref Error::Ok on success.
@@ -419,17 +395,6 @@ Error parseAddressSpec(const char* address, PlcProfile family, AddressSpec& out)
  * - `X1A:BIT`
  *
  * @param spec Parsed address specification to format.
- * @param out Caller-provided destination buffer.
- * @param out_size Destination buffer size in bytes.
- * @note This helper does not communicate with the PLC. It only formats the
- * parsed logical address into canonical text.
- * @return @ref Error::Ok on success.
- */
-Error formatAddressSpec(const AddressSpec& spec, char* out, size_t out_size);
-
-/**
- * @brief Format one parsed high-level address with one explicit PLC profile.
- * @param spec Parsed address specification to format.
  * @param family Explicit PLC profile used for string-device formatting.
  * @param out Caller-provided destination buffer.
  * @param out_size Destination buffer size in bytes.
@@ -446,20 +411,10 @@ Error formatAddressSpec(const AddressSpec& spec, PlcProfile family, char* out, s
  * Example:
  * @code
  * char normalized[32] = {};
- * slmp::highlevel::normalizeAddress(" d200:f ", normalized, sizeof(normalized));
+ * slmp::highlevel::normalizeAddress(" d200:f ", slmp::PlcProfile::IqR, normalized, sizeof(normalized));
  * // normalized -> "D200:F"
  * @endcode
  *
- * @param address User-facing address string.
- * @param out Caller-provided destination buffer.
- * @param out_size Destination buffer size in bytes.
- * @note This helper performs parse + format only. No PLC request is issued.
- * @return @ref Error::Ok on success.
- */
-Error normalizeAddress(const char* address, char* out, size_t out_size);
-
-/**
- * @brief Parse and immediately format one address with one explicit PLC profile.
  * @param address User-facing address string.
  * @param family Explicit PLC profile used for string-device interpretation.
  * @param out Caller-provided destination buffer.
@@ -563,66 +518,6 @@ Error writeTyped(SlmpClient& client, const char* address, const Value& value);
 Error writeTyped(SlmpClient& client, PlcProfile family, const char* address, const Value& value);
 
 /**
- * @brief Read a large contiguous word range and optionally split it into multiple requests.
- *
- * Use this when the logical range is larger than one practical request and you
- * still want one helper call in user code.
- *
- * When @p allow_split is `false`, oversize requests fail instead of silently
- * issuing multiple protocol frames.
- *
- * @note The helper never splits one 32-bit logical value across requests.
- *
- * @param client Connected low-level client instance.
- * @param start Start address such as `D1000`.
- * @param count Number of words to read.
- * @param out Receives the decoded words in PLC order.
- * @param max_per_request Maximum words per low-level request.
- * @param allow_split When true, the helper may issue multiple requests.
- * @return @ref Error::Ok on success.
- *
- * This helper uses the profile already configured on @p client and returns
- * @ref Error::InvalidArgument when the client profile is unspecified.
- */
-Error readWordsChunked(
-    SlmpClient& client,
-    const char* start,
-    uint16_t count,
-    std::vector<uint16_t>& out,
-    uint16_t max_per_request = 960U,
-    bool allow_split = false
-);
-
-/**
- * @brief Read a large contiguous dword range and optionally split it into multiple requests.
- *
- * Chunk boundaries are aligned to full dwords so each returned element still
- * maps cleanly to one logical 32-bit value.
- *
- * When @p allow_split is `false`, oversize requests fail instead of silently
- * issuing multiple protocol frames.
- *
- * @param client Connected low-level client instance.
- * @param start Start address such as `D2000`.
- * @param count Number of dwords to read.
- * @param out Receives the decoded dwords in PLC order.
- * @param max_dwords_per_request Maximum dwords per low-level request.
- * @param allow_split When true, the helper may issue multiple requests.
- * @return @ref Error::Ok on success.
- *
- * This helper uses the profile already configured on @p client and returns
- * @ref Error::InvalidArgument when the client profile is unspecified.
- */
-Error readDWordsChunked(
-    SlmpClient& client,
-    const char* start,
-    uint16_t count,
-    std::vector<uint32_t>& out,
-    uint16_t max_dwords_per_request = 480U,
-    bool allow_split = false
-);
-
-/**
  * @brief Update one bit inside a word device using read-modify-write.
  *
  * Example: `D50.3`.
@@ -654,14 +549,11 @@ Error writeBitInWord(SlmpClient& client, PlcProfile family, const char* device, 
  * in the compiled plan.
  *
  * @param addresses Caller-provided high-level addresses.
+ * @param family Explicit PLC profile used to parse every address.
  * @param out Receives the compiled plan.
  * @return @ref Error::Ok on success.
  *
- * The overload without an explicit @ref PlcProfile is retained for source
- * compatibility but returns @ref Error::InvalidArgument. Use the overload that
- * receives a PLC profile.
  */
-Error compileReadPlan(const std::vector<std::string>& addresses, ReadPlan& out);
 Error compileReadPlan(const std::vector<std::string>& addresses, PlcProfile family, ReadPlan& out);
 
 /**
@@ -673,9 +565,9 @@ Error compileReadPlan(const std::vector<std::string>& addresses, PlcProfile fami
  * slmp::highlevel::readNamed(plc, {"SM400:BIT", "D100:U", "D200:F", "D50.3"}, snapshot);
  * @endcode
  *
- * Where possible, the helper batches word and dword devices through the random
- * read API and only falls back to individual reads for expressions that cannot
- * share one batch safely.
+ * The helper emits exactly one random-read request. Expressions that cannot be
+ * represented by that request, and plans that exceed one-request limits, are
+ * rejected before transport rather than being read in multiple requests.
  *
  * @param client Connected low-level client instance.
  * @param addresses Caller-provided address list.
@@ -734,15 +626,6 @@ class Poller {
     /** @brief Construct a poller from an already-compiled plan. */
     explicit Poller(const ReadPlan& plan) : plan_(plan) {}
 
-    /**
-     * @brief Compile and store one reusable read plan.
-     * @param addresses Caller-provided high-level addresses.
-     * @return @ref Error::Ok on success.
-     *
-     * This overload is retained for source compatibility but returns
-     * @ref Error::InvalidArgument. Use the overload that receives a PLC profile.
-     */
-    Error compile(const std::vector<std::string>& addresses);
     /** @brief Compile and store one reusable read plan with an explicit PLC profile. */
     Error compile(const std::vector<std::string>& addresses, PlcProfile family);
     /**

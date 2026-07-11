@@ -70,20 +70,4 @@ bool isRemotePasswordEndCode(uint16_t end_code) {
     }
 }
 
-const char* endCodeMessage(uint16_t end_code, EndCodeLanguage language) {
-    (void)end_code;
-    (void)language;
-    return nullptr;
-}
-
-const char* endCodeMessageEnglish(uint16_t end_code) {
-    (void)end_code;
-    return nullptr;
-}
-
-const char* endCodeMessageJapanese(uint16_t end_code) {
-    (void)end_code;
-    return nullptr;
-}
-
 }  // namespace slmp

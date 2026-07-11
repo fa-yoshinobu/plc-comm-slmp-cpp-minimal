@@ -12,10 +12,10 @@ Public API surface:
 
 Stability intent:
 
-- additive changes are preferred
-- source-compatible changes are preferred over renames
+- technically correct, explicit, and validated behavior takes priority over source compatibility
+- additive or source-compatible changes are preferred only when they do not preserve ambiguity, silent fallback, or unsafe behavior
 - behavior changes should be accompanied by host tests and changelog entries
-- deprecated public names remain available for at least one minor release when practical
+- deprecated names remain only when an explicit review finds the compatibility path technically safe and worthwhile
 - breaking public API changes require a new major version
 
 The example sketch structure, CI/test utilities, maintainer documentation, and packaging implementation are not public API. Changes to them still require the relevant build or packaging checks.
@@ -34,4 +34,5 @@ Breaking changes policy:
 
 - document them in `CHANGELOG.md`
 - update examples and host tests in the same change
-- use a major-version release unless the old form can remain as a source-compatible deprecation
+- use a major-version release
+- do not retain an alias or ignored option merely to avoid migration work

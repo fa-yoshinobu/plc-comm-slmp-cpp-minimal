@@ -17,6 +17,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### BREAKING
+
+- Library: `SlmpClient` construction now requires a concrete `PlcProfile` and a complete `TargetAddress`; the route is fixed for the client lifetime.
+- Library: `DeviceAddress` and all `slmp::dev` factories now require and retain a concrete PLC profile. Passing an address to a client with a different profile is rejected before transport.
+- Library: Removed profileless `parseAddressSpec`, `formatAddressSpec`, `normalizeAddress`, and `compileReadPlan` overloads, the `plcProfileLabel` alias, and `configureClientForPlcProfile`.
+- Library: Removed `BlockWriteOptions` and `split_mixed_blocks`. Mixed block operations always use one protocol request.
+- Library: Remote RUN and PAUSE now require typed mode arguments; Remote RUN also requires `RemoteClearMode`. Remote RESET exposes no wire-level options and completes after transmission without waiting for a response.
+- Library: CPU-buffer helpers now require `CpuModule::Cpu1` through `Cpu4` instead of silently selecting CPU No.1.
+- Library: `ArduinoClientTransport` now requires a platform keepalive configurator and fails connection when the fixed 30-second TCP keepalive idle cannot be applied.
+- Library: Removed localized end-code message compatibility hooks and language selection. Numeric end codes and stable `slmp_end_code_xxxx` keys remain.
+
+### Changed
+
+- Library: Communication timeout remains omittable with a 3000 ms default; explicitly setting zero is rejected.
+- Library: Monitoring timer remains omittable with a four-second (`0x0010`) default.
+- Library: Named/random snapshot helpers reject oversized plans instead of splitting them into multiple requests.
+- Library: Arduino UDP local port zero now requests platform ephemeral-port assignment and is never replaced with the PLC remote port.
+- Library: `ReconnectHelper` rejects a zero retry interval and retains the 3000 ms default when options are omitted.
+- Library: Random/block writes reject duplicate or overlapping destinations, and label operations validate abbreviation pointers and encoded data shape before transport.
+- Docs: Updated examples, user guides, API reference, protocol notes, and migration guidance for the overhaul contract.
+
 ## [3.1.0] - 2026-07-10
 
 ### Added

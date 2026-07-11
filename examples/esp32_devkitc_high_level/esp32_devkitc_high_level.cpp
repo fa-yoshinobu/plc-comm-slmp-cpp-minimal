@@ -18,10 +18,10 @@ constexpr uint32_t kReadIntervalMs = 1000;
 constexpr slmp::highlevel::PlcProfile kPlcProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient g_tcp;
-slmp::ArduinoClientTransport g_transport(g_tcp);
+slmp::ArduinoClientTransport g_transport(g_tcp, slmp::configureEsp32WifiClientKeepAlive);
 uint8_t g_tx_buffer[160] = {};
 uint8_t g_rx_buffer[160] = {};
-slmp::SlmpClient g_plc(g_transport, g_tx_buffer, sizeof(g_tx_buffer), g_rx_buffer, sizeof(g_rx_buffer));
+slmp::SlmpClient g_plc(g_transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, g_tx_buffer, sizeof(g_tx_buffer), g_rx_buffer, sizeof(g_rx_buffer));
 
 slmp::highlevel::Poller g_poller;
 bool g_planReady = false;
@@ -49,7 +49,7 @@ bool ensurePlc() {
     }
 
     // Gotcha reference: high-level string addresses need the correct PLC profile.
-    slmp::highlevel::configureClientForPlcProfile(g_plc, kPlcProfile);
+    g_plc.setPlcProfile(kPlcProfile);
 
     if (!g_plc.connect(kPlcHost, kPlcPort)) {
         Serial.printf("connect failed: %u\n", static_cast<unsigned>(g_plc.lastError()));

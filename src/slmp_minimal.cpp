@@ -812,7 +812,8 @@ inline bool isLongCurrentOrDwordOnlyDevice(DeviceCode code) {
     return isLongCurrentValueDevice(code) || isDwordOnlyDirectWordDevice(code);
 }
 
-inline Error validateDirectWordReadDevice(const DeviceAddress& device, uint16_t points) {
+inline Error validateDirectWordReadDevice(const DeviceAddress& device, uint16_t points, PlcProfile profile) {
+    if (device.profile != profile || profile == PlcProfile::Unspecified) return Error::InvalidArgument;
     if (isUnsupportedDirectDevice(device.code)) {
         return Error::UnsupportedDevice;
     }
@@ -825,7 +826,8 @@ inline Error validateDirectWordReadDevice(const DeviceAddress& device, uint16_t 
     return Error::Ok;
 }
 
-inline Error validateDirectBitReadDevice(const DeviceAddress& device) {
+inline Error validateDirectBitReadDevice(const DeviceAddress& device, PlcProfile profile) {
+    if (device.profile != profile || profile == PlcProfile::Unspecified) return Error::InvalidArgument;
     if (isUnsupportedDirectDevice(device.code) || isLongTimerStateReadOnlyDevice(device.code)) {
         return Error::UnsupportedDevice;
     }
@@ -833,13 +835,15 @@ inline Error validateDirectBitReadDevice(const DeviceAddress& device) {
 }
 
 inline Error validateDirectBitWriteDevice(const DeviceAddress& device, PlcProfile profile) {
+    if (device.profile != profile || profile == PlcProfile::Unspecified) return Error::InvalidArgument;
     if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code, profile) || isLongFamilyStateWriteDevice(device.code)) {
         return Error::UnsupportedDevice;
     }
     return Error::Ok;
 }
 
-inline Error validateDirectDWordReadDevice(const DeviceAddress& device) {
+inline Error validateDirectDWordReadDevice(const DeviceAddress& device, PlcProfile profile) {
+    if (device.profile != profile || profile == PlcProfile::Unspecified) return Error::InvalidArgument;
     if (isUnsupportedDirectDevice(device.code) || isLongTimerCurrentBlockDevice(device.code) || isDwordOnlyDirectWordDevice(device.code)) {
         return Error::UnsupportedDevice;
     }
@@ -847,6 +851,7 @@ inline Error validateDirectDWordReadDevice(const DeviceAddress& device) {
 }
 
 inline Error validateDirectWordWriteDevice(const DeviceAddress& device, PlcProfile profile) {
+    if (device.profile != profile || profile == PlcProfile::Unspecified) return Error::InvalidArgument;
     if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code, profile) ||
         isLongTimerCurrentBlockDevice(device.code) || isDwordOnlyDirectWordDevice(device.code)) {
         return Error::UnsupportedDevice;
@@ -855,6 +860,7 @@ inline Error validateDirectWordWriteDevice(const DeviceAddress& device, PlcProfi
 }
 
 inline Error validateDirectDWordWriteDevice(const DeviceAddress& device, PlcProfile profile) {
+    if (device.profile != profile || profile == PlcProfile::Unspecified) return Error::InvalidArgument;
     if (isUnsupportedDirectDevice(device.code) || isReadOnlyDevice(device.code, profile) ||
         isLongTimerCurrentBlockDevice(device.code) || isDwordOnlyDirectWordDevice(device.code)) {
         return Error::UnsupportedDevice;
@@ -862,7 +868,7 @@ inline Error validateDirectDWordWriteDevice(const DeviceAddress& device, PlcProf
     return Error::Ok;
 }
 
-inline Error validateDirectDeviceList(const DeviceAddress* devices, size_t count) {
+inline Error validateDirectDeviceList(const DeviceAddress* devices, size_t count, PlcProfile profile) {
     if (count == 0) {
         return Error::Ok;
     }
@@ -870,8 +876,69 @@ inline Error validateDirectDeviceList(const DeviceAddress* devices, size_t count
         return Error::InvalidArgument;
     }
     for (size_t i = 0; i < count; ++i) {
+        if (devices[i].profile != profile || profile == PlcProfile::Unspecified) {
+            return Error::InvalidArgument;
+        }
         if (isUnsupportedDirectDevice(devices[i].code)) {
             return Error::UnsupportedDevice;
+        }
+    }
+    return Error::Ok;
+}
+
+inline bool addressRangesOverlap(const DeviceAddress& left, uint32_t left_points,
+                                 const DeviceAddress& right, uint32_t right_points) {
+    if (left.profile != right.profile || left.code != right.code || left_points == 0U || right_points == 0U) {
+        return false;
+    }
+    const uint64_t left_end = static_cast<uint64_t>(left.number) + left_points - 1U;
+    const uint64_t right_end = static_cast<uint64_t>(right.number) + right_points - 1U;
+    return static_cast<uint64_t>(left.number) <= right_end && static_cast<uint64_t>(right.number) <= left_end;
+}
+
+inline Error validateNoRandomWriteOverlap(const DeviceAddress* word_devices, size_t word_count,
+                                          const DeviceAddress* dword_devices, size_t dword_count) {
+    for (size_t i = 0; i < word_count; ++i) {
+        for (size_t j = i + 1U; j < word_count; ++j) {
+            if (addressRangesOverlap(word_devices[i], 1U, word_devices[j], 1U)) return Error::InvalidArgument;
+        }
+        for (size_t j = 0; j < dword_count; ++j) {
+            if (addressRangesOverlap(word_devices[i], 1U, dword_devices[j], 2U)) return Error::InvalidArgument;
+        }
+    }
+    for (size_t i = 0; i < dword_count; ++i) {
+        for (size_t j = i + 1U; j < dword_count; ++j) {
+            if (addressRangesOverlap(dword_devices[i], 2U, dword_devices[j], 2U)) return Error::InvalidArgument;
+        }
+    }
+    return Error::Ok;
+}
+
+inline Error validateNoBitWriteDuplicates(const DeviceAddress* devices, size_t count) {
+    for (size_t i = 0; i < count; ++i) {
+        for (size_t j = i + 1U; j < count; ++j) {
+            if (addressRangesOverlap(devices[i], 1U, devices[j], 1U)) return Error::InvalidArgument;
+        }
+    }
+    return Error::Ok;
+}
+
+inline Error validateNoBlockWriteOverlap(const DeviceBlockWrite* word_blocks, size_t word_count,
+                                         const DeviceBlockWrite* bit_blocks, size_t bit_count) {
+    for (size_t i = 0; i < word_count; ++i) {
+        for (size_t j = i + 1U; j < word_count; ++j) {
+            if (addressRangesOverlap(word_blocks[i].device, word_blocks[i].points,
+                                     word_blocks[j].device, word_blocks[j].points)) return Error::InvalidArgument;
+        }
+        for (size_t j = 0; j < bit_count; ++j) {
+            if (addressRangesOverlap(word_blocks[i].device, word_blocks[i].points,
+                                     bit_blocks[j].device, bit_blocks[j].points)) return Error::InvalidArgument;
+        }
+    }
+    for (size_t i = 0; i < bit_count; ++i) {
+        for (size_t j = i + 1U; j < bit_count; ++j) {
+            if (addressRangesOverlap(bit_blocks[i].device, bit_blocks[i].points,
+                                     bit_blocks[j].device, bit_blocks[j].points)) return Error::InvalidArgument;
         }
     }
     return Error::Ok;
@@ -1023,7 +1090,7 @@ inline Error validateExtMonitorDevices(
     return Error::Ok;
 }
 
-inline Error summarizeBlockReadList(const DeviceBlockRead* blocks, size_t count, size_t& total_points) {
+inline Error summarizeBlockReadList(const DeviceBlockRead* blocks, size_t count, size_t& total_points, PlcProfile profile) {
     total_points = 0;
     if (count == 0) {
         return Error::Ok;
@@ -1032,6 +1099,9 @@ inline Error summarizeBlockReadList(const DeviceBlockRead* blocks, size_t count,
         return Error::InvalidArgument;
     }
     for (size_t i = 0; i < count; ++i) {
+        if (blocks[i].device.profile != profile || profile == PlcProfile::Unspecified) {
+            return Error::InvalidArgument;
+        }
         if (blocks[i].points == 0) {
             return Error::InvalidArgument;
         }
@@ -1055,6 +1125,9 @@ inline Error summarizeBlockWriteList(const DeviceBlockWrite* blocks, size_t coun
         return Error::InvalidArgument;
     }
     for (size_t i = 0; i < count; ++i) {
+        if (blocks[i].device.profile != profile || profile == PlcProfile::Unspecified) {
+            return Error::InvalidArgument;
+        }
         if (blocks[i].points == 0 || blocks[i].values == nullptr) {
             return Error::InvalidArgument;
         }
@@ -1200,7 +1273,7 @@ inline size_t encodeModuleBufDeviceSpec(uint16_t slot, bool use_hg, uint32_t dev
     size_t device_spec_size = (mode == CompatibilityMode::Legacy) ? 4U : 6U;
     size_t total = 2U + device_spec_size + 2U + 2U + 1U;  // 11 (Legacy) or 13 (iQR)
     if (capacity < total) return 0;
-    DeviceAddress dev{use_hg ? DeviceCode::HG : DeviceCode::G, dev_no};
+    DeviceAddress dev{PlcProfile::Unspecified, use_hg ? DeviceCode::HG : DeviceCode::G, dev_no};
     size_t offset = 0;
     out[offset++] = 0x00;  // ext_spec_mod
     out[offset++] = 0x00;  // dev_mod_idx
@@ -1247,6 +1320,8 @@ inline size_t encodeExtDeviceSpec(const ExtDeviceSpec& spec, CompatibilityMode m
 
 SlmpClient::SlmpClient(
     ITransport& transport,
+    PlcProfile profile,
+    const TargetAddress& target,
     uint8_t* tx_buffer,
     size_t tx_capacity,
     uint8_t* rx_buffer,
@@ -1257,10 +1332,10 @@ SlmpClient::SlmpClient(
       tx_capacity_(tx_capacity),
       rx_buffer_(rx_buffer),
       rx_capacity_(rx_capacity),
-      target_(),
-      plc_profile_(PlcProfile::Unspecified),
-      frame_type_(FrameType::Frame4E),
-      compatibility_mode_(CompatibilityMode::iQR),
+      target_(target),
+      plc_profile_(isConnectionSelectablePlcProfile(profile) ? profile : PlcProfile::Unspecified),
+      frame_type_(frameTypeForPlcProfile(profile)),
+      compatibility_mode_(compatibilityModeForPlcProfile(profile)),
       block_access_enabled_(true),
       strict_profile_(true),
       monitoring_timer_(0x0010),
@@ -1275,7 +1350,24 @@ SlmpClient::SlmpClient(
       state_(State::Idle),
       bytes_transferred_(0),
       last_activity_ms_(0),
-      async_ctx_{} {}
+      async_ctx_{} {
+    if (!isConnectionSelectablePlcProfile(profile)) {
+        setError(Error::InvalidArgument);
+    }
+}
+
+inline bool isValidLabelName(const LabelName& name) {
+    return name.chars != nullptr && name.length > 0U;
+}
+
+inline bool isValidLabelList(const LabelName* labels, size_t count) {
+    if (count == 0U) return true;
+    if (labels == nullptr || count > 0xFFFFU) return false;
+    for (size_t i = 0; i < count; ++i) {
+        if (!isValidLabelName(labels[i])) return false;
+    }
+    return true;
+}
 
 /** @brief Returns true if an asynchronous operation is currently active. */
 bool SlmpClient::isBusy() const {
@@ -1283,7 +1375,10 @@ bool SlmpClient::isBusy() const {
 }
 
 bool SlmpClient::connect(const char* host, uint16_t port) {
-    if (host == nullptr || port == 0) {
+    if (host == nullptr || host[0] == '\0' || port == 0 ||
+        !isConnectionSelectablePlcProfile(plc_profile_) ||
+        tx_buffer_ == nullptr || rx_buffer_ == nullptr ||
+        tx_capacity_ < kRequestHeaderSize4E || rx_capacity_ < kResponsePrefixSize4E + 2U) {
         setError(Error::InvalidArgument);
         return false;
     }
@@ -1301,10 +1396,6 @@ void SlmpClient::close() {
 
 bool SlmpClient::connected() const {
     return transport_.connected();
-}
-
-void SlmpClient::setTarget(const TargetAddress& target) {
-    target_ = target;
 }
 
 const TargetAddress& SlmpClient::target() const {
@@ -1355,14 +1446,6 @@ PlcProfile SlmpClient::plcProfile() const {
     return plc_profile_;
 }
 
-void SlmpClient::setStrictProfile(bool enabled) {
-    strict_profile_ = enabled;
-}
-
-bool SlmpClient::strictProfile() const {
-    return strict_profile_;
-}
-
 void SlmpClient::setBlockAccessEnabled(bool enabled) {
     block_access_enabled_ = enabled;
 }
@@ -1381,8 +1464,14 @@ uint16_t SlmpClient::monitoringTimer() const {
     return monitoring_timer_;
 }
 
-void SlmpClient::setTimeoutMs(uint32_t timeout_ms) {
+Error SlmpClient::setTimeoutMs(uint32_t timeout_ms) {
+    if (timeout_ms == 0U) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
     timeout_ms_ = timeout_ms;
+    setError(Error::Ok);
+    return last_error_;
 }
 
 uint32_t SlmpClient::timeoutMs() const {
@@ -1430,6 +1519,10 @@ size_t SlmpClient::lastResponseFrameLength() const {
 }
 
 Error SlmpClient::startAsync(AsyncContext::Type type, size_t payload_length, uint32_t now_ms) {
+    if (!isConnectionSelectablePlcProfile(plc_profile_)) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
     if (isBusy()) {
         setError(Error::Busy);
         return last_error_;
@@ -1512,7 +1605,7 @@ Error SlmpClient::startAsync(AsyncContext::Type type, size_t payload_length, uin
             break;
         case AsyncContext::Type::RemoteReset:
             command = kCommandRemoteReset;
-            subcommand = async_ctx_.data.remoteReset.subcommand;
+            subcommand = 0x0000U;
             break;
         case AsyncContext::Type::SelfTest:
             command = kCommandSelfTest;
@@ -1686,8 +1779,7 @@ void SlmpClient::update(uint32_t now_ms) {
             bytes_transferred_ += written;
             last_activity_ms_ = now_ms;
             if (bytes_transferred_ == last_request_length_) {
-                if (async_ctx_.type == AsyncContext::Type::RemoteReset &&
-                    !async_ctx_.data.remoteReset.expect_response) {
+                if (async_ctx_.type == AsyncContext::Type::RemoteReset) {
                     state_ = State::Idle;
                     setError(Error::Ok);
                     return;
@@ -1762,39 +1854,7 @@ void SlmpClient::update(uint32_t now_ms) {
 void SlmpClient::completeAsync() {
     size_t response_prefix_size = (frame_type_ == FrameType::Frame4E) ? kResponsePrefixSize4E : kResponsePrefixSize3E;
     uint16_t end_code = readLe16(rx_buffer_ + response_prefix_size);
-    if (async_ctx_.type == AsyncContext::Type::WriteBlock) {
-        const AsyncContext::WriteBlockStage stage = async_ctx_.data.writeBlock.stage;
-        const BlockWriteOptions options = async_ctx_.data.writeBlock.options;
-        const DeviceBlockWrite* word_blocks = async_ctx_.data.writeBlock.word_blocks;
-        const size_t word_block_count = async_ctx_.data.writeBlock.word_block_count;
-        const DeviceBlockWrite* bit_blocks = async_ctx_.data.writeBlock.bit_blocks;
-        const size_t bit_block_count = async_ctx_.data.writeBlock.bit_block_count;
-
-        if (end_code != 0) {
-            const uint8_t* error_data = rx_buffer_ + response_prefix_size + 2U;
-            const size_t error_length = last_response_length_ - (response_prefix_size + 2U);
-            setPlcError(end_code, error_data, error_length);
-            return;
-        }
-
-        if (stage == AsyncContext::WriteBlockStage::SplitWord && bit_block_count > 0U) {
-            beginWriteBlockRequest(
-                nullptr,
-                0,
-                bit_blocks,
-                bit_block_count,
-                word_blocks,
-                word_block_count,
-                bit_blocks,
-                bit_block_count,
-                options,
-                AsyncContext::WriteBlockStage::SplitBit,
-                true,
-                last_activity_ms_
-            );
-            return;
-        }
-    } else if (end_code != 0) {
+    if (end_code != 0) {
         const uint8_t* error_data = rx_buffer_ + response_prefix_size + 2U;
         const size_t error_length = last_response_length_ - (response_prefix_size + 2U);
         setPlcError(end_code, error_data, error_length);
@@ -2121,7 +2181,7 @@ Error SlmpClient::readTypeName(TypeNameInfo& out) {
 
 Error SlmpClient::readCpuOperationState(CpuOperationState& out) {
     uint16_t status_word = 0U;
-    Error err = readWords(dev::SD(dev::dec(203)), 1, &status_word, 1);
+    Error err = readWords(dev::SD(plc_profile_, dev::dec(203)), 1, &status_word, 1);
     if (err != Error::Ok) return err;
 
     const uint8_t raw_code = static_cast<uint8_t>(status_word & 0x000FU);
@@ -2160,7 +2220,7 @@ Error SlmpClient::beginReadWords(
         setError(Error::InvalidArgument);
         return last_error_;
     }
-    Error validate_error = validateDirectWordReadDevice(device, points);
+    Error validate_error = validateDirectWordReadDevice(device, points, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -2256,7 +2316,7 @@ Error SlmpClient::beginReadBits(
         setError(Error::InvalidArgument);
         return last_error_;
     }
-    Error validate_error = validateDirectBitReadDevice(device);
+    Error validate_error = validateDirectBitReadDevice(device, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -2354,7 +2414,7 @@ Error SlmpClient::beginReadDWords(
         setError(Error::InvalidArgument);
         return last_error_;
     }
-    Error validate_error = validateDirectDWordReadDevice(device);
+    Error validate_error = validateDirectDWordReadDevice(device, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -2547,7 +2607,7 @@ Error SlmpClient::beginReadLongTimer(int head_no, int points, LongTimerResult* o
         return last_error_;
     }
     uint16_t word_points = static_cast<uint16_t>(points) * 4U;
-    DeviceAddress dev{DeviceCode::LTN, static_cast<uint32_t>(head_no)};
+    DeviceAddress dev{plc_profile_, DeviceCode::LTN, static_cast<uint32_t>(head_no)};
     size_t written = encodeDeviceSpec(dev, compatibility_mode_, tx_buffer_, tx_capacity_);
     if (written == 0) {
         setError(Error::BufferTooSmall);
@@ -2578,7 +2638,7 @@ Error SlmpClient::beginReadLongRetentiveTimer(int head_no, int points, LongTimer
         return last_error_;
     }
     uint16_t word_points = static_cast<uint16_t>(points) * 4U;
-    DeviceAddress dev{DeviceCode::LSTN, static_cast<uint32_t>(head_no)};
+    DeviceAddress dev{plc_profile_, DeviceCode::LSTN, static_cast<uint32_t>(head_no)};
     size_t written = encodeDeviceSpec(dev, compatibility_mode_, tx_buffer_, tx_capacity_);
     if (written == 0) {
         setError(Error::BufferTooSmall);
@@ -2867,7 +2927,7 @@ Error SlmpClient::beginWriteWordsLinkDirect(uint8_t j_net, DeviceCode code, uint
     }
     // Link-direct writes use the same device families as direct writes; keep
     // them from bypassing read-only and qualified-only policy checks.
-    Error validate_error = validateDirectWordWriteDevice({code, dev_no}, plc_profile_);
+    Error validate_error = validateDirectWordWriteDevice({plc_profile_, code, dev_no}, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -2938,7 +2998,7 @@ Error SlmpClient::beginWriteBitsLinkDirect(uint8_t j_net, DeviceCode code, uint3
     }
     // Link-direct writes use the same device families as direct writes; keep
     // them from bypassing read-only and qualified-only policy checks.
-    Error validate_error = validateDirectBitWriteDevice({code, dev_no}, plc_profile_);
+    Error validate_error = validateDirectBitWriteDevice({plc_profile_, code, dev_no}, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -3117,28 +3177,37 @@ Error SlmpClient::writeExtendUnitWords(uint32_t head_address, uint16_t module_no
 // CPU Buffer convenience wrappers (extend unit module 0x03E0)
 // -----------------------------------------------------------------------
 
-Error SlmpClient::readCpuBufferBytes(uint32_t head_address, uint16_t byte_length, uint8_t* out, size_t capacity) {
-    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
-    if (guard_error != Error::Ok) return guard_error;
-    return readExtendUnitBytes(head_address, byte_length, 0x03E0, out, capacity);
+static bool isValidCpuModule(CpuModule module) {
+    return module == CpuModule::Cpu1 || module == CpuModule::Cpu2 ||
+           module == CpuModule::Cpu3 || module == CpuModule::Cpu4;
 }
 
-Error SlmpClient::readCpuBufferWords(uint32_t head_address, uint16_t word_length, uint16_t* out, size_t capacity) {
+Error SlmpClient::readCpuBufferBytes(CpuModule module, uint32_t head_address, uint16_t byte_length, uint8_t* out, size_t capacity) {
+    if (!isValidCpuModule(module)) { setError(Error::InvalidArgument); return last_error_; }
     Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
     if (guard_error != Error::Ok) return guard_error;
-    return readExtendUnitWords(head_address, word_length, 0x03E0, out, capacity);
+    return readExtendUnitBytes(head_address, byte_length, static_cast<uint16_t>(module), out, capacity);
 }
 
-Error SlmpClient::writeCpuBufferBytes(uint32_t head_address, const uint8_t* data, size_t byte_length) {
+Error SlmpClient::readCpuBufferWords(CpuModule module, uint32_t head_address, uint16_t word_length, uint16_t* out, size_t capacity) {
+    if (!isValidCpuModule(module)) { setError(Error::InvalidArgument); return last_error_; }
     Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
     if (guard_error != Error::Ok) return guard_error;
-    return writeExtendUnitBytes(head_address, 0x03E0, data, byte_length);
+    return readExtendUnitWords(head_address, word_length, static_cast<uint16_t>(module), out, capacity);
 }
 
-Error SlmpClient::writeCpuBufferWords(uint32_t head_address, const uint16_t* values, size_t count) {
+Error SlmpClient::writeCpuBufferBytes(CpuModule module, uint32_t head_address, const uint8_t* data, size_t byte_length) {
+    if (!isValidCpuModule(module)) { setError(Error::InvalidArgument); return last_error_; }
     Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
     if (guard_error != Error::Ok) return guard_error;
-    return writeExtendUnitWords(head_address, 0x03E0, values, count);
+    return writeExtendUnitBytes(head_address, static_cast<uint16_t>(module), data, byte_length);
+}
+
+Error SlmpClient::writeCpuBufferWords(CpuModule module, uint32_t head_address, const uint16_t* values, size_t count) {
+    if (!isValidCpuModule(module)) { setError(Error::InvalidArgument); return last_error_; }
+    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
+    if (guard_error != Error::Ok) return guard_error;
+    return writeExtendUnitWords(head_address, static_cast<uint16_t>(module), values, count);
 }
 
 Error SlmpClient::readExtendUnitWord(uint32_t head_address, uint16_t module_no, uint16_t& value) {
@@ -3161,24 +3230,24 @@ Error SlmpClient::writeExtendUnitDWord(uint32_t head_address, uint16_t module_no
     return writeExtendUnitWords(head_address, module_no, buf, 2);
 }
 
-Error SlmpClient::readCpuBufferWord(uint32_t head_address, uint16_t& value) {
-    return readCpuBufferWords(head_address, 1, &value, 1);
+Error SlmpClient::readCpuBufferWord(CpuModule module, uint32_t head_address, uint16_t& value) {
+    return readCpuBufferWords(module, head_address, 1, &value, 1);
 }
 
-Error SlmpClient::readCpuBufferDWord(uint32_t head_address, uint32_t& value) {
+Error SlmpClient::readCpuBufferDWord(CpuModule module, uint32_t head_address, uint32_t& value) {
     uint16_t buf[2] = {0, 0};
-    Error err = readCpuBufferWords(head_address, 2, buf, 2);
+    Error err = readCpuBufferWords(module, head_address, 2, buf, 2);
     if (err == Error::Ok) value = (static_cast<uint32_t>(buf[1]) << 16) | buf[0];
     return err;
 }
 
-Error SlmpClient::writeCpuBufferWord(uint32_t head_address, uint16_t value) {
-    return writeCpuBufferWords(head_address, &value, 1);
+Error SlmpClient::writeCpuBufferWord(CpuModule module, uint32_t head_address, uint16_t value) {
+    return writeCpuBufferWords(module, head_address, &value, 1);
 }
 
-Error SlmpClient::writeCpuBufferDWord(uint32_t head_address, uint32_t value) {
+Error SlmpClient::writeCpuBufferDWord(CpuModule module, uint32_t head_address, uint32_t value) {
     uint16_t buf[2] = { static_cast<uint16_t>(value & 0xFFFFU), static_cast<uint16_t>(value >> 16) };
-    return writeCpuBufferWords(head_address, buf, 2);
+    return writeCpuBufferWords(module, head_address, buf, 2);
 }
 
 // -----------------------------------------------------------------------
@@ -3191,9 +3260,17 @@ Error SlmpClient::beginReadArrayLabels(
     const LabelName* abbrevs, size_t abbrev_count,
     uint32_t now_ms
 ) {
-    if (points == nullptr || point_count == 0 || out == nullptr || out_capacity < point_count) {
+    if (points == nullptr || point_count == 0 || point_count > 0xFFFFU ||
+        out == nullptr || out_capacity < point_count || !isValidLabelList(abbrevs, abbrev_count)) {
         setError(Error::InvalidArgument);
         return last_error_;
+    }
+    for (size_t i = 0; i < point_count; ++i) {
+        if (!isValidLabelName(points[i].label) || points[i].unit_specification > 1U ||
+            points[i].array_data_length == 0U) {
+            setError(Error::InvalidArgument);
+            return last_error_;
+        }
     }
     // Encode payload into tx_buffer
     size_t offset = 0;
@@ -3237,9 +3314,21 @@ Error SlmpClient::beginWriteArrayLabels(
     const LabelName* abbrevs, size_t abbrev_count,
     uint32_t now_ms
 ) {
-    if (points == nullptr || point_count == 0) {
+    if (points == nullptr || point_count == 0 || point_count > 0xFFFFU ||
+        !isValidLabelList(abbrevs, abbrev_count)) {
         setError(Error::InvalidArgument);
         return last_error_;
+    }
+    for (size_t i = 0; i < point_count; ++i) {
+        const size_t expected_bytes = points[i].unit_specification == 0U
+            ? static_cast<size_t>(points[i].array_data_length) * 2U
+            : static_cast<size_t>(points[i].array_data_length);
+        if (!isValidLabelName(points[i].label) || points[i].unit_specification > 1U ||
+            points[i].array_data_length == 0U || points[i].data == nullptr ||
+            points[i].data_bytes != expected_bytes) {
+            setError(Error::InvalidArgument);
+            return last_error_;
+        }
     }
     size_t offset = 0;
     if (tx_capacity_ < 4U) { setError(Error::BufferTooSmall); return last_error_; }
@@ -3280,7 +3369,8 @@ Error SlmpClient::beginReadRandomLabels(
     const LabelName* abbrevs, size_t abbrev_count,
     uint32_t now_ms
 ) {
-    if (labels == nullptr || label_count == 0 || out == nullptr || out_capacity < label_count) {
+    if (!isValidLabelList(labels, label_count) || label_count == 0U ||
+        out == nullptr || out_capacity < label_count || !isValidLabelList(abbrevs, abbrev_count)) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -3321,9 +3411,16 @@ Error SlmpClient::beginWriteRandomLabels(
     const LabelName* abbrevs, size_t abbrev_count,
     uint32_t now_ms
 ) {
-    if (points == nullptr || point_count == 0) {
+    if (points == nullptr || point_count == 0 || point_count > 0xFFFFU ||
+        !isValidLabelList(abbrevs, abbrev_count)) {
         setError(Error::InvalidArgument);
         return last_error_;
+    }
+    for (size_t i = 0; i < point_count; ++i) {
+        if (!isValidLabelName(points[i].label) || points[i].data == nullptr || points[i].data_bytes == 0U) {
+            setError(Error::InvalidArgument);
+            return last_error_;
+        }
     }
     size_t offset = 0;
     if (tx_capacity_ < 4U) { setError(Error::BufferTooSmall); return last_error_; }
@@ -3411,12 +3508,12 @@ Error SlmpClient::beginReadRandom(
         return last_error_;
     }
 
-    Error validate_error = validateDirectDeviceList(word_devices, word_count);
+    Error validate_error = validateDirectDeviceList(word_devices, word_count, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
     }
-    validate_error = validateDirectDeviceList(dword_devices, dword_count);
+    validate_error = validateDirectDeviceList(dword_devices, dword_count, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -3519,7 +3616,7 @@ Error SlmpClient::beginWriteRandomWords(
         return last_error_;
     }
 
-    Error validate_error = validateDirectDeviceList(word_devices, word_count);
+    Error validate_error = validateDirectDeviceList(word_devices, word_count, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -3530,7 +3627,7 @@ Error SlmpClient::beginWriteRandomWords(
             return last_error_;
         }
     }
-    validate_error = validateDirectDeviceList(dword_devices, dword_count);
+    validate_error = validateDirectDeviceList(dword_devices, dword_count, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -3540,6 +3637,11 @@ Error SlmpClient::beginWriteRandomWords(
             setError(Error::UnsupportedDevice);
             return last_error_;
         }
+    }
+    validate_error = validateNoRandomWriteOverlap(word_devices, word_count, dword_devices, dword_count);
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
+        return last_error_;
     }
 
     size_t spec_size = (compatibility_mode_ == CompatibilityMode::Legacy) ? 4U : 6U;
@@ -3612,7 +3714,7 @@ Error SlmpClient::beginWriteRandomBits(
         return last_error_;
     }
 
-    Error validate_error = validateDirectDeviceList(bit_devices, bit_count);
+    Error validate_error = validateDirectDeviceList(bit_devices, bit_count, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -3622,6 +3724,11 @@ Error SlmpClient::beginWriteRandomBits(
             setError(Error::UnsupportedDevice);
             return last_error_;
         }
+    }
+    validate_error = validateNoBitWriteDuplicates(bit_devices, bit_count);
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
+        return last_error_;
     }
 
     size_t spec_size = (compatibility_mode_ == CompatibilityMode::Legacy) ? 4U : 6U;
@@ -3686,12 +3793,12 @@ Error SlmpClient::beginReadBlock(
 
     size_t total_word_points = 0;
     size_t total_bit_points = 0;
-    Error validate_error = summarizeBlockReadList(word_blocks, word_block_count, total_word_points);
+    Error validate_error = summarizeBlockReadList(word_blocks, word_block_count, total_word_points, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
     }
-    validate_error = summarizeBlockReadList(bit_blocks, bit_block_count, total_bit_points);
+    validate_error = summarizeBlockReadList(bit_blocks, bit_block_count, total_bit_points, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
@@ -3784,7 +3891,6 @@ Error SlmpClient::beginWriteBlock(
     size_t word_block_count,
     const DeviceBlockWrite* bit_blocks,
     size_t bit_block_count,
-    const BlockWriteOptions& options,
     uint32_t now_ms
 ) {
     if (profileDisablesBlockAccess(plc_profile_) || !block_access_enabled_) {
@@ -3793,76 +3899,27 @@ Error SlmpClient::beginWriteBlock(
     }
     Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Block);
     if (guard_error != Error::Ok) return guard_error;
-    const bool has_mixed_blocks = (word_block_count > 0U && bit_block_count > 0U);
-
-    if (options.split_mixed_blocks && has_mixed_blocks) {
-        return beginWriteBlockRequest(
-            word_blocks,
-            word_block_count,
-            nullptr,
-            0,
-            word_blocks,
-            word_block_count,
-            bit_blocks,
-            bit_block_count,
-            options,
-            AsyncContext::WriteBlockStage::SplitWord,
-            true,
-            now_ms
-        );
-    }
-
-    return beginWriteBlockRequest(
-        word_blocks,
-        word_block_count,
-        bit_blocks,
-        bit_block_count,
-        word_blocks,
-        word_block_count,
-        bit_blocks,
-        bit_block_count,
-        options,
-        AsyncContext::WriteBlockStage::Direct,
-        has_mixed_blocks,
-        now_ms
-    );
-}
-
-Error SlmpClient::beginWriteBlockRequest(
-    const DeviceBlockWrite* request_word_blocks,
-    size_t request_word_block_count,
-    const DeviceBlockWrite* request_bit_blocks,
-    size_t request_bit_block_count,
-    const DeviceBlockWrite* all_word_blocks,
-    size_t all_word_block_count,
-    const DeviceBlockWrite* all_bit_blocks,
-    size_t all_bit_block_count,
-    const BlockWriteOptions& options,
-    AsyncContext::WriteBlockStage stage,
-    bool has_mixed_blocks,
-    uint32_t now_ms
-) {
-    if ((request_word_block_count == 0 && request_bit_block_count == 0) || request_word_block_count > 0xFFU ||
-        request_bit_block_count > 0xFFU) {
+    if ((word_block_count == 0 && bit_block_count == 0) || word_block_count > 0xFFU ||
+        bit_block_count > 0xFFU) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
 
     size_t total_word_points = 0;
     size_t total_bit_points = 0;
-    Error validate_error = summarizeBlockWriteList(request_word_blocks, request_word_block_count, total_word_points, plc_profile_);
+    Error validate_error = summarizeBlockWriteList(word_blocks, word_block_count, total_word_points, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
     }
-    validate_error = summarizeBlockWriteList(request_bit_blocks, request_bit_block_count, total_bit_points, plc_profile_);
+    validate_error = summarizeBlockWriteList(bit_blocks, bit_block_count, total_bit_points, plc_profile_);
     if (validate_error != Error::Ok) {
         setError(validate_error);
         return last_error_;
     }
     validate_error = validateBlockWriteRequestLimits(
-        request_word_block_count,
-        request_bit_block_count,
+        word_block_count,
+        bit_block_count,
         total_word_points + total_bit_points,
         compatibility_mode_
     );
@@ -3870,10 +3927,15 @@ Error SlmpClient::beginWriteBlockRequest(
         setError(validate_error);
         return last_error_;
     }
+    validate_error = validateNoBlockWriteOverlap(word_blocks, word_block_count, bit_blocks, bit_block_count);
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
+        return last_error_;
+    }
 
     size_t spec_size = (compatibility_mode_ == CompatibilityMode::Legacy) ? 4U : 6U;
     size_t payload_length =
-        2U + ((request_word_block_count + request_bit_block_count) * (spec_size + 2U)) +
+        2U + ((word_block_count + bit_block_count) * (spec_size + 2U)) +
         ((total_word_points + total_bit_points) * 2U);
     size_t request_header_size = (frame_type_ == FrameType::Frame4E) ? kRequestHeaderSize4E : kRequestHeaderSize3E;
     if (tx_capacity_ < request_header_size + payload_length) {
@@ -3881,72 +3943,43 @@ Error SlmpClient::beginWriteBlockRequest(
         return last_error_;
     }
 
-    tx_buffer_[0] = static_cast<uint8_t>(request_word_block_count);
-    tx_buffer_[1] = static_cast<uint8_t>(request_bit_block_count);
+    tx_buffer_[0] = static_cast<uint8_t>(word_block_count);
+    tx_buffer_[1] = static_cast<uint8_t>(bit_block_count);
 
     // SLMP Write Block places each block's data immediately after that
     // block's device spec and point count. Keeping all specs first and all
     // data last only works accidentally for single-block requests.
     size_t offset = 2U;
-    for (size_t i = 0; i < request_word_block_count; ++i) {
+    for (size_t i = 0; i < word_block_count; ++i) {
         size_t written =
-            encodeDeviceSpec(request_word_blocks[i].device, compatibility_mode_, tx_buffer_ + offset, tx_capacity_ - offset);
+            encodeDeviceSpec(word_blocks[i].device, compatibility_mode_, tx_buffer_ + offset, tx_capacity_ - offset);
         if (written == 0) {
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        writeLe16(tx_buffer_ + offset + written, request_word_blocks[i].points);
+        writeLe16(tx_buffer_ + offset + written, word_blocks[i].points);
         offset += written + 2U;
-        for (size_t j = 0; j < request_word_blocks[i].points; ++j) {
-            writeLe16(tx_buffer_ + offset, request_word_blocks[i].values[j]);
+        for (size_t j = 0; j < word_blocks[i].points; ++j) {
+            writeLe16(tx_buffer_ + offset, word_blocks[i].values[j]);
             offset += 2U;
         }
     }
-    for (size_t i = 0; i < request_bit_block_count; ++i) {
+    for (size_t i = 0; i < bit_block_count; ++i) {
         size_t written =
-            encodeDeviceSpec(request_bit_blocks[i].device, compatibility_mode_, tx_buffer_ + offset, tx_capacity_ - offset);
+            encodeDeviceSpec(bit_blocks[i].device, compatibility_mode_, tx_buffer_ + offset, tx_capacity_ - offset);
         if (written == 0) {
             setError(Error::BufferTooSmall);
             return last_error_;
         }
-        writeLe16(tx_buffer_ + offset + written, request_bit_blocks[i].points);
+        writeLe16(tx_buffer_ + offset + written, bit_blocks[i].points);
         offset += written + 2U;
-        for (size_t j = 0; j < request_bit_blocks[i].points; ++j) {
-            writeLe16(tx_buffer_ + offset, request_bit_blocks[i].values[j]);
+        for (size_t j = 0; j < bit_blocks[i].points; ++j) {
+            writeLe16(tx_buffer_ + offset, bit_blocks[i].values[j]);
             offset += 2U;
         }
     }
 
-    Error err = startAsync(AsyncContext::Type::WriteBlock, payload_length, now_ms);
-    if (err != Error::Ok) {
-        return err;
-    }
-
-    async_ctx_.data.writeBlock.word_blocks = all_word_blocks;
-    async_ctx_.data.writeBlock.word_block_count = all_word_block_count;
-    async_ctx_.data.writeBlock.bit_blocks = all_bit_blocks;
-    async_ctx_.data.writeBlock.bit_block_count = all_bit_block_count;
-    async_ctx_.data.writeBlock.options = options;
-    async_ctx_.data.writeBlock.stage = stage;
-    async_ctx_.data.writeBlock.has_mixed_blocks = has_mixed_blocks;
-    return last_error_;
-}
-
-Error SlmpClient::beginWriteBlock(
-    const DeviceBlockWrite* word_blocks,
-    size_t word_block_count,
-    const DeviceBlockWrite* bit_blocks,
-    size_t bit_block_count,
-    uint32_t now_ms
-) {
-    return beginWriteBlock(
-        word_blocks,
-        word_block_count,
-        bit_blocks,
-        bit_block_count,
-        BlockWriteOptions{},
-        now_ms
-    );
+    return startAsync(AsyncContext::Type::WriteBlock, payload_length, now_ms);
 }
 
 Error SlmpClient::writeBlock(
@@ -3955,33 +3988,7 @@ Error SlmpClient::writeBlock(
     const DeviceBlockWrite* bit_blocks,
     size_t bit_block_count
 ) {
-    return writeBlock(
-        word_blocks,
-        word_block_count,
-        bit_blocks,
-        bit_block_count,
-        BlockWriteOptions{}
-    );
-}
-
-Error SlmpClient::writeBlock(
-    const DeviceBlockWrite* word_blocks,
-    size_t word_block_count,
-    const DeviceBlockWrite* bit_blocks,
-    size_t bit_block_count,
-    const BlockWriteOptions& options
-) {
-    const bool has_mixed_blocks = (word_block_count > 0U && bit_block_count > 0U);
-
-    if (options.split_mixed_blocks && has_mixed_blocks) {
-        Error err = writeBlock(word_blocks, word_block_count, nullptr, 0, BlockWriteOptions{});
-        if (err != Error::Ok) {
-            return err;
-        }
-        return writeBlock(nullptr, 0, bit_blocks, bit_block_count, BlockWriteOptions{});
-    }
-
-    Error err = beginWriteBlock(word_blocks, word_block_count, bit_blocks, bit_block_count, options, getTimeMs());
+    Error err = beginWriteBlock(word_blocks, word_block_count, bit_blocks, bit_block_count, getTimeMs());
     if (err != Error::Ok) return err;
     while (isBusy()) {
         update(getTimeMs());
@@ -3989,9 +3996,23 @@ Error SlmpClient::writeBlock(
     return last_error_;
 }
 
-Error SlmpClient::beginRemoteRun(bool force, uint16_t clear_mode, uint32_t now_ms) {
+Error SlmpClient::beginRemoteRun(RemoteMode mode, RemoteClearMode clear_mode, uint32_t now_ms) {
+    if ((mode != RemoteMode::Normal && mode != RemoteMode::Force) ||
+        (clear_mode != RemoteClearMode::NoClear &&
+         clear_mode != RemoteClearMode::ClearExceptLatch &&
+         clear_mode != RemoteClearMode::ClearAll)) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
     size_t payload_length = 0;
-    Error encode_error = encodeRemoteRunPayload(force, clear_mode, tx_buffer_, tx_capacity_, payload_length);
+    const bool force = mode == RemoteMode::Force;
+    Error encode_error = encodeRemoteRunPayload(
+        force,
+        static_cast<uint16_t>(clear_mode),
+        tx_buffer_,
+        tx_capacity_,
+        payload_length
+    );
     if (encode_error != Error::Ok) {
         setError(encode_error);
         return last_error_;
@@ -4000,8 +4021,8 @@ Error SlmpClient::beginRemoteRun(bool force, uint16_t clear_mode, uint32_t now_m
     return startAsync(AsyncContext::Type::RemoteRun, payload_length, now_ms);
 }
 
-Error SlmpClient::remoteRun(bool force, uint16_t clear_mode) {
-    Error err = beginRemoteRun(force, clear_mode, getTimeMs());
+Error SlmpClient::remoteRun(RemoteMode mode, RemoteClearMode clear_mode) {
+    Error err = beginRemoteRun(mode, clear_mode, getTimeMs());
     if (err != Error::Ok) return err;
     while (isBusy()) {
         update(getTimeMs());
@@ -4029,10 +4050,13 @@ Error SlmpClient::remoteStop() {
     return last_error_;
 }
 
-Error SlmpClient::beginRemotePause(bool force, uint32_t now_ms) {
+Error SlmpClient::beginRemotePause(RemoteMode mode, uint32_t now_ms) {
+    if (mode != RemoteMode::Normal && mode != RemoteMode::Force) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
     size_t payload_length = 0;
-    const uint16_t mode = force ? 0x0003U : 0x0001U;
-    Error encode_error = encodeRemoteModePayload(mode, tx_buffer_, tx_capacity_, payload_length);
+    Error encode_error = encodeRemoteModePayload(static_cast<uint16_t>(mode), tx_buffer_, tx_capacity_, payload_length);
     if (encode_error != Error::Ok) {
         setError(encode_error);
         return last_error_;
@@ -4041,8 +4065,8 @@ Error SlmpClient::beginRemotePause(bool force, uint32_t now_ms) {
     return startAsync(AsyncContext::Type::RemotePause, payload_length, now_ms);
 }
 
-Error SlmpClient::remotePause(bool force) {
-    Error err = beginRemotePause(force, getTimeMs());
+Error SlmpClient::remotePause(RemoteMode mode) {
+    Error err = beginRemotePause(mode, getTimeMs());
     if (err != Error::Ok) return err;
     while (isBusy()) {
         update(getTimeMs());
@@ -4070,24 +4094,18 @@ Error SlmpClient::remoteLatchClear() {
     return last_error_;
 }
 
-Error SlmpClient::beginRemoteReset(uint16_t subcommand, bool expect_response, uint32_t now_ms) {
-    if (subcommand != 0x0000U) {
-        setError(Error::InvalidArgument);
-        return last_error_;
-    }
+Error SlmpClient::beginRemoteReset(uint32_t now_ms) {
     size_t payload_length = 0;
     Error encode_error = encodeRemoteModePayload(0x0001U, tx_buffer_, tx_capacity_, payload_length);
     if (encode_error != Error::Ok) {
         setError(encode_error);
         return last_error_;
     }
-    async_ctx_.data.remoteReset.subcommand = subcommand;
-    async_ctx_.data.remoteReset.expect_response = expect_response;
     return startAsync(AsyncContext::Type::RemoteReset, payload_length, now_ms);
 }
 
-Error SlmpClient::remoteReset(uint16_t subcommand, bool expect_response) {
-    Error err = beginRemoteReset(subcommand, expect_response, getTimeMs());
+Error SlmpClient::remoteReset() {
+    Error err = beginRemoteReset(getTimeMs());
     if (err != Error::Ok) return err;
     while (isBusy()) {
         update(getTimeMs());
@@ -4232,7 +4250,6 @@ void SlmpClient::setProfileFeatureError(ProfileFeatureKey feature_key, const cha
     last_profile_feature_error_info_.feature_key = featureKeyName(feature_key);
     last_profile_feature_error_info_.state = state;
     last_profile_feature_error_info_.evidence = evidence;
-    last_profile_feature_error_info_.disable_hint = "Set strictProfile=false to send the request anyway.";
 }
 
 Error SlmpClient::ensureProfileFeatureAllowed(ProfileFeatureKey feature_key) {
@@ -4514,9 +4531,9 @@ Error SlmpClient::beginRegisterMonitorDevices(
         setError(Error::InvalidArgument); return last_error_;
     }
 
-    Error validate_error = validateDirectDeviceList(word_devices, word_count);
+    Error validate_error = validateDirectDeviceList(word_devices, word_count, plc_profile_);
     if (validate_error != Error::Ok) { setError(validate_error); return last_error_; }
-    validate_error = validateDirectDeviceList(dword_devices, dword_count);
+    validate_error = validateDirectDeviceList(dword_devices, dword_count, plc_profile_);
     if (validate_error != Error::Ok) { setError(validate_error); return last_error_; }
     for (size_t i = 0; i < word_count; ++i) {
         if (isLongCounterContactDevice(word_devices[i].code)) {

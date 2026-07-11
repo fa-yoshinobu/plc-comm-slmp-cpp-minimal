@@ -43,12 +43,10 @@ Practical mixed block note:
 - `1406` Write Block payloads are encoded as block count, then each block's
   device spec, point count, and data immediately after that block. Grouping all
   specs first and all data last is invalid for mixed or multi-block writes.
-- synchronous `writeBlock()` also exposes `BlockWriteOptions`
-- `split_mixed_blocks=true` forces separate word-only and bit-only `1406` requests
-- automatic mixed-write retry is not part of the API; PLC end codes are
-  returned unchanged
-- the async `beginWriteBlock(..., options, now_ms)` overload mirrors the same
-  explicit split behavior and also returns PLC end codes unchanged
+- synchronous `writeBlock()` and asynchronous `beginWriteBlock()` each emit
+  exactly one mixed `1406` request
+- split options and automatic mixed-write retry are not part of the API; PLC
+  end codes are returned unchanged
 
 Resolved `1406` layout investigation:
 
@@ -76,8 +74,8 @@ Resolved `1406` layout investigation:
 
 Remote command note:
 
-- `remoteReset(subcommand, expect_response)` sends `1006/0000` with fixed reset data `01 00` and defaults to no-response mode
-- use `expect_response=true` only when the target and reset mode are expected to return a normal completion frame
+- `remoteReset()` sends `1006/0000` with fixed reset data `01 00` and completes
+  after request transmission without waiting for a response
 
 Profile selection note:
 
