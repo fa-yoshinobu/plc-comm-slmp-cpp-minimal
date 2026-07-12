@@ -80,6 +80,11 @@ slmp::SlmpClient plc(transport, kProfile, target, txBuffer, sizeof(txBuffer), rx
 Use `slmp::module_io` constants such as `slmp::module_io::MultipleCpu2` when routing
 to multi-CPU targets. The target is fixed for the client lifetime.
 
+For iQ-R multi-CPU `U3En\HG...` access, the qualified device never changes the
+request target. Construct a separate client with the destination CPU target
+when a write must be reflected there. Cross-CPU reads remain valid. See the
+shared [iQ-R target guidance](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/iq-r/#multi-cpu-cpu-buffer-target).
+
 ## Extended device access
 
 `G`, `HG`, and `J` devices are not normal standalone addresses. The C++ high-level
@@ -103,8 +108,8 @@ slmp::Error err = plc.readWordsModuleBuf(3, false, 100, 4, moduleWords, 4);
 const uint16_t moduleWrite[] = {1, 2, 3, 4};
 err = plc.writeWordsModuleBuf(3, false, 100, moduleWrite, 4);
 
-uint16_t cpuBufferWords[2] = {};
-err = plc.readCpuBufferWords(slmp::CpuModule::Cpu1, 0, 2, cpuBufferWords, 2);
+uint16_t extendUnitWords[2] = {};
+err = plc.readExtendUnitWords(0, 2, slmp::module_io::MultipleCpu1, extendUnitWords, 2);
 
 uint16_t linkWords[1] = {};
 err = plc.readWordsLinkDirect(2, slmp::DeviceCode::SW, 0x10, 1, linkWords, 1);
@@ -127,6 +132,34 @@ err = plc.readRandomExt(wordDevices, 2, values, 2, nullptr, 0, nullptr, 0);
 Extended random writes reject duplicate or overlapping destinations within one
 request. Module slot or link-network identity is part of the destination, so the
 same numeric device on two different qualified routes remains distinct.
+
+## Monitor, self-test, and Clear Error
+
+Monitor registration and each cycle are separate one-request operations. Pass
+the registered Word and DWord counts to every cycle; the client does not
+auto-register, retry, or infer them. Calling a cycle before PLC registration
+sends one cycle request and returns the PLC error. The combined expected count
+must be nonzero and cannot exceed the selected profile's monitor-registration
+limit.
+
+```cpp
+const slmp::DeviceAddress words[] = {slmp::dev::D(kProfile, slmp::dev::dec(120))};
+const slmp::DeviceAddress dwords[] = {slmp::dev::D(kProfile, slmp::dev::dec(200))};
+err = plc.registerMonitorDevices(words, 1, dwords, 1);
+uint16_t wordValues[1] = {};
+uint32_t dwordValues[1] = {};
+err = plc.runMonitorCycle(wordValues, 1, dwordValues, 1);
+
+const uint8_t testData[] = {'A', '1', 'B', '2', 'C', '3', 'D', '4'};
+uint8_t echo[sizeof(testData)] = {};
+size_t echoLength = 0;
+err = plc.selfTestLoopback(testData, sizeof(testData), echo, sizeof(echo), echoLength);
+err = plc.clearError();
+```
+
+Self-test accepts only 1–960 ASCII `0-9/A-F` bytes and succeeds only when the
+declared length, actual length, and echo match exactly. Clear Error always uses
+the fixed empty-payload command.
 
 `remoteReset()` returns after the fixed RESET frame has been transmitted and
 then closes the transport. Reconnect explicitly before another request and

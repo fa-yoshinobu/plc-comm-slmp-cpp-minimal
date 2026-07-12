@@ -78,19 +78,18 @@ Acceptance criteria:
 3. Arduino UDP source inspection and adapter tests show remote port is never substituted for local zero.
 4. API-reference generation contains stable end-code helpers and no language/message hooks.
 
-## CPP-OH-006 — Explicit write and CPU-buffer targets
+## CPP-OH-006 — Explicit write targets
 
-Scope: random writes, block writes, CPU-buffer helpers, and label abbreviation inputs.
+Scope: random writes, block writes, and label abbreviation inputs.
 
-Target contract: random/block writes reject duplicate or overlapping destinations before transport. CPU-buffer helpers require `CpuModule::Cpu1` through `Cpu4`; no helper silently selects CPU No.1. Label and abbreviation counts, pointers, names, units, lengths, and data sizes are validated before encoding.
+Target contract: random/block writes reject duplicate or overlapping destinations before transport. Label and abbreviation counts, pointers, names, units, lengths, and data sizes are validated before encoding.
 
-Compatibility impact: CPU-buffer calls must add the explicit CPU module argument; previously tolerated malformed label inputs and overlapping writes are rejected.
+Compatibility impact: previously tolerated malformed label inputs and overlapping writes are rejected.
 
 Acceptance criteria:
 
 1. Word/DWord random overlap, duplicate bit writes, and overlapping block ranges produce zero requests.
-2. Each CPU module maps to `0x03E0` through `0x03E3`; unknown enum values produce zero requests.
-3. A non-zero abbreviation count with a null pointer and an empty label are rejected without dereference or transport.
+2. A non-zero abbreviation count with a null pointer and an empty label are rejected without dereference or transport.
 
 ## CPP-OH-006A — Required long-timer range
 
@@ -250,3 +249,34 @@ No live PLC communication is authorized by this document.
 ## Claude review status
 
 `CLAUDE-SLMP-20260712-01` was run by the user through Claude CLI. Codex recorded the source result hash and accepted every C++ finding in the workspace disposition record. Findings 6/9/10/12/17/18/34/35/36 are implemented and reverified; no Claude rerun was invoked.
+
+## 2026-07-12 D-128, D-129, and D-132 delta
+
+### D-128 — Monitor expected-count contract
+
+- Scope: synchronous and asynchronous monitor registration/cycle APIs.
+- Target: registration and every cycle remain one request; cycle counts are explicit, nonzero, and within the active profile's monitor-registration limit, with no implicit registration, retry, split, or fallback.
+- Compatibility: zero/over-limit expected counts now return `InvalidArgument` before transport.
+- Acceptance: exact registration/cycle frames, three cycles, zero/over-limit rejection, PLC NG, response-size mismatch, and request counts are covered.
+
+### D-129 — Exact synchronous and asynchronous self-test echo
+
+- Scope: `selfTestLoopback` and `beginSelfTestLoopback`.
+- Target: accept 1–960 ASCII `0-9/A-F` and require exact declared length, response size, and byte echo. The asynchronous request payload is snapshotted in the transmitted frame.
+- Compatibility: malformed echoes now return `ProtocolError`; too-small output buffers fail before transmission.
+- Acceptance: valid, wrong declared length, trailing data, wrong echo, and caller input mutation after `begin` are covered.
+
+### D-132 — HG target ownership
+
+- Scope: qualified HG Extended Device operations, Extend Unit operations, public aliases, and fixed `TargetAddress`.
+- Target: `0x0601/0x1601` remain available only as `readExtendUnit*`/`writeExtendUnit*`; HG remains available only through qualified Extended Device APIs. Never derive the request target from `U3En`, retry another CPU, or perform an automatic readback. Cross-CPU reads remain permitted.
+- Compatibility: `CpuModule` and all `readCpuBuffer*`/`writeCpuBuffer*` aliases are removed. Migrate those calls to Extend Unit methods; do not mechanically translate them to an HG address because live evidence proves the physical areas differ. Construct a separate client with the desired CPU target for HG writes.
+- Acceptance: source/API scans reject the removed type and methods, Extend Unit and qualified HG exact-frame tests remain, `U3E1\HG` retains Own Station `0x03FF`, and only an explicitly CPU No.2 client emits `0x03E1`.
+
+- [x] Local implementation and regression tests completed.
+- [x] Host/Arduino tests, socket integration, API generation, PlatformIO/package release check passed.
+- [x] User API, migration, changelog, generated API, and shared target guidance updated.
+- [ ] Claude review of this delta completed — pending a separately authorized batch.
+- [ ] New public-API live verification completed — deferred until after Claude review.
+- [x] D-132 Extend Unit versus HG physical-area classification completed: independent values remained stable through immediate, 50 ms, 250 ms, and 1 s cross-reads.
+- [x] Removed the misleading CPU-buffer aliases and alias-only enum; retained distinct Extend Unit and qualified HG surfaces.

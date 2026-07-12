@@ -545,14 +545,6 @@ constexpr uint16_t OwnStation = 0x03FF;        ///< Own station route.
 
 }  // namespace module_io
 
-/** @brief Explicit CPU-buffer target for multi-CPU systems. */
-enum class CpuModule : uint16_t {
-    Cpu1 = module_io::MultipleCpu1,
-    Cpu2 = module_io::MultipleCpu2,
-    Cpu3 = module_io::MultipleCpu3,
-    Cpu4 = module_io::MultipleCpu4,
-};
-
 /**
  * @struct TargetAddress
  * @brief SLMP target station routing information.
@@ -942,6 +934,8 @@ class SlmpClient {
      *
      * Returns values for the devices previously registered by
      * @ref registerMonitorDevices or @ref registerMonitorDevicesExt.
+     * The combined count must be nonzero and within the active profile's
+     * monitor-registration limit.
      */
     Error runMonitorCycle(
         uint16_t* word_values, uint16_t word_count,
@@ -991,7 +985,7 @@ class SlmpClient {
     
     /** 
      * @brief Execute Self-test loopback.
-     * Verifies communication path by having the PLC echo back the provided data.
+     * Verifies the declared length, exact response size, and byte-for-byte echo.
      */
     Error selfTestLoopback(
         const uint8_t* data,
@@ -1126,7 +1120,11 @@ class SlmpClient {
     Error beginRemoteLatchClear(uint32_t now_ms);
     /** @brief Start async RemoteReset; successful transmission closes the transport. */
     Error beginRemoteReset(uint32_t now_ms);
-    /** @brief Start async SelfTestLoopback. */
+    /**
+     * @brief Start async SelfTestLoopback.
+     * The request payload is snapshotted before this method returns. Completion
+     * requires an exact response length, declared length, and payload echo.
+     */
     Error beginSelfTestLoopback(
         const uint8_t* data,
         size_t data_length,
@@ -1246,7 +1244,7 @@ class SlmpClient {
      * @brief Read raw bytes from an extend unit (command 0x0601).
      * @param head_address 32-bit starting address.
      * @param byte_length Number of bytes to read.
-     * @param module_no Extend unit module I/O number (e.g. 0x03E0 for CPU buffer).
+     * @param module_no Configured Extend Unit module I/O number.
      * @param out Output buffer.
      * @param capacity Capacity of out buffer in bytes.
      */
@@ -1269,25 +1267,6 @@ class SlmpClient {
     Error writeExtendUnitWord(uint32_t head_address, uint16_t module_no, uint16_t value);
     /** @brief Write single DWord (2 words, little-endian) to an extend unit. */
     Error writeExtendUnitDWord(uint32_t head_address, uint16_t module_no, uint32_t value);
-
-    // --- CPU Buffer convenience wrappers ---
-
-    /** @brief Read bytes from the explicitly selected CPU buffer. */
-    Error readCpuBufferBytes(CpuModule module, uint32_t head_address, uint16_t byte_length, uint8_t* out, size_t capacity);
-    /** @brief Read words from the explicitly selected CPU buffer. */
-    Error readCpuBufferWords(CpuModule module, uint32_t head_address, uint16_t word_length, uint16_t* out, size_t capacity);
-    /** @brief Read single word from the CPU buffer. */
-    Error readCpuBufferWord(CpuModule module, uint32_t head_address, uint16_t& value);
-    /** @brief Read single DWord (2 words, little-endian) from the CPU buffer. */
-    Error readCpuBufferDWord(CpuModule module, uint32_t head_address, uint32_t& value);
-    /** @brief Write bytes to the explicitly selected CPU buffer. */
-    Error writeCpuBufferBytes(CpuModule module, uint32_t head_address, const uint8_t* data, size_t byte_length);
-    /** @brief Write words to the explicitly selected CPU buffer. */
-    Error writeCpuBufferWords(CpuModule module, uint32_t head_address, const uint16_t* values, size_t count);
-    /** @brief Write single word to the CPU buffer. */
-    Error writeCpuBufferWord(CpuModule module, uint32_t head_address, uint16_t value);
-    /** @brief Write single DWord (2 words, little-endian) to the CPU buffer. */
-    Error writeCpuBufferDWord(CpuModule module, uint32_t head_address, uint32_t value);
 
     // --- Label Read / Write (commands 0x041A / 0x141A / 0x041C / 0x141B) ---
 
@@ -1408,7 +1387,11 @@ class SlmpClient {
             struct { TypeNameInfo* out; } readTypeName;
             struct { uint16_t* word_values; uint16_t word_count; uint32_t* dword_values; uint16_t dword_count; } readRandom;
             struct { uint16_t* word_values; size_t total_word_points; uint16_t* bit_values; size_t total_bit_points; } readBlock;
-            struct { uint8_t* out; size_t out_capacity; size_t* out_length; } selfTest;
+            struct {
+                uint8_t* out;
+                size_t out_capacity;
+                size_t* out_length;
+            } selfTest;
             struct {
                 const DeviceBlockWrite* word_blocks;
                 size_t word_block_count;

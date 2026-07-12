@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Library: Self-test loopback now rejects declared-length, actual-length, trailing-data, and echo mismatches for synchronous and asynchronous calls.
+- Library: Monitor cycle expected counts must total at least one and stay within the selected profile's monitor-registration limit.
+- Docs: Clarified explicit monitor counts and that `U3En\HG` never changes or retries the fixed user-selected request target.
+
 ### BREAKING
 
 - Library: Removed independent `setFrameType` and `setCompatibilityMode` controls. Normal clients derive both values from the required concrete PLC profile; controlled verification must use `setManualProfile(profile, frame, compatibility)` so manual wire selection cannot discard the profile.
@@ -30,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Removed profileless `parseAddressSpec`, `formatAddressSpec`, `normalizeAddress`, and `compileReadPlan` overloads, the `plcProfileLabel` alias, and `configureClientForPlcProfile`.
 - Library: Removed `BlockWriteOptions` and `split_mixed_blocks`. Mixed block operations always use one protocol request.
 - Library: Remote RUN and PAUSE now require typed mode arguments; Remote RUN also requires `RemoteClearMode`. Remote RESET exposes no wire-level options, completes after transmission without waiting for a response, and closes the transport before another request.
-- Library: CPU-buffer helpers now require `CpuModule::Cpu1` through `Cpu4` instead of silently selecting CPU No.1.
+- Library: Removed `CpuModule` and all `readCpuBuffer*`/`writeCpuBuffer*` aliases. Live R120PCPU cross-writes proved that Extend Unit `0x0601/0x1601` and qualified `U3E0\HG` access different physical areas. Use `readExtendUnit*`/`writeExtendUnit*` for Extend Unit commands and qualified Extended Device APIs for HG.
 - Library: Long-timer and long-retentive-timer helpers reject negative heads, zero counts, one-request-limit overflow, and point-count truncation before transport.
 - Library: `ArduinoClientTransport` now requires a platform keepalive configurator and fails connection when the fixed 30-second TCP keepalive idle cannot be applied.
 - Library: Removed localized end-code message compatibility hooks and language selection. Numeric end codes and stable `slmp_end_code_xxxx` keys remain.

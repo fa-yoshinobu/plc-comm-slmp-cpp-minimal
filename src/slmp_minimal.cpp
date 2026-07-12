@@ -2095,6 +2095,22 @@ void SlmpClient::completeAsync() {
                 setError(Error::ProtocolError);
                 return;
             }
+            const size_t request_header_size =
+                (frame_type_ == FrameType::Frame4E) ? kRequestHeaderSize4E : kRequestHeaderSize3E;
+            if (last_request_length_ < request_header_size + 2U) {
+                setError(Error::ProtocolError);
+                return;
+            }
+            const size_t expected_length = readLe16(tx_buffer_ + request_header_size);
+            if (loopback_size != expected_length ||
+                last_request_length_ != request_header_size + 2U + expected_length) {
+                setError(Error::ProtocolError);
+                return;
+            }
+            if (memcmp(response_data + 2U, tx_buffer_ + request_header_size + 2U, loopback_size) != 0) {
+                setError(Error::ProtocolError);
+                return;
+            }
             if (async_ctx_.data.selfTest.out == nullptr || async_ctx_.data.selfTest.out_length == nullptr ||
                 async_ctx_.data.selfTest.out_capacity < loopback_size) {
                 setError(Error::InvalidArgument);
@@ -3295,43 +3311,6 @@ Error SlmpClient::writeExtendUnitWords(uint32_t head_address, uint16_t module_no
     return last_error_;
 }
 
-// -----------------------------------------------------------------------
-// CPU Buffer convenience wrappers (extend unit module 0x03E0)
-// -----------------------------------------------------------------------
-
-static bool isValidCpuModule(CpuModule module) {
-    return module == CpuModule::Cpu1 || module == CpuModule::Cpu2 ||
-           module == CpuModule::Cpu3 || module == CpuModule::Cpu4;
-}
-
-Error SlmpClient::readCpuBufferBytes(CpuModule module, uint32_t head_address, uint16_t byte_length, uint8_t* out, size_t capacity) {
-    if (!isValidCpuModule(module)) { setError(Error::InvalidArgument); return last_error_; }
-    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
-    if (guard_error != Error::Ok) return guard_error;
-    return readExtendUnitBytes(head_address, byte_length, static_cast<uint16_t>(module), out, capacity);
-}
-
-Error SlmpClient::readCpuBufferWords(CpuModule module, uint32_t head_address, uint16_t word_length, uint16_t* out, size_t capacity) {
-    if (!isValidCpuModule(module)) { setError(Error::InvalidArgument); return last_error_; }
-    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
-    if (guard_error != Error::Ok) return guard_error;
-    return readExtendUnitWords(head_address, word_length, static_cast<uint16_t>(module), out, capacity);
-}
-
-Error SlmpClient::writeCpuBufferBytes(CpuModule module, uint32_t head_address, const uint8_t* data, size_t byte_length) {
-    if (!isValidCpuModule(module)) { setError(Error::InvalidArgument); return last_error_; }
-    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
-    if (guard_error != Error::Ok) return guard_error;
-    return writeExtendUnitBytes(head_address, static_cast<uint16_t>(module), data, byte_length);
-}
-
-Error SlmpClient::writeCpuBufferWords(CpuModule module, uint32_t head_address, const uint16_t* values, size_t count) {
-    if (!isValidCpuModule(module)) { setError(Error::InvalidArgument); return last_error_; }
-    Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::HgCpuBuffer);
-    if (guard_error != Error::Ok) return guard_error;
-    return writeExtendUnitWords(head_address, static_cast<uint16_t>(module), values, count);
-}
-
 Error SlmpClient::readExtendUnitWord(uint32_t head_address, uint16_t module_no, uint16_t& value) {
     return readExtendUnitWords(head_address, 1, module_no, &value, 1);
 }
@@ -3350,26 +3329,6 @@ Error SlmpClient::writeExtendUnitWord(uint32_t head_address, uint16_t module_no,
 Error SlmpClient::writeExtendUnitDWord(uint32_t head_address, uint16_t module_no, uint32_t value) {
     uint16_t buf[2] = { static_cast<uint16_t>(value & 0xFFFFU), static_cast<uint16_t>(value >> 16) };
     return writeExtendUnitWords(head_address, module_no, buf, 2);
-}
-
-Error SlmpClient::readCpuBufferWord(CpuModule module, uint32_t head_address, uint16_t& value) {
-    return readCpuBufferWords(module, head_address, 1, &value, 1);
-}
-
-Error SlmpClient::readCpuBufferDWord(CpuModule module, uint32_t head_address, uint32_t& value) {
-    uint16_t buf[2] = {0, 0};
-    Error err = readCpuBufferWords(module, head_address, 2, buf, 2);
-    if (err == Error::Ok) value = (static_cast<uint32_t>(buf[1]) << 16) | buf[0];
-    return err;
-}
-
-Error SlmpClient::writeCpuBufferWord(CpuModule module, uint32_t head_address, uint16_t value) {
-    return writeCpuBufferWords(module, head_address, &value, 1);
-}
-
-Error SlmpClient::writeCpuBufferDWord(CpuModule module, uint32_t head_address, uint32_t value) {
-    uint16_t buf[2] = { static_cast<uint16_t>(value & 0xFFFFU), static_cast<uint16_t>(value >> 16) };
-    return writeCpuBufferWords(module, head_address, buf, 2);
 }
 
 // -----------------------------------------------------------------------
@@ -4265,7 +4224,7 @@ Error SlmpClient::beginSelfTestLoopback(
         setError(encode_error);
         return last_error_;
     }
-    if (out == nullptr || out_length == nullptr) {
+    if (out == nullptr || out_length == nullptr || out_capacity < data_length) {
         setError(Error::InvalidArgument);
         return last_error_;
     }
@@ -4793,6 +4752,16 @@ Error SlmpClient::beginRunMonitorCycle(
 ) {
     Error guard_error = ensureProfileFeatureAllowed(ProfileFeatureKey::Monitor);
     if (guard_error != Error::Ok) return guard_error;
+    if (validateRandomReadLikeCounts(
+            word_count,
+            dword_count,
+            compatibility_mode_,
+            false,
+            plc_profile_,
+            ProfileLimitKey::MonitorRegisterWord) != Error::Ok) {
+        setError(Error::InvalidArgument);
+        return last_error_;
+    }
     if ((word_count > 0 && word_values == nullptr) || (dword_count > 0 && dword_values == nullptr)) {
         setError(Error::InvalidArgument); return last_error_;
     }

@@ -1160,7 +1160,7 @@ Error slmp::SlmpClient::runMonitorCycle(uint16_t *word_values, uint16_t word_cou
 
 Execute monitor cycle (command 0x0802).
 
-Returns values for the devices previously registered by registerMonitorDevices or registerMonitorDevicesExt.
+Returns values for the devices previously registered by registerMonitorDevices or registerMonitorDevicesExt. The combined count must be nonzero and within the active profile's monitor-registration limit.
 
 #### `readBlock`
 
@@ -1224,7 +1224,7 @@ Send Remote RESET, close the transport after transmission, and require reconnect
 Error slmp::SlmpClient::selfTestLoopback(const uint8_t *data, size_t data_length, uint8_t *out, size_t out_capacity, size_t &out_length)
 ```
 
-Execute Self-test loopback. Verifies communication path by having the PLC echo back the provided data.
+Execute Self-test loopback. Verifies the declared length, exact response size, and byte-for-byte echo.
 
 #### `clearError`
 
@@ -1478,7 +1478,7 @@ Start async RemoteReset; successful transmission closes the transport.
 Error slmp::SlmpClient::beginSelfTestLoopback(const uint8_t *data, size_t data_length, uint8_t *out, size_t out_capacity, size_t *out_length, uint32_t now_ms)
 ```
 
-Start async SelfTestLoopback.
+Start async SelfTestLoopback. The request payload is snapshotted before this method returns. Completion requires an exact response length, declared length, and payload echo.
 
 #### `beginClearError`
 
@@ -1776,13 +1776,13 @@ Error slmp::SlmpClient::readExtendUnitBytes(uint32_t head_address, uint16_t byte
 
 Read raw bytes from an extend unit (command 0x0601).
 
-head_address 32-bit starting address. byte_length Number of bytes to read. module_no Extend unit module I/O number (e.g. 0x03E0 for CPU buffer). out Output buffer. capacity Capacity of out buffer in bytes.
+head_address 32-bit starting address. byte_length Number of bytes to read. module_no Configured Extend Unit module I/O number. out Output buffer. capacity Capacity of out buffer in bytes.
 
 | Parameter | Description |
 | --- | --- |
 | `head_address` | 32-bit starting address. |
 | `byte_length` | Number of bytes to read. |
-| `module_no` | Extend unit module I/O number (e.g. 0x03E0 for CPU buffer). |
+| `module_no` | Configured Extend Unit module I/O number. |
 | `out` | Output buffer. |
 | `capacity` | Capacity of out buffer in bytes. |
 
@@ -1857,70 +1857,6 @@ Error slmp::SlmpClient::writeExtendUnitDWord(uint32_t head_address, uint16_t mod
 ```
 
 Write single DWord (2 words, little-endian) to an extend unit.
-
-#### `readCpuBufferBytes`
-
-```cpp
-Error slmp::SlmpClient::readCpuBufferBytes(CpuModule module, uint32_t head_address, uint16_t byte_length, uint8_t *out, size_t capacity)
-```
-
-Read bytes from the explicitly selected CPU buffer.
-
-#### `readCpuBufferWords`
-
-```cpp
-Error slmp::SlmpClient::readCpuBufferWords(CpuModule module, uint32_t head_address, uint16_t word_length, uint16_t *out, size_t capacity)
-```
-
-Read words from the explicitly selected CPU buffer.
-
-#### `readCpuBufferWord`
-
-```cpp
-Error slmp::SlmpClient::readCpuBufferWord(CpuModule module, uint32_t head_address, uint16_t &value)
-```
-
-Read single word from the CPU buffer.
-
-#### `readCpuBufferDWord`
-
-```cpp
-Error slmp::SlmpClient::readCpuBufferDWord(CpuModule module, uint32_t head_address, uint32_t &value)
-```
-
-Read single DWord (2 words, little-endian) from the CPU buffer.
-
-#### `writeCpuBufferBytes`
-
-```cpp
-Error slmp::SlmpClient::writeCpuBufferBytes(CpuModule module, uint32_t head_address, const uint8_t *data, size_t byte_length)
-```
-
-Write bytes to the explicitly selected CPU buffer.
-
-#### `writeCpuBufferWords`
-
-```cpp
-Error slmp::SlmpClient::writeCpuBufferWords(CpuModule module, uint32_t head_address, const uint16_t *values, size_t count)
-```
-
-Write words to the explicitly selected CPU buffer.
-
-#### `writeCpuBufferWord`
-
-```cpp
-Error slmp::SlmpClient::writeCpuBufferWord(CpuModule module, uint32_t head_address, uint16_t value)
-```
-
-Write single word to the CPU buffer.
-
-#### `writeCpuBufferDWord`
-
-```cpp
-Error slmp::SlmpClient::writeCpuBufferDWord(CpuModule module, uint32_t head_address, uint32_t value)
-```
-
-Write single DWord (2 words, little-endian) to the CPU buffer.
 
 #### `readArrayLabels`
 
