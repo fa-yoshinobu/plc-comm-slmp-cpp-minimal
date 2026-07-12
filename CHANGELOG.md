@@ -60,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Release: Bumped `library.json` and synchronized `library.properties` metadata to `3.1.0`.
-- Tooling: Pinned canonical SLMP profile imports to immutable profile commit `e7e8f071ff1819a6b088b6a793e6f08029c54e38`.
+- Tooling: Pinned canonical SLMP profile imports to published profile tag `v2.0.0`.
 - Samples: Replaced deprecated `plcProfileLabel()` use with `plcProfileCanonicalName()` in the ESP32 high-level example.
 - Docs: Updated the API stability and PlatformIO publishing policies for the stable 3.x release workflow, corrected the shared PLC setup link, and removed hand-maintained page navigation from `GETTING_STARTED.md`.
 
