@@ -39,7 +39,7 @@ WiFiUDP g_udp;
 slmp::ArduinoUdpTransport g_transport(g_udp);
 uint8_t g_tx_buffer[160] = {};
 uint8_t g_rx_buffer[160] = {};
-slmp::SlmpClient g_plc(g_transport, g_tx_buffer, sizeof(g_tx_buffer), g_rx_buffer, sizeof(g_rx_buffer));
+slmp::SlmpClient g_plc(g_transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, g_tx_buffer, sizeof(g_tx_buffer), g_rx_buffer, sizeof(g_rx_buffer));
 
 slmp::highlevel::Poller g_poller;
 bool g_planReady = false;
@@ -123,7 +123,7 @@ bool ensurePlc() {
     }
 
     logState("reconnecting", "opening SLMP UDP endpoint");
-    slmp::highlevel::configureClientForPlcProfile(g_plc, kPlcProfile);
+    g_plc.setPlcProfile(kPlcProfile);
     if (!g_plc.connect(kPlcHost, kPlcPort)) {
         scheduleReconnect("connect failed", g_plc.lastError());
         return false;
@@ -149,7 +149,7 @@ bool ensurePlc() {
 
 void readHighLevelValues() {
     slmp::highlevel::Value d100;
-    const auto typedErr = slmp::highlevel::readTyped(g_plc, kPlcProfile, "D100:U", d100);
+    const auto typedErr = slmp::highlevel::readTyped(g_plc, "D100:U", d100);
     if (typedErr != slmp::Error::Ok) {
         if (retryable(typedErr)) {
             scheduleReconnect("readTyped failed", typedErr);

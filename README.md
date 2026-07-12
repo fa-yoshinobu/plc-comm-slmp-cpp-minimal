@@ -16,7 +16,7 @@ The maintained profile table is in [PLC profiles](docsrc/user/PROFILES.md). Choo
 
 ## Strict profile
 
-`SlmpClient` enables strict profile guards by default. With a selected profile, operations known to be unavailable for that PLC are rejected before sending. Call `setStrictProfile(false)` only for deliberate verification where you want the PLC to answer directly. Point limits and write policy remain enforced.
+`SlmpClient` always applies strict profile guards in its normal public API. Operations known to be unavailable for the selected PLC are rejected before sending.
 
 ## Supported device types
 
@@ -50,11 +50,11 @@ constexpr uint16_t kPlcPort = 1025;
 constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient tcp;
-slmp::ArduinoClientTransport transport(tcp);
+slmp::ArduinoClientTransport transport(tcp, slmp::configureEsp32WifiClientKeepAlive);
 
 uint8_t txBuffer[160] = {};
 uint8_t rxBuffer[160] = {};
-slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+slmp::SlmpClient plc(transport, kProfile, slmp::TargetAddress{0x00, 0xFF, slmp::module_io::OwnStation, 0x00}, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
 
 void setup() {
     Serial.begin(115200);
@@ -62,8 +62,6 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) {
         delay(250);
     }
-
-    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
     if (!plc.connect(kPlcHost, kPlcPort)) {
         Serial.println("PLC connection failed");
     }
@@ -81,6 +79,11 @@ void loop() {
     delay(1000);
 }
 ```
+
+The TCP transport always requests a 30-second keepalive idle after connecting.
+ESP32 `WiFiClient` uses the supplied standard configurator. Other Arduino
+`Client` implementations must provide an equivalent configurator; if it is
+missing or fails, the transport closes the socket and reports connection failure.
 
 ## Documentation
 

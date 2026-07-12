@@ -125,7 +125,7 @@ Rules:
 
 - typed or named helpers must not silently fall back to chunked behavior
 - protocol-defined boundaries are allowed only when they preserve logical value boundaries
-- any future chunked helper must use an explicit name such as `readWordsChunked`
+- multi-request contiguous read helpers are not part of the public library contract; applications must make request boundaries explicit
 - fallback split retry with different semantics is not the default behavior
 ## Internal Naming Rules
 

@@ -16,10 +16,8 @@ base-profile relationship in one list. The abstract `melsec:qcpu` entry is
 included with `connectable == false`; a null `base_profile` means no declared
 base profile. Store `canonical_name`, not `display_name`.
 
-Profile selection is the supported way to apply target-specific behavior. Use
-`slmp::highlevel::configureClientForPlcProfile` in normal applications. If an
-application uses only `slmp::SlmpClient` directly, call `setPlcProfile` instead
-of inferring a PLC from manual frame/compatibility settings. Manual frame and
+Profile selection is the supported way to apply target-specific behavior. Pass
+the concrete profile to the `SlmpClient` constructor. Manual frame and
 compatibility settings do not imply a PLC model.
 
 ## Profiles table
@@ -73,12 +71,8 @@ int main() {
     NoopTransport transport;
     uint8_t tx[64] = {};
     uint8_t rx[64] = {};
-    slmp::SlmpClient plc(transport, tx, sizeof(tx), rx, sizeof(rx));
-
     constexpr auto profile = slmp::highlevel::PlcProfile::IqR;
-    if (slmp::highlevel::configureClientForPlcProfile(plc, profile) != slmp::Error::Ok) {
-        return 1;
-    }
+    slmp::SlmpClient plc(transport, profile, slmp::TargetAddress{0x00, 0xFF, slmp::module_io::OwnStation, 0x00}, tx, sizeof(tx), rx, sizeof(rx));
     std::printf("%s\n", slmp::highlevel::plcProfileCanonicalName(profile));
 
     return plc.frameType() == slmp::FrameType::Frame4E ? 0 : 1;
@@ -89,4 +83,4 @@ int main() {
 
 `SlmpClient` enables strict profile checks by default. With a selected profile, operations known to be unavailable for that PLC are rejected before sending. Leave this enabled for normal applications.
 
-Call `setStrictProfile(false)` only for deliberate verification where you want the PLC to answer directly. Point limits and write policy still apply.
+Profile guard bypass is not exposed by the normal public API. Profile evidence collection uses separate maintainer tooling.

@@ -34,7 +34,7 @@ The high-level layer is optional and is not included by `slmp_minimal.h` automat
 
 ## Choose your PLC profile
 
-Call `slmp::highlevel::configureClientForPlcProfile` before the first read or write. It applies the frame type, compatibility mode, and profile-specific guards for the selected PLC profile; it does not auto-detect your PLC.
+Pass the concrete PLC profile and complete target route to the `SlmpClient` constructor. The client derives frame and compatibility settings from that profile; it does not auto-detect your PLC.
 
 | Target | Profile to start with |
 | --- | --- |
@@ -47,7 +47,7 @@ Call `slmp::highlevel::configureClientForPlcProfile` before the first read or wr
 
 The complete sketches below show where the profile configuration belongs.
 
-Strict profile checks are enabled by default. Leave them enabled for normal applications; use `plc.setStrictProfile(false)` only when you deliberately want to send the request and inspect the PLC response yourself.
+Strict profile checks are always enabled in the normal public API. Profile evidence collection uses separate maintainer tooling.
 
 ## First read
 
@@ -68,11 +68,11 @@ constexpr uint16_t kPlcPort = 1025;
 constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient tcp;
-slmp::ArduinoClientTransport transport(tcp);
+slmp::ArduinoClientTransport transport(tcp, slmp::configureEsp32WifiClientKeepAlive);
 
 uint8_t txBuffer[160] = {};
 uint8_t rxBuffer[160] = {};
-slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+slmp::SlmpClient plc(transport, kProfile, slmp::TargetAddress{0x00, 0xFF, slmp::module_io::OwnStation, 0x00}, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
 
 void setup() {
     Serial.begin(115200);
@@ -80,8 +80,6 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) {
         delay(250);
     }
-
-    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
     if (plc.connect(kPlcHost, kPlcPort)) {
         Serial.println("PLC connected");
     } else {
@@ -101,6 +99,11 @@ void loop() {
     delay(1000);
 }
 ```
+
+`ArduinoClientTransport` applies the common 30-second TCP keepalive idle after
+connection. The ESP32 helper above configures `WiFiClient`. For another Arduino
+network stack, supply a `TcpKeepAliveConfigurator` that applies the same idle;
+connection fails closed if the configurator is absent or unsuccessful.
 
 Expected serial output:
 
@@ -128,11 +131,11 @@ constexpr uint16_t kPlcPort = 1025;
 constexpr auto kProfile = slmp::highlevel::PlcProfile::IqR;
 
 WiFiClient tcp;
-slmp::ArduinoClientTransport transport(tcp);
+slmp::ArduinoClientTransport transport(tcp, slmp::configureEsp32WifiClientKeepAlive);
 
 uint8_t txBuffer[160] = {};
 uint8_t rxBuffer[160] = {};
-slmp::SlmpClient plc(transport, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
+slmp::SlmpClient plc(transport, kProfile, slmp::TargetAddress{0x00, 0xFF, slmp::module_io::OwnStation, 0x00}, txBuffer, sizeof(txBuffer), rxBuffer, sizeof(rxBuffer));
 bool wroteOnce = false;
 
 void setup() {
@@ -141,8 +144,6 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) {
         delay(250);
     }
-
-    slmp::highlevel::configureClientForPlcProfile(plc, kProfile);
     if (!plc.connect(kPlcHost, kPlcPort)) {
         Serial.println("PLC connection failed");
     }
@@ -188,5 +189,5 @@ void loop() {
 | Reads work but writes fail | Confirm RUN-time write permission in the PLC setup guide and the selected profile write policy. |
 | High-level helpers are undefined | Add `#include <slmp_high_level.h>`; it is not included automatically. |
 | Address parsing fails | Check that your `slmp::highlevel::PlcProfile` matches your actual hardware. |
-| `profile_feature_blocked` is returned | The selected profile does not support that operation. Use a supported operation, or intentionally call `plc.setStrictProfile(false)` for verification. |
+| `profile_feature_blocked` is returned | The selected profile does not support that operation. Use a supported operation. |
 | `X` or `Y` looks wrong | Use the profile-aware overloads of `slmp::highlevel::readTyped` and `slmp::highlevel::writeTyped`. |

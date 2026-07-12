@@ -17,13 +17,13 @@ constexpr PlcProfile kPlcProfile = PlcProfile::IqR;
 [[maybe_unused]] slmp::Error readBasicValues(slmp::SlmpClient& plc) {
     Value d100;
     // Named high-level addresses include the logical type explicitly.
-    if (slmp::highlevel::readTyped(plc, kPlcProfile, "D100:U", d100) != slmp::Error::Ok) {
+    if (slmp::highlevel::readTyped(plc, "D100:U", d100) != slmp::Error::Ok) {
         return plc.lastError();
     }
 
     Value temperature;
     // :F reads two words and decodes them as IEEE-754 float32.
-    if (slmp::highlevel::readTyped(plc, kPlcProfile, "D200:F", temperature) != slmp::Error::Ok) {
+    if (slmp::highlevel::readTyped(plc, "D200:F", temperature) != slmp::Error::Ok) {
         return plc.lastError();
     }
 
@@ -39,7 +39,7 @@ constexpr PlcProfile kPlcProfile = PlcProfile::IqR;
         "D300:F",
         "D50.3",
     };
-    return slmp::highlevel::readNamed(plc, kPlcProfile, addresses, out);
+    return slmp::highlevel::readNamed(plc, addresses, out);
 }
 
 [[maybe_unused]] slmp::Error writeMixedValues(slmp::SlmpClient& plc) {
@@ -49,7 +49,7 @@ constexpr PlcProfile kPlcProfile = PlcProfile::IqR;
     updates.push_back({"D200:L", Value::s32Value(-123456)});
     updates.push_back({"D300:F", Value::float32Value(1.5f)});
     updates.push_back({"D50.3", Value::bitValue(true)});
-    return slmp::highlevel::writeNamed(plc, kPlcProfile, updates);
+    return slmp::highlevel::writeNamed(plc, updates);
 }
 
 [[maybe_unused]] slmp::Error pollCompiledPlan(slmp::SlmpClient& plc, Snapshot& out) {

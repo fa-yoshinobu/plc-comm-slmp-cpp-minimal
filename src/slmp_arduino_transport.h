@@ -11,6 +11,10 @@
 
 #include <Arduino.h>
 #include <Client.h>
+#if defined(ARDUINO_ARCH_ESP32)
+#include <WiFiClient.h>
+#include <lwip/sockets.h>
+#endif
 #ifndef SLMP_ENABLE_UDP_TRANSPORT
 #define SLMP_ENABLE_UDP_TRANSPORT 1
 #endif
@@ -22,6 +26,19 @@
 #include "slmp_minimal.h"
 
 namespace slmp {
+
+using TcpKeepAliveConfigurator = bool (*)(::Client& client, uint32_t idle_seconds);
+
+#if defined(ARDUINO_ARCH_ESP32)
+/** @brief Configure the approved 30-second TCP keepalive idle on ESP32 WiFiClient. */
+inline bool configureEsp32WifiClientKeepAlive(::Client& base_client, uint32_t idle_seconds) {
+    ::WiFiClient& client = static_cast<::WiFiClient&>(base_client);
+    const int enabled = 1;
+    const int idle = static_cast<int>(idle_seconds);
+    return client.setSocketOption(SOL_SOCKET, SO_KEEPALIVE, &enabled, sizeof(enabled)) == 0 &&
+           client.setSocketOption(IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(idle)) == 0;
+}
+#endif
 
 /**
  * @class ArduinoClientTransport
@@ -36,12 +53,23 @@ class ArduinoClientTransport : public ITransport {
     /** 
      * @brief Wrap an existing Arduino Client. 
      * @param client Reference to an Arduino Client object (e.g., WiFiClient).
+     * @param keepalive_configurator Platform adapter that applies the fixed
+     *        30-second TCP keepalive idle after connection.
      */
-    explicit ArduinoClientTransport(::Client& client) : client_(client) {}
+    ArduinoClientTransport(::Client& client, TcpKeepAliveConfigurator keepalive_configurator)
+        : client_(client), keepalive_configurator_(keepalive_configurator) {}
 
     /** @brief Connect to PLC via TCP. */
     bool connect(const char* host, uint16_t port) override {
-        return client_.connect(host, port) == 1;
+        if (client_.connect(host, port) != 1) {
+            return false;
+        }
+        if (keepalive_configurator_ == nullptr ||
+            !keepalive_configurator_(client_, kKeepAliveIdleSeconds)) {
+            client_.stop();
+            return false;
+        }
+        return true;
     }
 
     /** @brief Stop the client and close connection. */
@@ -109,7 +137,9 @@ class ArduinoClientTransport : public ITransport {
     }
 
   private:
+    static constexpr uint32_t kKeepAliveIdleSeconds = 30U;
     ::Client& client_;
+    TcpKeepAliveConfigurator keepalive_configurator_;
 };
 
 #if SLMP_ENABLE_UDP_TRANSPORT
@@ -121,6 +151,8 @@ class ArduinoClientTransport : public ITransport {
  * 
  * Wraps classes like `WiFiUDP` or `EthernetUDP`.
  * Manages remote endpoint (host/port) and packet framing for SLMP.
+ * Only datagrams whose source IP address and port match the configured numeric
+ * remote endpoint are exposed to the SLMP decoder; other datagrams are drained.
  * 
  * @note UDP is connectionless; "connected" state in this class simply means 
  *       that `begin()` has been called and remote endpoint is known.
@@ -130,22 +162,25 @@ class ArduinoUdpTransport : public ITransport {
     /**
      * @brief Wrap an existing Arduino UDP object.
      * @param udp Reference to UDP object.
-     * @param local_port Local port to bind to (0 = use same as remote port).
+     * @param local_port Local port to bind to (0 = request an ephemeral port).
      */
     explicit ArduinoUdpTransport(::UDP& udp, uint16_t local_port = 0)
         : udp_(udp), local_port_(local_port) {}
 
-    /** @brief Set remote host and begin listening on local port. */
+    /** @brief Set a numeric remote IP address and begin listening on the local port. */
     bool connect(const char* host, uint16_t port) override {
         if (host == nullptr || port == 0U) {
             connected_ = false;
             return false;
         }
 
+        if (!remote_ip_.fromString(host)) {
+            connected_ = false;
+            return false;
+        }
         host_ = host;
         remote_port_ = port;
-        const uint16_t bind_port = (local_port_ == 0U) ? port : local_port_;
-        connected_ = (udp_.begin(bind_port) == 1);
+        connected_ = (udp_.begin(local_port_) == 1);
         packet_available_ = 0;
         return connected_;
     }
@@ -216,11 +251,22 @@ class ArduinoUdpTransport : public ITransport {
         if (!connected_) {
             return 0U;
         }
-        if (packet_available_ == 0U) {
+        while (packet_available_ == 0U) {
             const int packet_size = udp_.parsePacket();
-            if (packet_size > 0) {
-                packet_available_ = static_cast<size_t>(packet_size);
+            if (packet_size <= 0) return 0U;
+            const size_t packet_bytes = static_cast<size_t>(packet_size);
+            if (udp_.remoteIP() != remote_ip_ || udp_.remotePort() != remote_port_) {
+                uint8_t discard[32];
+                size_t remaining = packet_bytes;
+                while (remaining > 0U) {
+                    const size_t chunk = remaining < sizeof(discard) ? remaining : sizeof(discard);
+                    const int discarded = udp_.read(discard, chunk);
+                    if (discarded <= 0) return 0U;
+                    remaining -= static_cast<size_t>(discarded);
+                }
+                continue;
             }
+            packet_available_ = packet_bytes;
         }
         return packet_available_;
     }
@@ -244,6 +290,7 @@ class ArduinoUdpTransport : public ITransport {
 
     ::UDP& udp_;
     String host_;
+    IPAddress remote_ip_;
     uint16_t remote_port_ = 0;
     uint16_t local_port_ = 0;
     size_t packet_available_ = 0;

@@ -167,7 +167,7 @@ void runAsync(slmp::SlmpClient& plc) {
 
 void testSyncAsyncConsistency(slmp::SlmpClient& plc) {
     printf("Testing Sync/Async Consistency...\n");
-    auto d100 = slmp::dev::D(slmp::dev::dec(100));
+    auto d100 = slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100));
     uint16_t write_val[5] = {0x1111, 0x2222, 0x3333, 0x4444, 0x5555};
     uint16_t read_val_sync[5] = {0};
     uint16_t read_val_async[5] = {0};
@@ -190,7 +190,7 @@ void testSyncAsyncConsistency(slmp::SlmpClient& plc) {
 
 void testLargeTransfer(slmp::SlmpClient& plc) {
     printf("Testing Large Transfer (90 words)...\n");
-    auto d200 = slmp::dev::D(slmp::dev::dec(200));
+    auto d200 = slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(200));
     uint16_t data[90];
     for(int i=0; i<90; i++) data[i] = (uint16_t)i;
     uint16_t readback[90] = {0};
@@ -211,9 +211,9 @@ void testRandomAndBlock(slmp::SlmpClient& plc) {
     printf("Testing Random and Block Access (Async)...\n");
     
     // Random Write
-    const slmp::DeviceAddress words[] = { slmp::dev::D(slmp::dev::dec(300)), slmp::dev::D(slmp::dev::dec(301)) };
+    const slmp::DeviceAddress words[] = { slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(300)), slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(301)) };
     const uint16_t wvals[] = { 0xAAAA, 0xBBBB };
-    const slmp::DeviceAddress dwords[] = { slmp::dev::D(slmp::dev::dec(310)) };
+    const slmp::DeviceAddress dwords[] = { slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(310)) };
     const uint32_t dwvals[] = { 0x12345678 };
     
     ASSERT_OK(plc.beginWriteRandomWords(words, wvals, 2, dwords, dwvals, 1, getNow()));
@@ -221,7 +221,7 @@ void testRandomAndBlock(slmp::SlmpClient& plc) {
     ASSERT_OK(plc.lastError());
 
     // Block Read
-    const slmp::DeviceBlockRead blks[] = { slmp::dev::blockRead(slmp::dev::D(slmp::dev::dec(300)), 2) };
+    const slmp::DeviceBlockRead blks[] = { slmp::dev::blockRead(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(300)), 2) };
     uint16_t blk_res[2];
     ASSERT_OK(plc.beginReadBlock(blks, 1, nullptr, 0, blk_res, 2, nullptr, 0, getNow()));
     runAsync(plc);
@@ -234,7 +234,7 @@ void testRandomAndBlock(slmp::SlmpClient& plc) {
 
 void testStress(slmp::SlmpClient& plc) {
     printf("Testing Stress (100 sequential async requests)...\n");
-    auto d0 = slmp::dev::D(slmp::dev::dec(0));
+    auto d0 = slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(0));
     for(int i=0; i<100; i++) {
         uint16_t write_val = (uint16_t)i;
         ASSERT_OK(plc.beginWriteWords(d0, &write_val, 1, getNow()));
@@ -253,14 +253,23 @@ void testStress(slmp::SlmpClient& plc) {
 } // namespace
 
 int main(int argc, char** argv) {
-    const char* host = (argc > 1) ? argv[1] : "127.0.0.1";
-    uint16_t port = (argc > 2) ? (uint16_t)atoi(argv[2]) : 1025;
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s <host> <port>\n", argv[0]);
+        return 2;
+    }
+    const char* host = argv[1];
+    const long parsed_port = strtol(argv[2], nullptr, 10);
+    if (parsed_port < 1 || parsed_port > 65535) {
+        fprintf(stderr, "port must be an integer in range 1..65535\n");
+        return 2;
+    }
+    const uint16_t port = static_cast<uint16_t>(parsed_port);
 
     printf("Starting GXSIM3 Thorough Validation on %s:%u\n", host, port);
 
     SocketTransport transport;
     uint8_t tx_buf[512], rx_buf[512];
-    slmp::SlmpClient plc(transport, tx_buf, sizeof(tx_buf), rx_buf, sizeof(rx_buf));
+    slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buf, sizeof(tx_buf), rx_buf, sizeof(rx_buf));
     plc.setTimeoutMs(2000);
 
     if (!plc.connect(host, port)) {

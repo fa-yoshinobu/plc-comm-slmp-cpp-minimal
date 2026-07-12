@@ -17,15 +17,6 @@
 namespace slmp {
 
 /**
- * @enum EndCodeLanguage
- * @brief Language selector retained for optional external end-code catalogs.
- */
-enum class EndCodeLanguage : uint8_t {
-    English = 0,
-    Japanese = 1,
-};
-
-/**
  * @brief Format the stable code-derived key for an SLMP end code.
  *
  * The output buffer must have room for at least 19 bytes, including the null
@@ -44,21 +35,6 @@ const char* endCodeString(uint16_t end_code);
 
 /** @brief Return true when the SLMP end code is related to remote password protection. */
 bool isRemotePasswordEndCode(uint16_t end_code);
-
-/**
- * @brief Get a user-facing SLMP end-code message.
- *
- * Localized message text is not embedded in this library; resolve
- * endCodeString(end_code) in an application-owned catalog. This function is
- * retained as a compatibility hook and returns nullptr.
- */
-const char* endCodeMessage(uint16_t end_code, EndCodeLanguage language = EndCodeLanguage::English);
-
-/** @brief Compatibility hook for English message lookup; returns nullptr. */
-const char* endCodeMessageEnglish(uint16_t end_code);
-
-/** @brief Compatibility hook for Japanese message lookup; returns nullptr. */
-const char* endCodeMessageJapanese(uint16_t end_code);
 
 }  // namespace slmp
 

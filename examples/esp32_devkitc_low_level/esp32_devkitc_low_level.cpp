@@ -13,10 +13,10 @@ constexpr uint16_t kPlcPort = 1025;
 constexpr uint32_t kReadIntervalMs = 1000;
 
 WiFiClient g_tcp;
-slmp::ArduinoClientTransport g_transport(g_tcp);
+slmp::ArduinoClientTransport g_transport(g_tcp, slmp::configureEsp32WifiClientKeepAlive);
 uint8_t g_tx_buffer[128] = {};
 uint8_t g_rx_buffer[128] = {};
-slmp::SlmpClient g_plc(g_transport, g_tx_buffer, sizeof(g_tx_buffer), g_rx_buffer, sizeof(g_rx_buffer));
+slmp::SlmpClient g_plc(g_transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, g_tx_buffer, sizeof(g_tx_buffer), g_rx_buffer, sizeof(g_rx_buffer));
 
 uint32_t g_lastReadMs = 0;
 
@@ -53,8 +53,8 @@ void readDirectDevices() {
     bool m1000 = false;
 
     // D uses decimal numbering; M is a direct bit device in this example.
-    const auto wordErr = g_plc.readOneWord(slmp::dev::D(slmp::dev::dec(100)), d100);
-    const auto bitErr = g_plc.readOneBit(slmp::dev::M(slmp::dev::dec(1000)), m1000);
+    const auto wordErr = g_plc.readOneWord(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)), d100);
+    const auto bitErr = g_plc.readOneBit(slmp::dev::M(slmp::PlcProfile::IqR, slmp::dev::dec(1000)), m1000);
 
     if (wordErr == slmp::Error::Ok && bitErr == slmp::Error::Ok) {
         Serial.printf("low-level D100=%u M1000=%u\n", static_cast<unsigned>(d100), m1000 ? 1U : 0U);

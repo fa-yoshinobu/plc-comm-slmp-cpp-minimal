@@ -290,7 +290,7 @@ void testSocketRoundTrip(const char* host, uint16_t port, const char* password) 
     SocketTransport transport;
     uint8_t tx_buffer[256] = {};
     uint8_t rx_buffer[256] = {};
-    slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
     plc.setPlcProfile(slmp::PlcProfile::IqR);
     plc.setTimeoutMs(1000);
 
@@ -304,26 +304,26 @@ void testSocketRoundTrip(const char* host, uint16_t port, const char* password) 
     assert(type_name.model_code == 0x1234U);
 
     uint16_t locked_value = 0;
-    assert(plc.readOneWord(slmp::dev::D(slmp::dev::dec(100)), locked_value) == slmp::Error::PlcError);
+    assert(plc.readOneWord(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)), locked_value) == slmp::Error::PlcError);
     assert(plc.lastEndCode() == 0x4013U);
 
     assert(plc.remotePasswordUnlock(password) == slmp::Error::Ok);
 
     uint16_t words[2] = {};
-    assert(plc.readWords(slmp::dev::D(slmp::dev::dec(100)), 2, words, 2) == slmp::Error::Ok);
+    assert(plc.readWords(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)), 2, words, 2) == slmp::Error::Ok);
     assert(words[0] == 1234U);
     assert(words[1] == 5678U);
 
     uint32_t dword = 0;
-    assert(plc.readOneDWord(slmp::dev::D(slmp::dev::dec(200)), dword) == slmp::Error::Ok);
+    assert(plc.readOneDWord(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(200)), dword) == slmp::Error::Ok);
     assert(dword == 0x12345678UL);
 
     const slmp::DeviceAddress random_words[] = {
-        slmp::dev::D(slmp::dev::dec(100)),
-        slmp::dev::D(slmp::dev::dec(101)),
+        slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)),
+        slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(101)),
     };
     const slmp::DeviceAddress random_dwords[] = {
-        slmp::dev::D(slmp::dev::dec(200)),
+        slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(200)),
     };
     uint16_t random_word_values[2] = {};
     uint32_t random_dword_values[1] = {};
@@ -342,35 +342,35 @@ void testSocketRoundTrip(const char* host, uint16_t port, const char* password) 
     assert(random_dword_values[0] == 0x12345678UL);
 
     const uint16_t direct_write_values[] = {0x1111U, 0x2222U};
-    assert(plc.writeWords(slmp::dev::D(slmp::dev::dec(120)), direct_write_values, 2) == slmp::Error::Ok);
+    assert(plc.writeWords(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(120)), direct_write_values, 2) == slmp::Error::Ok);
     uint16_t direct_readback[2] = {};
-    assert(plc.readWords(slmp::dev::D(slmp::dev::dec(120)), 2, direct_readback, 2) == slmp::Error::Ok);
+    assert(plc.readWords(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(120)), 2, direct_readback, 2) == slmp::Error::Ok);
     assert(direct_readback[0] == 0x1111U);
     assert(direct_readback[1] == 0x2222U);
 
-    assert(plc.writeOneBit(slmp::dev::M(slmp::dev::dec(101)), true) == slmp::Error::Ok);
+    assert(plc.writeOneBit(slmp::dev::M(slmp::PlcProfile::IqR, slmp::dev::dec(101)), true) == slmp::Error::Ok);
     bool direct_bits[4] = {};
-    assert(plc.readBits(slmp::dev::M(slmp::dev::dec(100)), 4, direct_bits, 4) == slmp::Error::Ok);
+    assert(plc.readBits(slmp::dev::M(slmp::PlcProfile::IqR, slmp::dev::dec(100)), 4, direct_bits, 4) == slmp::Error::Ok);
     assert(direct_bits[0]);
     assert(direct_bits[1]);
     assert(direct_bits[2]);
     assert(!direct_bits[3]);
 
     const slmp::DeviceAddress random_bit_devices[] = {
-        slmp::dev::M(slmp::dev::dec(102)),
-        slmp::dev::Y(slmp::dev::hex(0x20)),
+        slmp::dev::M(slmp::PlcProfile::IqR, slmp::dev::dec(102)),
+        slmp::dev::Y(slmp::PlcProfile::IqR, slmp::dev::hex(0x20)),
     };
     const bool random_bit_values[] = {false, true};
     assert(plc.writeRandomBits(random_bit_devices, random_bit_values, 2) == slmp::Error::Ok);
     bool y20 = false;
-    assert(plc.readOneBit(slmp::dev::Y(slmp::dev::hex(0x20)), y20) == slmp::Error::Ok);
+    assert(plc.readOneBit(slmp::dev::Y(slmp::PlcProfile::IqR, slmp::dev::hex(0x20)), y20) == slmp::Error::Ok);
     assert(y20);
 
     const slmp::DeviceBlockRead word_blocks[] = {
-        slmp::dev::blockRead(slmp::dev::D(slmp::dev::dec(300)), 2),
+        slmp::dev::blockRead(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(300)), 2),
     };
     const slmp::DeviceBlockRead bit_blocks[] = {
-        slmp::dev::blockRead(slmp::dev::M(slmp::dev::dec(200)), 1),
+        slmp::dev::blockRead(slmp::dev::M(slmp::PlcProfile::IqR, slmp::dev::dec(200)), 1),
     };
     uint16_t block_word_values[2] = {};
     uint16_t block_bit_values[1] = {};
@@ -381,21 +381,21 @@ void testSocketRoundTrip(const char* host, uint16_t port, const char* password) 
 
     const uint16_t block_write_values[] = {0xAAAAU, 0x5555U};
     const slmp::DeviceBlockWrite block_word_writes[] = {
-        slmp::dev::blockWrite(slmp::dev::D(slmp::dev::dec(400)), block_write_values, 2),
+        slmp::dev::blockWrite(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(400)), block_write_values, 2),
     };
     const uint16_t block_bit_write_values[] = {0x0005U};
     const slmp::DeviceBlockWrite block_bit_writes[] = {
-        slmp::dev::blockWrite(slmp::dev::M(slmp::dev::dec(240)), block_bit_write_values, 1),
+        slmp::dev::blockWrite(slmp::dev::M(slmp::PlcProfile::IqR, slmp::dev::dec(240)), block_bit_write_values, 1),
     };
     assert(plc.writeBlock(block_word_writes, 1, block_bit_writes, 1) == slmp::Error::Ok);
 
     uint16_t block_word_readback[2] = {};
-    assert(plc.readWords(slmp::dev::D(slmp::dev::dec(400)), 2, block_word_readback, 2) == slmp::Error::Ok);
+    assert(plc.readWords(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(400)), 2, block_word_readback, 2) == slmp::Error::Ok);
     assert(block_word_readback[0] == 0xAAAAU);
     assert(block_word_readback[1] == 0x5555U);
 
     bool block_bits_readback[4] = {};
-    assert(plc.readBits(slmp::dev::M(slmp::dev::dec(240)), 4, block_bits_readback, 4) == slmp::Error::Ok);
+    assert(plc.readBits(slmp::dev::M(slmp::PlcProfile::IqR, slmp::dev::dec(240)), 4, block_bits_readback, 4) == slmp::Error::Ok);
     assert(block_bits_readback[0]);
     assert(!block_bits_readback[1]);
     assert(block_bits_readback[2]);
@@ -403,7 +403,7 @@ void testSocketRoundTrip(const char* host, uint16_t port, const char* password) 
 
     assert(plc.remotePasswordLock(password) == slmp::Error::Ok);
     uint16_t after_lock = 0;
-    assert(plc.readOneWord(slmp::dev::D(slmp::dev::dec(100)), after_lock) == slmp::Error::PlcError);
+    assert(plc.readOneWord(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)), after_lock) == slmp::Error::PlcError);
     assert(plc.lastEndCode() == 0x4013U);
 
     plc.close();
@@ -413,7 +413,7 @@ void testInjectedPlcError(const char* host, uint16_t port) {
     SocketTransport transport;
     uint8_t tx_buffer[128] = {};
     uint8_t rx_buffer[128] = {};
-    slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
     plc.setPlcProfile(slmp::PlcProfile::IqR);
     plc.setTimeoutMs(1000);
 
@@ -423,7 +423,7 @@ void testInjectedPlcError(const char* host, uint16_t port) {
     require(plc.readTypeName(type_name) == slmp::Error::Ok);
 
     uint16_t word = 0;
-    require(plc.readOneWord(slmp::dev::D(slmp::dev::dec(100)), word) == slmp::Error::PlcError);
+    require(plc.readOneWord(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)), word) == slmp::Error::PlcError);
     require(plc.lastEndCode() == 0xC051U);
     require(std::string(slmp::endCodeString(plc.lastEndCode())) == "slmp_end_code_c051");
     plc.close();
@@ -433,7 +433,7 @@ void testDisconnectDuringResponse(const char* host, uint16_t port) {
     SocketTransport transport;
     uint8_t tx_buffer[128] = {};
     uint8_t rx_buffer[128] = {};
-    slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
     plc.setPlcProfile(slmp::PlcProfile::IqR);
     plc.setTimeoutMs(1000);
 
@@ -443,7 +443,7 @@ void testDisconnectDuringResponse(const char* host, uint16_t port) {
     require(plc.readTypeName(type_name) == slmp::Error::Ok);
 
     uint16_t word = 0;
-    require(plc.readOneWord(slmp::dev::D(slmp::dev::dec(100)), word) == slmp::Error::TransportError);
+    require(plc.readOneWord(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)), word) == slmp::Error::TransportError);
     require(plc.lastError() == slmp::Error::TransportError);
     plc.close();
 }
@@ -452,7 +452,7 @@ void testDelayedTimeout(const char* host, uint16_t port) {
     SocketTransport transport;
     uint8_t tx_buffer[128] = {};
     uint8_t rx_buffer[128] = {};
-    slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
     plc.setPlcProfile(slmp::PlcProfile::IqR);
     plc.setTimeoutMs(100);
 
@@ -468,7 +468,7 @@ void testMalformedResponse(const char* host, uint16_t port) {
     SocketTransport transport;
     uint8_t tx_buffer[128] = {};
     uint8_t rx_buffer[128] = {};
-    slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
     plc.setPlcProfile(slmp::PlcProfile::IqR);
     plc.setTimeoutMs(1000);
 

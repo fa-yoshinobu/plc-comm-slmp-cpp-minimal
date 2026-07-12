@@ -289,7 +289,7 @@ bool parsePort(const char* text, uint16_t& out) {
     return true;
 }
 
-bool parseDecimalDevice(const char* text, ParsedDevice& out) {
+bool parseDecimalDevice(const char* text, slmp::PlcProfile profile, ParsedDevice& out) {
     if (text == nullptr || text[0] == '\0') {
         return false;
     }
@@ -317,7 +317,7 @@ bool parseDecimalDevice(const char* text, ParsedDevice& out) {
         return false;
     }
     out.number = static_cast<uint32_t>(number);
-    out.address = {code, out.number};
+    out.address = {profile, code, out.number};
     return true;
 }
 
@@ -407,8 +407,12 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    ParsedDevice device = {};
-    if (!parseDecimalDevice(argv[4], device)) {
+    ParsedDevice device = {
+        {profile, slmp::DeviceCode::D, 0U},
+        nullptr,
+        0U,
+    };
+    if (!parseDecimalDevice(argv[4], profile, device)) {
         std::fprintf(stderr, "unsupported read device: %s\n", argv[4]);
         return 2;
     }
@@ -416,8 +420,7 @@ int main(int argc, char** argv) {
     SocketTransport transport;
     uint8_t tx_buffer[256] = {};
     uint8_t rx_buffer[256] = {};
-    slmp::SlmpClient plc(transport, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-    plc.setPlcProfile(profile);
+    slmp::SlmpClient plc(transport, profile, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
     plc.setTimeoutMs(3000);
 
     if (!plc.connect(host, port)) {

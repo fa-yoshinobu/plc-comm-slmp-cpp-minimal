@@ -17,6 +17,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Library: Self-test loopback now rejects declared-length, actual-length, trailing-data, and echo mismatches for synchronous and asynchronous calls.
+- Library: Monitor cycle expected counts must total at least one and stay within the selected profile's monitor-registration limit.
+- Docs: Clarified explicit monitor counts and that `U3En\HG` never changes or retries the fixed user-selected request target.
+
+### BREAKING
+
+- Library: Removed independent `setFrameType` and `setCompatibilityMode` controls. Normal clients derive both values from the required concrete PLC profile; controlled verification must use `setManualProfile(profile, frame, compatibility)` so manual wire selection cannot discard the profile.
+- Library: Removed high-level read/write overloads that accepted a second request-time `PlcProfile`. Typed, named, and bit-in-word operations now derive their only execution profile from the client; offline read-plan compilation remains explicitly profile-bound and execution rejects client/plan mismatch.
+- Library: Profile changes are rejected while an asynchronous request is active, and manual profile selection rejects unknown frame or compatibility enum values without altering the current decoder state.
+- Library: Every asynchronous `begin*` call now rejects Busy before touching the active frame or decode destination; close/reconnect discards in-flight state, and Remote RESET closes transport after transmission.
+- Library: `readNamed`, `Poller::readOnce`, and `writeNamed` now emit one random request or reject the complete operation before transport; fallback named reads, mixed write families, and bit-in-word read-modify-write are not hidden inside the helper.
+
+- Library: `SlmpClient` construction now requires a concrete `PlcProfile` and a complete `TargetAddress`; the route is fixed for the client lifetime.
+- Library: `DeviceAddress` and all `slmp::dev` factories now require and retain a concrete PLC profile. Its profile, device code, and wire number are private immutable state exposed through read-only accessors; passing an address to a client with a different profile is rejected before transport.
+- Library: Removed profileless `parseAddressSpec`, `formatAddressSpec`, `normalizeAddress`, and `compileReadPlan` overloads, the `plcProfileLabel` alias, and `configureClientForPlcProfile`.
+- Library: Removed `BlockWriteOptions` and `split_mixed_blocks`. Mixed block operations always use one protocol request.
+- Library: Remote RUN and PAUSE now require typed mode arguments; Remote RUN also requires `RemoteClearMode`. Remote RESET exposes no wire-level options, completes after transmission without waiting for a response, and closes the transport before another request.
+- Library: Removed `CpuModule` and all `readCpuBuffer*`/`writeCpuBuffer*` aliases. Live R120PCPU cross-writes proved that Extend Unit `0x0601/0x1601` and qualified `U3E0\HG` access different physical areas. Use `readExtendUnit*`/`writeExtendUnit*` for Extend Unit commands and qualified Extended Device APIs for HG.
+- Library: Long-timer and long-retentive-timer helpers reject negative heads, zero counts, one-request-limit overflow, and point-count truncation before transport.
+- Library: `ArduinoClientTransport` now requires a platform keepalive configurator and fails connection when the fixed 30-second TCP keepalive idle cannot be applied.
+- Library: Removed localized end-code message compatibility hooks and language selection. Numeric end codes and stable `slmp_end_code_xxxx` keys remain.
+
+### Changed
+
+- Tests: Removed the external cross-repository vector generator, copied generated header, and helper entry point. Cross-implementation verification is owned and executed independently of this library repository.
+- Library: Communication timeout remains omittable with a 3000 ms default; explicitly setting zero is rejected.
+- Library: Monitoring timer remains omittable with a four-second (`0x0010`) default.
+- Library: Named/random snapshot helpers reject oversized plans instead of splitting them into multiple requests.
+- Library: Arduino UDP local port zero now requests platform ephemeral-port assignment and is never replaced with the PLC remote port. Incoming datagrams are accepted only from the configured numeric remote IP address and port.
+- Library: `ReconnectHelper` rejects a zero retry interval and retains the 3000 ms default when options are omitted.
+- Library: Random/block writes reject duplicate or overlapping destinations, including Extended Device route-aware spans, and label operations validate abbreviation pointers and encoded data shape before transport.
+- Library: Float32 direct APIs enforce the same profile-bound address guard as DWord APIs; Extended random APIs check the count-prefix buffer before writing; inconsistent hand-built read plans fail instead of synthesizing zero.
+- Docs: Updated examples, user guides, API reference, protocol notes, and migration guidance for the overhaul contract.
+- Tooling: The GXSIM3 validation executable now requires explicit host and port and rejects ports outside `1..65535` before creating its transport.
+- Tooling: The write-capable 3E/4E matrix validator now also requires explicit host and a strict decimal port in `1..65535`; it no longer selects a localhost endpoint when arguments are omitted.
+
 ## [3.1.0] - 2026-07-10
 
 ### Added
@@ -150,14 +186,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: Updated maintainer notes and build configuration for the end-code key helper contract.
 
 ### Tests
-- Tests: Updated generated shared-spec vectors and high-level tests for explicit dtype requirements.
+- Tests: Updated high-level tests for explicit dtype requirements.
 - Tests: Updated SLMP end-code helper coverage for code-derived keys and non-embedded messages.
 
 ## [1.0.0] - 2026-06-24
 
 ### Added
-- Tests: Added 4 missing RD device encoding entries (`rd0_iqr`, `rd0_legacy`, `rd524287_iqr`, `rd524287_legacy`) to `tests/generated_shared_spec.h`.
-- Tests: Added `read_words_rd524286_2_iqr` frame golden vector to `tests/generated_shared_spec.h`.
+- Tests: Added RD device encoding coverage for `RD0` and `RD524287` in iQ-R and legacy modes.
+- Tests: Added an iQ-R `read_words` frame case for `RD524286` with two points.
 
 ### Changed
 - Release: Bumped PlatformIO and Arduino library metadata to `1.0.0` for the first stable release line.
