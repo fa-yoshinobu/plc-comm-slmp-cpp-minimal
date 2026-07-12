@@ -148,8 +148,8 @@ echo [platformio] Building ESP32 samples...
 call "%PIO_EXE%" run -e esp32-devkitc-low-level -e esp32-devkitc-high-level
 if errorlevel 1 exit /b 1
 
-echo [platformio] Running static analysis...
-call "%PIO_EXE%" check -e esp32-devkitc-low-level -e esp32-devkitc-high-level --severity medium --fail-on-defect medium
+echo [platformio] Running static analysis for all configured environments...
+call "%PIO_EXE%" check --severity medium --fail-on-defect medium
 if errorlevel 1 exit /b 1
 
 exit /b 0
