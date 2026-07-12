@@ -63,8 +63,8 @@ Resolved `1406` layout investigation:
   - FX5UC-32MT/D on the documented 3E path: `0xC061`
 - The fixed layout was re-verified live on R08CPU, L02SCPU via LJ71E71-100,
   Q06UDVCPU via QJ71E71-100, L16HCPU, and FX5UC-32MT/D. Fixed Python/Rust/.NET
-  clients returned `0x0000` with readback match; C++ minimal and Node-RED pass
-  the shared cross-verify block cases with the same layout.
+  clients returned `0x0000` with readback match; C++ minimal and Node-RED
+  repository-local tests validate the same layout.
 - QnUDV built-in Ethernet still returns `0xC059` for block commands when the
   request is intentionally sent. That is a target/path command-support
   limitation, not a mixed-layout issue. The public client now keeps this

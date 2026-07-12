@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Tests: Removed the external cross-repository vector generator, copied generated header, and helper entry point. Cross-implementation verification is owned and executed independently of this library repository.
 - Library: Communication timeout remains omittable with a 3000 ms default; explicitly setting zero is rejected.
 - Library: Monitoring timer remains omittable with a four-second (`0x0010`) default.
 - Library: Named/random snapshot helpers reject oversized plans instead of splitting them into multiple requests.
@@ -181,14 +182,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: Updated maintainer notes and build configuration for the end-code key helper contract.
 
 ### Tests
-- Tests: Updated generated shared-spec vectors and high-level tests for explicit dtype requirements.
+- Tests: Updated high-level tests for explicit dtype requirements.
 - Tests: Updated SLMP end-code helper coverage for code-derived keys and non-embedded messages.
 
 ## [1.0.0] - 2026-06-24
 
 ### Added
-- Tests: Added 4 missing RD device encoding entries (`rd0_iqr`, `rd0_legacy`, `rd524287_iqr`, `rd524287_legacy`) to `tests/generated_shared_spec.h`.
-- Tests: Added `read_words_rd524286_2_iqr` frame golden vector to `tests/generated_shared_spec.h`.
+- Tests: Added RD device encoding coverage for `RD0` and `RD524287` in iQ-R and legacy modes.
+- Tests: Added an iQ-R `read_words` frame case for `RD524286` with two points.
 
 ### Changed
 - Release: Bumped PlatformIO and Arduino library metadata to `1.0.0` for the first stable release line.

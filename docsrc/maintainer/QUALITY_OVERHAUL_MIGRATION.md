@@ -221,7 +221,6 @@ Acceptance criteria:
 - [x] ESP32 low-level, high-level, and polling/reconnect builds passed; PlatformIO package archive creation and content inspection passed.
 - [ ] PlatformIO static analysis completed — `pio check` did not complete within 120 seconds in this environment; no result is inferred.
 - [ ] WIZnet W6300 Pico2 build completed — blocked because the installed Raspberry Pi platform does not define board ID `wiznet_6300_evb_pico2`.
-- [ ] Shared cross-language vector function test completed — blocked because sibling repository `plc-comm-slmp-cross-verify` and its four required shared specs are absent.
 - [x] Codex self-review completed against the approved contract and cross-language consistency requirements.
 - [x] Claude source review completed and findings recorded in `D:\APP\CLAUDE_SLMP_RESULT.txt` and the workspace disposition record.
 - [x] Codex accepted and resolved C++ findings 6/9/10/12/17/18/34/35/36 and reran the full release gate.

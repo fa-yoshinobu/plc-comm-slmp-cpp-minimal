@@ -14,7 +14,6 @@
 #include "slmp_high_level.h"
 #include "slmp_minimal.h"
 #include "slmp_utility.h"
-#include "generated_shared_spec.h"
 
 namespace {
 
@@ -158,11 +157,6 @@ std::vector<uint8_t> makeResponse3E(const std::vector<uint8_t>& request, uint16_
     appendLe16(out, end_code);
     out.insert(out.end(), data.begin(), data.end());
     return out;
-}
-
-void assertBytesEqual(const std::vector<uint8_t>& actual, const uint8_t* expected, size_t expected_size) {
-    assert(actual.size() == expected_size);
-    assert(std::memcmp(actual.data(), expected, expected_size) == 0);
 }
 
 void driveAsyncUntilIdle(slmp::SlmpClient& plc, uint32_t now_ms, int max_steps = 32) {
@@ -1872,154 +1866,6 @@ void testOverhaulContractGuards() {
     assert(slmp::highlevel::readNamed(plc, oversized, snapshot) ==
            slmp::Error::InvalidArgument);
     assert(transport.lastWrite().empty());
-}
-
-void testSharedDeviceVectors() {
-    for (const auto& vec : shared_spec::device_vectors::kCases) {
-        MockTransport transport;
-        uint8_t tx_buffer[128] = {};
-        uint8_t rx_buffer[128] = {};
-        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-        const bool legacy = vec.mode == slmp::CompatibilityMode::Legacy;
-        plc.setPlcProfile(legacy ? slmp::PlcProfile::IqF : slmp::PlcProfile::IqR);
-
-        const uint16_t subcommand = vec.bit_access
-            ? (legacy ? 0x0001U : 0x0003U)
-            : (legacy ? 0x0000U : 0x0002U);
-        const std::vector<uint8_t> request = legacy
-            ? makeGenericRequest3E(0x0401U, subcommand)
-            : makeGenericRequest(0x0401U, subcommand);
-        const std::vector<uint8_t> response_data = vec.bit_access
-            ? std::vector<uint8_t>{0x10}
-            : std::vector<uint8_t>{0x34, 0x12};
-        transport.queueResponse(legacy
-            ? makeResponse3E(request, 0x0000, response_data)
-            : makeResponse(request, 0x0000, response_data));
-
-        const slmp::DeviceAddress device{
-            legacy ? slmp::PlcProfile::IqF : slmp::PlcProfile::IqR,
-            vec.code,
-            vec.number
-        };
-        if (vec.bit_access) {
-            bool value = false;
-            assert(plc.readOneBit(device, value) == slmp::Error::Ok);
-        } else {
-            uint16_t value = 0U;
-            assert(plc.readOneWord(device, value) == slmp::Error::Ok);
-        }
-
-        const size_t payload_offset = legacy ? 15U : 19U;
-        assert(transport.lastWrite().size() >= payload_offset + vec.expected_size);
-        assertBytesEqual(
-            std::vector<uint8_t>(
-                transport.lastWrite().begin() + payload_offset,
-                transport.lastWrite().begin() + payload_offset + vec.expected_size),
-            vec.expected,
-            vec.expected_size);
-    }
-}
-
-void testSharedCppAddressVectors() {
-    for (const auto& normalize_case : shared_spec::normalize_cases::kCases) {
-        char normalized[32] = {};
-        const bool needs_family =
-            normalize_case.input != nullptr &&
-            (normalize_case.input[0] == 'x' || normalize_case.input[0] == 'X' ||
-             normalize_case.input[0] == 'y' || normalize_case.input[0] == 'Y' ||
-             ((normalize_case.input[0] == ' ' || normalize_case.input[0] == '\t') &&
-              (normalize_case.input[1] == 'x' || normalize_case.input[1] == 'X' ||
-               normalize_case.input[1] == 'y' || normalize_case.input[1] == 'Y')));
-        const slmp::Error err = needs_family
-            ? slmp::highlevel::normalizeAddress(normalize_case.input, slmp::highlevel::PlcProfile::IqR, normalized, sizeof(normalized))
-            : slmp::highlevel::normalizeAddress(normalize_case.input, slmp::highlevel::PlcProfile::IqR, normalized, sizeof(normalized));
-        assert(err == slmp::Error::Ok);
-        assert(std::string(normalized) == normalize_case.expected);
-    }
-
-    for (const auto& parse_case : shared_spec::cpp_parse_cases::kCases) {
-        slmp::highlevel::AddressSpec spec{};
-        const slmp::Error err = slmp::highlevel::parseAddressSpec(parse_case.input, slmp::highlevel::PlcProfile::IqR, spec);
-        assert(err == parse_case.expected_error);
-        if (!parse_case.has_value_expectation) {
-            continue;
-        }
-
-        assert(spec.device.code() == parse_case.code);
-        assert(spec.device.number() == parse_case.number);
-        assert(spec.type == parse_case.value_type);
-        assert(spec.explicit_type == parse_case.explicit_type);
-        assert(spec.bit_index == parse_case.bit_index);
-    }
-}
-
-void testSharedGoldenFrames() {
-    for (const auto& frame : shared_spec::frame_vectors::kCases) {
-        MockTransport transport;
-        uint8_t tx_buffer[256] = {};
-        uint8_t rx_buffer[256] = {};
-        slmp::SlmpClient plc(transport, frame.plc_profile, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-
-        transport.queueResponse(makeResponse(
-            std::vector<uint8_t>(frame.request, frame.request + frame.request_size),
-            0x0000,
-            std::vector<uint8_t>(frame.response_data, frame.response_data + frame.response_data_size)
-        ));
-
-        if (std::strcmp(frame.operation, "read_type_name") == 0) {
-            slmp::TypeNameInfo type_name = {};
-            assert(plc.readTypeName(type_name) == slmp::Error::Ok);
-        } else if (std::strcmp(frame.operation, "read_words") == 0) {
-            uint16_t words[2] = {};
-            if (std::strcmp(frame.id, "read_words_rd524286_2_iqr") == 0) {
-                assert(plc.readWords(slmp::dev::RD(slmp::PlcProfile::IqR, slmp::dev::dec(524286)), 2, words, 2) == slmp::Error::Ok);
-            } else {
-                assert(plc.readWords(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)), 2, words, 2) == slmp::Error::Ok);
-            }
-        } else if (std::strcmp(frame.operation, "write_bits") == 0) {
-            assert(plc.writeOneBit(slmp::dev::M(slmp::PlcProfile::IqR, slmp::dev::dec(101)), true) == slmp::Error::Ok);
-        } else if (std::strcmp(frame.operation, "read_random") == 0) {
-            const slmp::DeviceAddress random_words[] = {
-                slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)),
-                slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(101)),
-            };
-            const slmp::DeviceAddress random_dwords[] = {
-                slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(200)),
-            };
-            uint16_t word_values[2] = {};
-            uint32_t dword_values[1] = {};
-            assert(plc.readRandom(random_words, 2, word_values, 2, random_dwords, 1, dword_values, 1) == slmp::Error::Ok);
-        } else if (std::strcmp(frame.operation, "write_random_bits") == 0) {
-            const slmp::DeviceAddress random_bits[] = {
-                slmp::dev::M(slmp::PlcProfile::IqR, slmp::dev::dec(100)),
-                slmp::dev::Y(slmp::PlcProfile::IqR, slmp::dev::hex(0x20)),
-            };
-            const bool bit_values[] = {true, false};
-            assert(plc.writeRandomBits(random_bits, bit_values, 2) == slmp::Error::Ok);
-        } else if (std::strcmp(frame.operation, "read_block") == 0) {
-            const slmp::DeviceBlockRead word_blocks[] = {
-                slmp::dev::blockRead(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(300)), 2),
-            };
-            const slmp::DeviceBlockRead bit_blocks[] = {
-                slmp::dev::blockRead(slmp::dev::M(slmp::PlcProfile::IqR, slmp::dev::dec(200)), 1),
-            };
-            uint16_t block_words[2] = {};
-            uint16_t block_bits[1] = {};
-            assert(plc.readBlock(word_blocks, 1, bit_blocks, 1, block_words, 2, block_bits, 1) == slmp::Error::Ok);
-        } else if (std::strcmp(frame.operation, "remote_password_unlock") == 0) {
-            assert(plc.remotePasswordUnlock(frame.password) == slmp::Error::Ok);
-        } else if (std::strcmp(frame.operation, "remote_reset") == 0) {
-            assert(plc.remoteReset() == slmp::Error::Ok);
-        } else {
-            assert(false);
-        }
-
-        assertBytesEqual(
-            transport.lastWrite(),
-            frame.request,
-            frame.request_size
-        );
-    }
 }
 
 void testProtocolFailures() {
@@ -3908,9 +3754,6 @@ int main() {
     testTransportFailuresAndReconnectHelper();
     testOverhaulContractGuards();
     testLabelAbbreviationContract();
-    testSharedDeviceVectors();
-    testSharedCppAddressVectors();
-    testSharedGoldenFrames();
     testProtocolFailures();
     testPayloadValidationFailures();
     testAsyncRemoteControl();

@@ -47,18 +47,6 @@ Use the heavier PlatformIO gate only when you intentionally validate embedded ex
 .\run_ci.bat --with-platformio
 ```
 
-The older function-matrix helper is still available for deeper protocol checks:
-
-```powershell
-# Clone plc-comm-slmp-cross-verify next to this repo first, or pass --cross-verify-dir
-# Run all host-side tests
-python scripts\run_function_tests.py --compiler g++
-```
-
-The host tests regenerate `tests/generated_shared_spec.h` from
-`../plc-comm-slmp-cross-verify/specs/shared` before building. Use
-`--cross-verify-dir <path>` if the verification repo lives elsewhere.
-
 ### Coverage
 The host tests cover:
 - Protocol framing/unframing for all supported device families.
