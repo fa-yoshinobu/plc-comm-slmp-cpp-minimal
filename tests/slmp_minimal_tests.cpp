@@ -175,6 +175,7 @@ void driveAsyncUntilIdle(slmp::SlmpClient& plc, uint32_t now_ms, int max_steps =
 class MockTransport : public slmp::ITransport {
   public:
     bool connect(const char* host, uint16_t port) override {
+        ++connect_calls_;
         if (!connect_results_.empty()) {
             connected_ = connect_results_.front();
             connect_results_.pop_front();
@@ -281,6 +282,10 @@ class MockTransport : public slmp::ITransport {
         return write_history_;
     }
 
+    size_t connectCalls() const {
+        return connect_calls_;
+    }
+
   private:
     void normalizeQueuedResponses() {
         while (!queued_responses_.empty() && read_offset_ >= queued_responses_.front().size()) {
@@ -290,6 +295,7 @@ class MockTransport : public slmp::ITransport {
     }
 
     bool connected_ = true;
+    size_t connect_calls_ = 0;
     std::deque<bool> connect_results_;
     std::vector<uint8_t> last_write_;
     std::vector<std::vector<uint8_t>> write_history_;
@@ -389,14 +395,14 @@ void assertDirectRequestHeader(
     const bool legacy_spec = (subcommand == 0x0000U || subcommand == 0x0001U);
     assert(request.size() >= payload_offset + (legacy_spec ? 6U : 8U));
     if (legacy_spec) {
-        assert(readLe24(request.data() + payload_offset) == device.number);
-        assert(static_cast<uint16_t>(request[payload_offset + 3U]) == static_cast<uint16_t>(device.code));
+        assert(readLe24(request.data() + payload_offset) == device.number());
+        assert(static_cast<uint16_t>(request[payload_offset + 3U]) == static_cast<uint16_t>(device.code()));
         assert(readLe16(request.data() + payload_offset + 4U) == expected_points);
         return;
     }
 
-    assert(readLe32(request.data() + payload_offset) == device.number);
-    assert(readLe16(request.data() + payload_offset + 4U) == static_cast<uint16_t>(device.code));
+    assert(readLe32(request.data() + payload_offset) == device.number());
+    assert(readLe16(request.data() + payload_offset + 4U) == static_cast<uint16_t>(device.code()));
     assert(readLe16(request.data() + payload_offset + 6U) == expected_points);
 }
 
@@ -412,36 +418,36 @@ const slmp::highlevel::DeviceRangeEntry* findDeviceRangeEntry(
 
 void testAdditionalDeviceHelpers() {
     const slmp::DeviceAddress z = slmp::dev::Z(slmp::PlcProfile::IqR, slmp::dev::dec(10));
-    assert(z.code == slmp::DeviceCode::Z);
-    assert(z.number == 10U);
+    assert(z.code() == slmp::DeviceCode::Z);
+    assert(z.number() == 10U);
 
     const slmp::DeviceAddress lz = slmp::dev::LZ(slmp::PlcProfile::IqR, slmp::dev::dec(11));
-    assert(lz.code == slmp::DeviceCode::LZ);
-    assert(lz.number == 11U);
+    assert(lz.code() == slmp::DeviceCode::LZ);
+    assert(lz.number() == 11U);
 
     const slmp::DeviceAddress rd = slmp::dev::RD(slmp::PlcProfile::IqR, slmp::dev::dec(12));
-    assert(rd.code == slmp::DeviceCode::RD);
-    assert(rd.number == 12U);
+    assert(rd.code() == slmp::DeviceCode::RD);
+    assert(rd.number() == 12U);
 
     const slmp::DeviceAddress ltn = slmp::dev::LTN(slmp::PlcProfile::IqR, slmp::dev::dec(13));
-    assert(ltn.code == slmp::DeviceCode::LTN);
-    assert(ltn.number == 13U);
+    assert(ltn.code() == slmp::DeviceCode::LTN);
+    assert(ltn.number() == 13U);
 
     const slmp::DeviceAddress lstn = slmp::dev::LSTN(slmp::PlcProfile::IqR, slmp::dev::dec(14));
-    assert(lstn.code == slmp::DeviceCode::LSTN);
-    assert(lstn.number == 14U);
+    assert(lstn.code() == slmp::DeviceCode::LSTN);
+    assert(lstn.number() == 14U);
 
     const slmp::DeviceAddress lts = slmp::dev::LTS(slmp::PlcProfile::IqR, slmp::dev::dec(15));
-    assert(lts.code == slmp::DeviceCode::LTS);
-    assert(lts.number == 15U);
+    assert(lts.code() == slmp::DeviceCode::LTS);
+    assert(lts.number() == 15U);
 
     const slmp::DeviceAddress lsts = slmp::dev::LSTS(slmp::PlcProfile::IqR, slmp::dev::dec(16));
-    assert(lsts.code == slmp::DeviceCode::LSTS);
-    assert(lsts.number == 16U);
+    assert(lsts.code() == slmp::DeviceCode::LSTS);
+    assert(lsts.number() == 16U);
 
     const slmp::DeviceAddress s = slmp::dev::S(slmp::PlcProfile::IqR, slmp::dev::dec(17));
-    assert(s.code == slmp::DeviceCode::S);
-    assert(s.number == 17U);
+    assert(s.code() == slmp::DeviceCode::S);
+    assert(s.number() == 17U);
 }
 
 void testReadWordsAndFrames() {
@@ -1608,6 +1614,39 @@ void testValidationAndBoundaryFailures() {
 }
 
 void testTransportFailuresAndReconnectHelper() {
+    {
+        MockTransport default_transport;
+        uint8_t default_tx[64] = {};
+        uint8_t default_rx[64] = {};
+        slmp::SlmpClient default_client(
+            default_transport,
+            slmp::PlcProfile::IqR,
+            slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U},
+            default_tx,
+            sizeof(default_tx),
+            default_rx,
+            sizeof(default_rx)
+        );
+        default_transport.close();
+        default_transport.queueConnectResult(false);
+        default_transport.queueConnectResult(false);
+        default_transport.queueConnectResult(true);
+
+        slmp::ReconnectHelper default_reconnect(default_client, "192.168.250.100", 1025);
+        assert(default_reconnect.valid());
+        assert(!default_reconnect.ensureConnected(0U));
+        assert(default_transport.connectCalls() == 1U);
+        assert(!default_reconnect.ensureConnected(2999U));
+        assert(default_transport.connectCalls() == 1U);
+        assert(!default_reconnect.ensureConnected(3000U));
+        assert(default_transport.connectCalls() == 2U);
+        assert(!default_reconnect.ensureConnected(5999U));
+        assert(default_transport.connectCalls() == 2U);
+        assert(default_reconnect.ensureConnected(6000U));
+        assert(default_transport.connectCalls() == 3U);
+        assert(default_transport.writeHistory().empty());
+    }
+
     MockTransport transport;
     uint8_t tx_buffer[128] = {};
     uint8_t rx_buffer[128] = {};
@@ -1636,11 +1675,13 @@ void testTransportFailuresAndReconnectHelper() {
     slmp::TypeNameInfo type_name = {};
     assert(plc.readTypeName(type_name) == slmp::Error::TransportError);
     assert(plc.lastError() == slmp::Error::TransportError);
+    const size_t writes_before_reconnect = transport.writeHistory().size();
 
     transport.queueConnectResult(true);
     reconnect.forceReconnect(1200);
     assert(reconnect.ensureConnected(1200));
     assert(reconnect.consumeConnectedEdge());
+    assert(transport.writeHistory().size() == writes_before_reconnect);
 
     MockTransport invalid_transport;
     uint8_t invalid_tx[64] = {};
@@ -1754,10 +1795,60 @@ void testOverhaulContractGuards() {
     assert(cpu_client.readCpuBufferWord(static_cast<slmp::CpuModule>(0x9999U), 0U, cpu_value) ==
            slmp::Error::InvalidArgument);
     assert(cpu_transport.lastWrite().empty());
-    cpu_transport.queueResponse(makeResponse(makeGenericRequest(0x0601U, 0x0000U), 0x0000U, {0x34U, 0x12U}));
-    assert(cpu_client.readCpuBufferWord(slmp::CpuModule::Cpu2, 0U, cpu_value) == slmp::Error::Ok);
-    assert(cpu_value == 0x1234U);
-    assert(readLe16(cpu_transport.lastWrite().data() + 25U) == slmp::module_io::MultipleCpu2);
+    const slmp::CpuModule cpu_modules[] = {
+        slmp::CpuModule::Cpu1,
+        slmp::CpuModule::Cpu2,
+        slmp::CpuModule::Cpu3,
+        slmp::CpuModule::Cpu4,
+    };
+    const uint16_t cpu_module_ios[] = {
+        slmp::module_io::MultipleCpu1,
+        slmp::module_io::MultipleCpu2,
+        slmp::module_io::MultipleCpu3,
+        slmp::module_io::MultipleCpu4,
+    };
+    for (size_t i = 0U; i < 4U; ++i) {
+        cpu_transport.queueResponse(makeResponse(makeGenericRequestWithSerial(static_cast<uint16_t>(i * 2U), 0x0601U, 0x0000U), 0x0000U, {0x34U, 0x12U}));
+        assert(cpu_client.readCpuBufferWord(cpu_modules[i], 0U, cpu_value) == slmp::Error::Ok);
+        assert(cpu_value == 0x1234U);
+        assert(readLe16(cpu_transport.lastWrite().data() + 25U) == cpu_module_ios[i]);
+
+        cpu_transport.queueResponse(makeResponse(makeGenericRequestWithSerial(static_cast<uint16_t>(i * 2U + 1U), 0x1601U, 0x0000U), 0x0000U, {}));
+        assert(cpu_client.writeCpuBufferWord(cpu_modules[i], 0U, 0x1234U) == slmp::Error::Ok);
+        assert(readLe16(cpu_transport.lastWrite().data() + 25U) == cpu_module_ios[i]);
+    }
+
+    MockTransport long_timer_transport;
+    uint8_t long_timer_tx[128] = {};
+    uint8_t long_timer_rx[128] = {};
+    slmp::SlmpClient long_timer_client(
+        long_timer_transport,
+        slmp::PlcProfile::IqR,
+        slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U},
+        long_timer_tx,
+        sizeof(long_timer_tx),
+        long_timer_rx,
+        sizeof(long_timer_rx)
+    );
+    slmp::LongTimerResult long_timer_results[241] = {};
+    assert(long_timer_client.readLongTimer(-1, 1, long_timer_results, 241U) == slmp::Error::InvalidArgument);
+    assert(long_timer_client.readLongTimer(0, 0, long_timer_results, 241U) == slmp::Error::InvalidArgument);
+    assert(long_timer_client.readLongTimer(0, 241, long_timer_results, 241U) == slmp::Error::InvalidArgument);
+    assert(long_timer_client.readLongRetentiveTimer(0, 16385, long_timer_results, 241U) == slmp::Error::InvalidArgument);
+    assert(long_timer_transport.lastWrite().empty());
+
+    long_timer_transport.queueResponse(makeResponse(makeGenericRequestWithSerial(0U, 0x0401U, 0x0002U), 0x0000U, {0x34U, 0x12U, 0x01U, 0x00U, 0x03U, 0x00U, 0x00U, 0x00U}));
+    assert(long_timer_client.readLongTimer(10, 1, long_timer_results, 241U) == slmp::Error::Ok);
+    assert(long_timer_results[0].current_value == 0x00011234U);
+    assert(readLe32(long_timer_transport.lastWrite().data() + 19U) == 10U);
+    assert(readLe16(long_timer_transport.lastWrite().data() + 23U) == static_cast<uint16_t>(slmp::DeviceCode::LTN));
+    assert(readLe16(long_timer_transport.lastWrite().data() + 25U) == 4U);
+
+    long_timer_transport.queueResponse(makeResponse(makeGenericRequestWithSerial(1U, 0x0401U, 0x0002U), 0x0000U, {0x78U, 0x56U, 0x02U, 0x00U, 0x01U, 0x00U, 0x00U, 0x00U}));
+    assert(long_timer_client.readLongRetentiveTimer(0, 1, long_timer_results, 241U) == slmp::Error::Ok);
+    assert(readLe32(long_timer_transport.lastWrite().data() + 19U) == 0U);
+    assert(readLe16(long_timer_transport.lastWrite().data() + 23U) == static_cast<uint16_t>(slmp::DeviceCode::LSTN));
+    assert(readLe16(long_timer_transport.lastWrite().data() + 25U) == 4U);
 
     static const uint16_t label_chars[] = {'V', 'a', 'r'};
     const slmp::LabelName label{label_chars, 3U};
@@ -1772,7 +1863,7 @@ void testOverhaulContractGuards() {
 
     std::vector<std::string> oversized;
     for (size_t i = 0U; i < 193U; ++i) oversized.push_back("D" + std::to_string(i) + ":U");
-    assert(slmp::highlevel::readNamed(plc, slmp::PlcProfile::IqF, oversized, snapshot) ==
+    assert(slmp::highlevel::readNamed(plc, oversized, snapshot) ==
            slmp::Error::InvalidArgument);
     assert(transport.lastWrite().empty());
 }
@@ -1848,8 +1939,8 @@ void testSharedCppAddressVectors() {
             continue;
         }
 
-        assert(spec.device.code == parse_case.code);
-        assert(spec.device.number == parse_case.number);
+        assert(spec.device.code() == parse_case.code);
+        assert(spec.device.number() == parse_case.number);
         assert(spec.type == parse_case.value_type);
         assert(spec.explicit_type == parse_case.explicit_type);
         assert(spec.bit_index == parse_case.bit_index);
@@ -1861,8 +1952,7 @@ void testSharedGoldenFrames() {
         MockTransport transport;
         uint8_t tx_buffer[256] = {};
         uint8_t rx_buffer[256] = {};
-        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-        plc.setPlcProfile(slmp::PlcProfile::IqR);
+        slmp::SlmpClient plc(transport, frame.plc_profile, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
 
         transport.queueResponse(makeResponse(
             std::vector<uint8_t>(frame.request, frame.request + frame.request_size),
@@ -1911,7 +2001,7 @@ void testSharedGoldenFrames() {
             uint16_t block_bits[1] = {};
             assert(plc.readBlock(word_blocks, 1, bit_blocks, 1, block_words, 2, block_bits, 1) == slmp::Error::Ok);
         } else if (std::strcmp(frame.operation, "remote_password_unlock") == 0) {
-            assert(plc.remotePasswordUnlock("secret1") == slmp::Error::Ok);
+            assert(plc.remotePasswordUnlock(frame.password) == slmp::Error::Ok);
         } else if (std::strcmp(frame.operation, "remote_reset") == 0) {
             assert(plc.remoteReset() == slmp::Error::Ok);
         } else {
@@ -2120,8 +2210,8 @@ void testHighLevelParserAndTypedHelpers() {
         slmp::highlevel::AddressSpec spec{};
         assert(slmp::highlevel::parseAddressSpec("D100", slmp::highlevel::PlcProfile::IqR, spec) == slmp::Error::InvalidArgument);
         assert(slmp::highlevel::parseAddressSpec("D100:U", slmp::highlevel::PlcProfile::IqR, spec) == slmp::Error::Ok);
-        assert(spec.device.code == slmp::DeviceCode::D);
-        assert(spec.device.number == 100U);
+        assert(spec.device.code() == slmp::DeviceCode::D);
+        assert(spec.device.number() == 100U);
         assert(spec.type == slmp::highlevel::ValueType::U16);
         assert(spec.bit_index < 0);
         assert(spec.explicit_type);
@@ -2130,8 +2220,8 @@ void testHighLevelParserAndTypedHelpers() {
     {
         slmp::highlevel::AddressSpec spec{};
         assert(slmp::highlevel::parseAddressSpec("M1000:BIT", slmp::highlevel::PlcProfile::IqR, spec) == slmp::Error::Ok);
-        assert(spec.device.code == slmp::DeviceCode::M);
-        assert(spec.device.number == 1000U);
+        assert(spec.device.code() == slmp::DeviceCode::M);
+        assert(spec.device.number() == 1000U);
         assert(spec.type == slmp::highlevel::ValueType::Bit);
         assert(spec.explicit_type);
     }
@@ -2139,8 +2229,8 @@ void testHighLevelParserAndTypedHelpers() {
     {
         slmp::highlevel::AddressSpec spec{};
         assert(slmp::highlevel::parseAddressSpec("D200:F", slmp::highlevel::PlcProfile::IqR, spec) == slmp::Error::Ok);
-        assert(spec.device.code == slmp::DeviceCode::D);
-        assert(spec.device.number == 200U);
+        assert(spec.device.code() == slmp::DeviceCode::D);
+        assert(spec.device.number() == 200U);
         assert(spec.type == slmp::highlevel::ValueType::Float32);
         assert(spec.explicit_type);
     }
@@ -2148,14 +2238,14 @@ void testHighLevelParserAndTypedHelpers() {
     {
         slmp::highlevel::AddressSpec spec{};
         assert(slmp::highlevel::parseAddressSpec("D50.A", slmp::highlevel::PlcProfile::IqR, spec) == slmp::Error::Ok);
-        assert(spec.device.code == slmp::DeviceCode::D);
-        assert(spec.device.number == 50U);
+        assert(spec.device.code() == slmp::DeviceCode::D);
+        assert(spec.device.number() == 50U);
         assert(spec.type == slmp::highlevel::ValueType::Bit);
         assert(spec.bit_index == 10);
 
         assert(slmp::highlevel::parseAddressSpec("D50.D", slmp::highlevel::PlcProfile::IqR, spec) == slmp::Error::Ok);
-        assert(spec.device.code == slmp::DeviceCode::D);
-        assert(spec.device.number == 50U);
+        assert(spec.device.code() == slmp::DeviceCode::D);
+        assert(spec.device.number() == 50U);
         assert(spec.type == slmp::highlevel::ValueType::Bit);
         assert(spec.bit_index == 13);
     }
@@ -2193,8 +2283,8 @@ void testHighLevelParserAndTypedHelpers() {
         for (const ParseCase& parse_case : parse_cases) {
             slmp::highlevel::AddressSpec spec{};
             assert(slmp::highlevel::parseAddressSpec(parse_case.address, slmp::highlevel::PlcProfile::IqR, spec) == slmp::Error::Ok);
-            assert(spec.device.code == parse_case.code);
-            assert(spec.device.number == 100U);
+            assert(spec.device.code() == parse_case.code);
+            assert(spec.device.number() == 100U);
             assert(spec.type == parse_case.type);
             assert(spec.explicit_type == parse_case.explicit_type);
             assert(spec.bit_index < 0);
@@ -2402,6 +2492,29 @@ void testHighLevelParserAndTypedHelpers() {
 
 void testHighLevelAddressFormatting() {
     {
+        slmp::highlevel::AddressSpec iqf{};
+        slmp::highlevel::AddressSpec iqr{};
+        assert(slmp::highlevel::parseAddressSpec("X10:BIT", slmp::highlevel::PlcProfile::IqF, iqf) == slmp::Error::Ok);
+        assert(slmp::highlevel::parseAddressSpec("X10:BIT", slmp::highlevel::PlcProfile::IqR, iqr) == slmp::Error::Ok);
+        assert(iqf.device.number() == 8U);
+        assert(iqr.device.number() == 16U);
+
+        char iqf_text[32] = {};
+        char iqr_text[32] = {};
+        assert(slmp::highlevel::formatAddressSpec(iqf, slmp::highlevel::PlcProfile::IqF, iqf_text, sizeof(iqf_text)) == slmp::Error::Ok);
+        assert(slmp::highlevel::formatAddressSpec(iqr, slmp::highlevel::PlcProfile::IqR, iqr_text, sizeof(iqr_text)) == slmp::Error::Ok);
+        assert(std::string(iqf_text) == "X10:BIT");
+        assert(std::string(iqr_text) == "X10:BIT");
+
+        char normalized[32] = {};
+        assert(slmp::highlevel::normalizeAddress(" x10:bit ", slmp::highlevel::PlcProfile::IqF, normalized, sizeof(normalized)) == slmp::Error::Ok);
+        assert(std::string(normalized) == "X10:BIT");
+        assert(slmp::highlevel::normalizeAddress("X1A:BIT", slmp::highlevel::PlcProfile::IqF, normalized, sizeof(normalized)) == slmp::Error::InvalidArgument);
+        assert(slmp::highlevel::normalizeAddress("X1A:BIT", slmp::highlevel::PlcProfile::IqR, normalized, sizeof(normalized)) == slmp::Error::Ok);
+        assert(std::string(normalized) == "X1A:BIT");
+    }
+
+    {
         char normalized[32] = {};
         assert(slmp::highlevel::normalizeAddress(" d200:f ", slmp::highlevel::PlcProfile::IqR, normalized, sizeof(normalized)) == slmp::Error::Ok);
         assert(std::string(normalized) == "D200:F");
@@ -2437,15 +2550,15 @@ void testHighLevelAddressFormatting() {
     {
         slmp::highlevel::AddressSpec spec{};
         assert(slmp::highlevel::parseAddressSpec("S10:BIT", slmp::highlevel::PlcProfile::IqR, spec) == slmp::Error::Ok);
-        assert(spec.device.code == slmp::DeviceCode::S);
-        assert(spec.device.number == 10U);
+        assert(spec.device.code() == slmp::DeviceCode::S);
+        assert(spec.device.number() == 10U);
     }
 
     {
         slmp::highlevel::AddressSpec spec{};
         assert(slmp::highlevel::parseAddressSpec("X217:BIT", slmp::highlevel::PlcProfile::IqF, spec) == slmp::Error::Ok);
-        assert(spec.device.code == slmp::DeviceCode::X);
-        assert(spec.device.number == 0x8FU);
+        assert(spec.device.code() == slmp::DeviceCode::X);
+        assert(spec.device.number() == 0x8FU);
         char formatted[32] = {};
         assert(slmp::highlevel::formatAddressSpec(spec, slmp::highlevel::PlcProfile::IqF, formatted, sizeof(formatted)) == slmp::Error::Ok);
         assert(std::string(formatted) == "X217:BIT");
@@ -2518,12 +2631,12 @@ void testHighLevelNamedReadAndPoller() {
         assert(slmp::highlevel::compileReadPlan(addresses, slmp::highlevel::PlcProfile::IqR, plan) ==
                slmp::Error::Ok);
         assert(plan.word_devices.size() == 3U);
-        assert(plan.word_devices[0].code == slmp::DeviceCode::M);
-        assert(plan.word_devices[0].number == 96U);
-        assert(plan.word_devices[1].code == slmp::DeviceCode::SM);
-        assert(plan.word_devices[1].number == 16U);
-        assert(plan.word_devices[2].code == slmp::DeviceCode::SB);
-        assert(plan.word_devices[2].number == 0x10U);
+        assert(plan.word_devices[0].code() == slmp::DeviceCode::M);
+        assert(plan.word_devices[0].number() == 96U);
+        assert(plan.word_devices[1].code() == slmp::DeviceCode::SM);
+        assert(plan.word_devices[1].number() == 16U);
+        assert(plan.word_devices[2].code() == slmp::DeviceCode::SB);
+        assert(plan.word_devices[2].number() == 0x10U);
         assert(plan.entries[0].kind == slmp::highlevel::BatchKind::BitInWord);
         assert(plan.entries[0].spec.bit_index == 4);
         assert(plan.entries[1].kind == slmp::highlevel::BatchKind::BitInWord);
@@ -3014,6 +3127,19 @@ void testHighLevelplcProfileDefaults() {
         assert(plc.plcProfile() == slmp::PlcProfile::IqR);
         assert(plc.frameType() == slmp::FrameType::Frame4E);
         assert(plc.compatibilityMode() == slmp::CompatibilityMode::iQR);
+        assert(plc.setManualProfile(
+                   slmp::PlcProfile::IqR,
+                   static_cast<slmp::FrameType>(0x7FU),
+                   slmp::CompatibilityMode::iQR
+               ) == slmp::Error::InvalidArgument);
+        assert(plc.setManualProfile(
+                   slmp::PlcProfile::IqR,
+                   slmp::FrameType::Frame4E,
+                   static_cast<slmp::CompatibilityMode>(0x7FU)
+               ) == slmp::Error::InvalidArgument);
+        assert(plc.plcProfile() == slmp::PlcProfile::IqR);
+        assert(plc.frameType() == slmp::FrameType::Frame4E);
+        assert(plc.compatibilityMode() == slmp::CompatibilityMode::iQR);
     }
 
     {
@@ -3072,10 +3198,15 @@ void testHighLevelplcProfileDefaults() {
         assert(!plc.blockAccessEnabled());
         assert(!plc.blockAccessEnabled());
 
-        plc.setFrameType(slmp::FrameType::Frame4E);
-        assert(plc.plcProfile() == slmp::PlcProfile::Unspecified);
+        assert(plc.setManualProfile(
+                   slmp::PlcProfile::QnUDV,
+                   slmp::FrameType::Frame4E,
+                   slmp::CompatibilityMode::Legacy
+               ) == slmp::Error::Ok);
+        assert(plc.plcProfile() == slmp::PlcProfile::QnUDV);
+        assert(plc.frameType() == slmp::FrameType::Frame4E);
         plc.setBlockAccessEnabled(true);
-        assert(plc.blockAccessEnabled());
+        assert(!plc.blockAccessEnabled());
     }
 
     {
@@ -3083,11 +3214,84 @@ void testHighLevelplcProfileDefaults() {
         uint8_t tx_buffer[64] = {};
         uint8_t rx_buffer[64] = {};
         slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-        plc.setPlcProfile(slmp::PlcProfile::QCpu);
-        plc.setCompatibilityMode(slmp::CompatibilityMode::Legacy);
-        assert(plc.plcProfile() == slmp::PlcProfile::Unspecified);
-        plc.setBlockAccessEnabled(true);
-        assert(plc.blockAccessEnabled());
+        assert(plc.setManualProfile(
+                   slmp::PlcProfile::QCpu,
+                   slmp::FrameType::Frame3E,
+                   slmp::CompatibilityMode::Legacy
+               ) == slmp::Error::InvalidArgument);
+        assert(plc.plcProfile() == slmp::PlcProfile::IqR);
+        assert(plc.frameType() == slmp::FrameType::Frame4E);
+        assert(plc.compatibilityMode() == slmp::CompatibilityMode::iQR);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        uint16_t value = 0U;
+        assert(plc.beginReadWords(
+                   slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)),
+                   1U,
+                   &value,
+                   1U,
+                   1000U
+               ) == slmp::Error::Ok);
+        assert(plc.isBusy());
+        assert(plc.setPlcProfile(slmp::PlcProfile::IqF) == slmp::Error::Busy);
+        assert(plc.setManualProfile(
+                   slmp::PlcProfile::IqR,
+                   slmp::FrameType::Frame3E,
+                   slmp::CompatibilityMode::iQR
+               ) == slmp::Error::Busy);
+        assert(plc.plcProfile() == slmp::PlcProfile::IqR);
+        assert(plc.frameType() == slmp::FrameType::Frame4E);
+        assert(plc.compatibilityMode() == slmp::CompatibilityMode::iQR);
+    }
+}
+
+void testLabelAbbreviationContract() {
+    static const uint16_t kRootAChars[] = {'R', 'o', 'o', 't', 'A'};
+    static const uint16_t kRootBChars[] = {'R', 'o', 'o', 't', 'B'};
+    static const uint16_t kReferenceChars[] = {'%', '2', '.', 'M', 'e', 'm', 'b', 'e', 'r'};
+    static const uint16_t kMissingDigitsChars[] = {'%'};
+    static const uint16_t kOutOfRangeChars[] = {'%', '2', '.', 'M'};
+    static const uint16_t kWhitespaceChars[] = {' ', '\t'};
+    const slmp::LabelName abbreviations[] = {
+        {kRootAChars, 5U},
+        {kRootBChars, 5U},
+    };
+    const slmp::LabelName reference{kReferenceChars, 9U};
+    const slmp::LabelName missing_digits{kMissingDigitsChars, 1U};
+    const slmp::LabelName out_of_range{kOutOfRangeChars, 4U};
+    const slmp::LabelName whitespace{kWhitespaceChars, 2U};
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        transport.queueResponse(makeResponse(makeGenericRequest(0x041CU, 0x0000U), 0x0000U, {0x01U, 0x00U, 0x09U, 0x00U, 0x02U, 0x00U, 0x31U, 0x00U}));
+        slmp::LabelRandomReadResult result{};
+        size_t result_count = 0U;
+        assert(plc.readRandomLabels(&reference, 1U, &result, 1U, &result_count, abbreviations, 2U) == slmp::Error::Ok);
+        assert(result_count == 1U);
+        assert(readLe16(transport.lastWrite().data() + 19U) == 1U);
+        assert(readLe16(transport.lastWrite().data() + 21U) == 2U);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        slmp::LabelRandomReadResult result{};
+        size_t result_count = 0U;
+        assert(plc.readRandomLabels(&missing_digits, 1U, &result, 1U, &result_count, abbreviations, 1U) == slmp::Error::InvalidArgument);
+        assert(plc.readRandomLabels(&out_of_range, 1U, &result, 1U, &result_count, abbreviations, 1U) == slmp::Error::InvalidArgument);
+        assert(plc.readRandomLabels(&whitespace, 1U, &result, 1U, &result_count) == slmp::Error::InvalidArgument);
+        assert(plc.readRandomLabels(&reference, 1U, &result, 1U, &result_count, abbreviations, 0x10000U) == slmp::Error::InvalidArgument);
+        assert(transport.lastWrite().empty());
     }
 }
 
@@ -3204,13 +3408,14 @@ void testUnspecifiedProfileDoesNotSend() {
         uint8_t tx_buffer[128] = {};
         uint8_t rx_buffer[128] = {};
         slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-        plc.setPlcProfile(slmp::PlcProfile::IqR);
-        plc.setFrameType(slmp::FrameType::Frame3E);
-
-        transport.queueResponse(makeResponse3E(makeGenericRequest3E(0x0401U, 0x0002U), 0x0000U, {0x34, 0x12}));
-        uint16_t value = 0U;
-        assert(plc.plcProfile() == slmp::PlcProfile::Unspecified);
-        assert(plc.readOneWord(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)), value) == slmp::Error::InvalidArgument);
+        assert(plc.setManualProfile(
+                   slmp::PlcProfile::Unspecified,
+                   slmp::FrameType::Frame3E,
+                   slmp::CompatibilityMode::iQR
+               ) == slmp::Error::InvalidArgument);
+        assert(plc.plcProfile() == slmp::PlcProfile::IqR);
+        assert(plc.frameType() == slmp::FrameType::Frame4E);
+        assert(plc.compatibilityMode() == slmp::CompatibilityMode::iQR);
         assert(transport.lastWrite().empty());
     }
 
@@ -3515,6 +3720,7 @@ int main() {
     testValidationAndBoundaryFailures();
     testTransportFailuresAndReconnectHelper();
     testOverhaulContractGuards();
+    testLabelAbbreviationContract();
     testSharedDeviceVectors();
     testSharedCppAddressVectors();
     testSharedGoldenFrames();

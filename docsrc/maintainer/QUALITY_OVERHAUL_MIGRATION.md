@@ -8,27 +8,31 @@ Scope: `SlmpClient`, `TargetAddress`, connection setup, examples, and generated 
 
 Target contract: construction requires one concrete PLC profile and all four target-route fields. The target is fixed for the client lifetime. Port remains required by `connect`; zero, empty host, invalid profile, and unusable buffers fail before transport.
 
-Compatibility impact: the former five-argument constructor and post-construction target setter are removed.
+Compatibility impact: the former five-argument constructor, post-construction target setter, and independent `setFrameType`／`setCompatibilityMode` controls are removed. Controlled manual frame selection uses `setManualProfile(profile, frame, compatibility)` so the concrete profile is never discarded.
 
 Acceptance criteria:
 
 1. Constructing a client without profile or target is a compile-time error.
 2. `PlcProfile::Unspecified`, empty host, and port zero cannot reach transport connection or request transmission.
 3. Generated API documentation contains the required constructor arguments and no target setter.
+4. Runnable socket validation, including the write-capable matrix tool, requires explicit host and port and rejects a missing/out-of-range port before connection.
+5. Normal profile selection derives frame/compatibility, while manual selection requires the concrete profile in the same call; no public per-axis setter can create an `Unspecified` client.
+6. Unknown manual frame/compatibility enum values and all profile changes during an active request are rejected without changing profile, frame, or compatibility state.
 
 ## CPP-OH-002 — Profile-bound semantic addresses
 
 Scope: `DeviceAddress`, `AddressSpec`, device factories, standalone address utilities, read plans, and every direct-device send path.
 
-Target contract: semantic addresses retain their canonical PLC profile. Standalone parsing, formatting, normalization, and plan compilation require a profile. A client/address or client/plan profile mismatch returns `InvalidArgument` before transport.
+Target contract: semantic addresses immutably retain their canonical PLC profile, device code, and wire number. Read-only `profile()`, `code()`, and `number()` accessors expose those values. Standalone parsing, formatting, normalization, and plan compilation require a profile. A client/address or client/plan profile mismatch returns `InvalidArgument` before transport.
 
-Compatibility impact: profileless device factories and standalone address overloads are removed.
+Compatibility impact: profileless device factories and standalone address overloads are removed. Public field reads migrate to the accessors; direct field mutation is removed, so changing any component requires constructing a new semantic address.
 
 Acceptance criteria:
 
 1. `X10` parsed for iQ-R retains numeric 16; the iQ-F parse retains numeric 8.
 2. Formatting an address with a different profile is rejected.
 3. Direct, random, block, monitor, high-level named, and compiled-plan paths reject profile mismatch without sending.
+4. Generated API documentation exposes only the required constructor and read-only accessors; no public mutable profile, code, or number field exists.
 
 ## CPP-OH-003 — One call, one request
 
@@ -87,9 +91,38 @@ Acceptance criteria:
 2. Each CPU module maps to `0x03E0` through `0x03E3`; unknown enum values produce zero requests.
 3. A non-zero abbreviation count with a null pointer and an empty label are rejected without dereference or transport.
 
+## CPP-OH-006A — Required long-timer range
+
+Scope: blocking and asynchronous long-timer/long-retentive-timer helpers and their coil/contact projections.
+
+Target contract: every call explicitly supplies the head number and multi-point count. The head must be non-negative, the count must be positive, and four words per timer must fit the active profile's one-request direct-word limit without integer truncation.
+
+Compatibility impact: omitted head/count values remain compile errors; calls above the one-request limit are rejected instead of emitting a wrapped or oversized request.
+
+Acceptance criteria:
+
+1. Negative heads, zero counts, 241 timers, and values that previously truncated through `uint16_t` produce zero requests.
+2. Explicit LTN10 and LSTN0 single-point calls encode heads 10 and 0, the correct device family, and exactly four word points.
+3. Blocking and begin/state projection helpers share the same validation.
+
+## CPP-OH-007 — Client-bound high-level execution profile
+
+Scope: typed read/write, named read/write, bit-in-word write, examples, and generated API documentation.
+
+Target contract: every high-level operation that can communicate derives its profile, frame, compatibility, device layout, and subcommand family from the client profile. No communicating overload accepts a second `PlcProfile`. Offline address normalization and read-plan compilation remain explicitly profile-bound because they do not own a client; executing a compiled plan requires an exact client/plan profile match.
+
+Compatibility impact: remove the `readTyped`, `writeTyped`, `writeBitInWord`, `readNamed`, and `writeNamed` overloads that accepted both a client and a separate profile. Callers remove the profile argument after constructing the client with the intended canonical profile.
+
+Acceptance criteria:
+
+1. The public header and generated API reference expose no communicating high-level overload with both `SlmpClient&` and `PlcProfile`.
+2. Examples invoke typed and named operations through client-derived overloads only.
+3. Offline plans retain their profile and `readNamed(client, plan, ...)` rejects a mismatch before transport.
+4. Host, Arduino, socket-integration, example, and generated-API gates pass.
+
 ## Verification checklist
 
-- [x] Implementation completed for CPP-OH-001 through CPP-OH-006 in this repository.
+- [x] Implementation completed for CPP-OH-001 through CPP-OH-007 in this repository.
 - [x] Tests added or updated for the machine-verifiable host acceptance criteria.
 - [x] Host unit tests, Arduino transport tests, socket integration scenarios, generated API check, device-range parity, compile-only tools, and snapshot example passed.
 - [x] ESP32 low-level, high-level, and polling/reconnect builds passed; PlatformIO package archive creation and content inspection passed.
@@ -109,6 +142,8 @@ Acceptance criteria:
 - `scripts/check_device_range_catalog_parity.py`: passed.
 - Compile-only: `high_level_snapshot`, `slmp_live_read_once`, `slmp_matrix_validation`, and `slmp_gxsim3_validation` built with `g++`; no live endpoint was contacted.
 - PlatformIO: `esp32-devkitc-low-level`, `esp32-devkitc-high-level`, and `esp32-devkitc-polling-reconnect` passed.
+- Installed ESP32 Arduino framework source was inspected on 2026-07-12: `WiFiUDP::begin(uint16_t)` delegates to the address overload, stores the supplied port in `sockaddr_in.sin_port`, and calls `bind`; therefore the library's `begin(0)` reaches the BSD socket bind unchanged and requests an ephemeral port. The current ESP32 wrapper does not expose the actual bound port, so runtime receipt remains unverified rather than being reported as a live pass.
+- No installed W6300 board package or EthernetUDP implementation was available to inspect, and the configured W6300 board ID is unavailable in the installed PlatformIO platform. W6300 remains build/runtime unverified and must not be listed as a verified platform from this evidence.
 - Package: `pio pkg pack` passed; archive contents contain the intended public sources, examples, metadata, license, README, security notice, and changelog.
 - `git diff --check`: no whitespace error; Git emitted only repository line-ending conversion warnings.
 

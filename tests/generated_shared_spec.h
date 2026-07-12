@@ -177,6 +177,8 @@ namespace frame_vectors {
 struct FrameVector {
     const char* id;
     const char* operation;
+    slmp::PlcProfile plc_profile;
+    const char* password;
     const uint8_t* request;
     size_t request_size;
     const uint8_t* response_data;
@@ -263,23 +265,33 @@ static constexpr uint8_t kFrameResponseData7[] = {
 };
 
 static constexpr uint8_t kFrameRequest8[] = {
-    0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x08,
-    0x00, 0x10, 0x00, 0x06, 0x10, 0x00, 0x00, 0x01, 0x00,
+    0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x0C,
+    0x00, 0x10, 0x00, 0x30, 0x16, 0x00, 0x00, 0x04, 0x00, 0x31, 0x32, 0x33,
+    0x34,
 };
 
 static constexpr uint8_t kFrameResponseData8[] = {
 };
 
+static constexpr uint8_t kFrameRequest9[] = {
+    0x54, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x08,
+    0x00, 0x10, 0x00, 0x06, 0x10, 0x00, 0x00, 0x01, 0x00,
+};
+
+static constexpr uint8_t kFrameResponseData9[] = {
+};
+
 static constexpr FrameVector kCases[] = {
-    {"read_type_name", "read_type_name", kFrameRequest0, sizeof(kFrameRequest0), kFrameResponseData0, sizeof(kFrameResponseData0)},
-    {"read_words_d100_2", "read_words", kFrameRequest1, sizeof(kFrameRequest1), kFrameResponseData1, sizeof(kFrameResponseData1)},
-    {"read_words_rd524286_2_iqr", "read_words", kFrameRequest2, sizeof(kFrameRequest2), kFrameResponseData2, sizeof(kFrameResponseData2)},
-    {"write_bits_m101_true", "write_bits", kFrameRequest3, sizeof(kFrameRequest3), kFrameResponseData3, sizeof(kFrameResponseData3)},
-    {"read_random_d100_d101_d200", "read_random", kFrameRequest4, sizeof(kFrameRequest4), kFrameResponseData4, sizeof(kFrameResponseData4)},
-    {"write_random_bits_m100_y20", "write_random_bits", kFrameRequest5, sizeof(kFrameRequest5), kFrameResponseData5, sizeof(kFrameResponseData5)},
-    {"read_block_d300_2_m200_1", "read_block", kFrameRequest6, sizeof(kFrameRequest6), kFrameResponseData6, sizeof(kFrameResponseData6)},
-    {"remote_password_unlock_secret1", "remote_password_unlock", kFrameRequest7, sizeof(kFrameRequest7), kFrameResponseData7, sizeof(kFrameResponseData7)},
-    {"remote_reset_fixed_data", "remote_reset", kFrameRequest8, sizeof(kFrameRequest8), kFrameResponseData8, sizeof(kFrameResponseData8)},
+    {"read_type_name", "read_type_name", slmp::PlcProfile::IqR, "", kFrameRequest0, sizeof(kFrameRequest0), kFrameResponseData0, sizeof(kFrameResponseData0)},
+    {"read_words_d100_2", "read_words", slmp::PlcProfile::IqR, "", kFrameRequest1, sizeof(kFrameRequest1), kFrameResponseData1, sizeof(kFrameResponseData1)},
+    {"read_words_rd524286_2_iqr", "read_words", slmp::PlcProfile::IqR, "", kFrameRequest2, sizeof(kFrameRequest2), kFrameResponseData2, sizeof(kFrameResponseData2)},
+    {"write_bits_m101_true", "write_bits", slmp::PlcProfile::IqR, "", kFrameRequest3, sizeof(kFrameRequest3), kFrameResponseData3, sizeof(kFrameResponseData3)},
+    {"read_random_d100_d101_d200", "read_random", slmp::PlcProfile::IqR, "", kFrameRequest4, sizeof(kFrameRequest4), kFrameResponseData4, sizeof(kFrameResponseData4)},
+    {"write_random_bits_m100_y20", "write_random_bits", slmp::PlcProfile::IqR, "", kFrameRequest5, sizeof(kFrameRequest5), kFrameResponseData5, sizeof(kFrameResponseData5)},
+    {"read_block_d300_2_m200_1", "read_block", slmp::PlcProfile::IqR, "", kFrameRequest6, sizeof(kFrameRequest6), kFrameResponseData6, sizeof(kFrameResponseData6)},
+    {"remote_password_unlock_secret1", "remote_password_unlock", slmp::PlcProfile::IqR, "secret1", kFrameRequest7, sizeof(kFrameRequest7), kFrameResponseData7, sizeof(kFrameResponseData7)},
+    {"remote_password_unlock_1234_ql", "remote_password_unlock", slmp::PlcProfile::QnUQj71E71100, "1234", kFrameRequest8, sizeof(kFrameRequest8), kFrameResponseData8, sizeof(kFrameResponseData8)},
+    {"remote_reset_fixed_data", "remote_reset", slmp::PlcProfile::IqR, "", kFrameRequest9, sizeof(kFrameRequest9), kFrameResponseData9, sizeof(kFrameResponseData9)},
 };
 
 }  // namespace frame_vectors

@@ -196,16 +196,25 @@ enum class DeviceCode : uint16_t {
 };
 
 /**
- * @struct DeviceAddress
- * @brief Represents a specific device and its numeric address.
+ * @class DeviceAddress
+ * @brief Immutable, profile-bound device code and wire address.
  */
-struct DeviceAddress {
+class DeviceAddress {
+  public:
     constexpr DeviceAddress(PlcProfile profile_value, DeviceCode code_value, uint32_t number_value)
-        : profile(profile_value), code(code_value), number(number_value) {}
+        : profile_(profile_value), code_(code_value), number_(number_value) {}
 
-    PlcProfile profile;      ///< Canonical PLC profile used to interpret this address.
-    DeviceCode code;        ///< Device type code (e.g. D, M, X).
-    uint32_t number;        ///< Numeric address (index). Use @ref dev::dec or @ref dev::hex.
+    /** @brief Canonical PLC profile used to interpret and format this address. */
+    constexpr PlcProfile profile() const noexcept { return profile_; }
+    /** @brief Device type code such as D, M, or X. */
+    constexpr DeviceCode code() const noexcept { return code_; }
+    /** @brief Wire-level numeric address. */
+    constexpr uint32_t number() const noexcept { return number_; }
+
+  private:
+    PlcProfile profile_;      ///< Canonical PLC profile used to interpret this address.
+    DeviceCode code_;         ///< Device type code (e.g. D, M, X).
+    uint32_t number_;         ///< Numeric address (index). Use @ref dev::dec or @ref dev::hex.
 };
 
 /**
@@ -694,24 +703,20 @@ class SlmpClient {
     /** @brief Get current target station routing. */
     const TargetAddress& target() const;
 
-    /** @brief Set frame format (3E/4E). Default is 4E. */
-    void setFrameType(FrameType frame_type);
-    /** @brief Get current frame format. */
+    /** @brief Get the profile-derived or explicitly paired manual frame format. */
     FrameType frameType() const;
 
-    /** @brief Set device access mode (iQ-R/Legacy). Default is iQR. */
-    void setCompatibilityMode(CompatibilityMode mode);
-    /** @brief Get current compatibility mode. */
+    /** @brief Get the profile-derived or explicitly paired manual compatibility mode. */
     CompatibilityMode compatibilityMode() const;
 
     /**
      * @brief Set a concrete PLC profile and apply its frame/compatibility defaults.
      * @return @ref Error::Ok on success, or @ref Error::InvalidArgument when the
-     * profile is not connection-selectable. The existing configuration is kept
-     * when the profile is rejected.
+     * profile is not connection-selectable, or @ref Error::Busy while a request
+     * is active. The existing configuration is kept when the change is rejected.
      */
     Error setPlcProfile(PlcProfile profile);
-    /** @brief Return the currently selected PLC profile, or Unspecified after manual low-level overrides. */
+    /** @brief Return the concrete PLC profile retained by the client. */
     PlcProfile plcProfile() const;
 
     /**
@@ -719,7 +724,9 @@ class SlmpClient {
      *
      * This is intended for low-level verification and compatibility tooling that must
      * emit a specific SLMP frame shape while still keeping profile-based guards active.
-     * Normal applications should prefer @ref setPlcProfile.
+     * Unknown enum values and changes during an active request are rejected without
+     * changing the existing configuration. Normal applications should prefer
+     * @ref setPlcProfile.
      */
     Error setManualProfile(PlcProfile profile, FrameType frame_type, CompatibilityMode mode);
 

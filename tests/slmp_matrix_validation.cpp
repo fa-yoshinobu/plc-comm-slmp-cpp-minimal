@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdint.h>
+#include <cerrno>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -14,7 +15,9 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#ifdef _MSC_VER
 #pragma comment(lib, "ws2_32.lib")
+#endif
 #else
 #include <netdb.h>
 #include <sys/socket.h>
@@ -184,7 +187,7 @@ const TestCase kTestDevices[] = {
 };
 
 void runMatrix(slmp::SlmpClient& plc, slmp::FrameType frame) {
-    plc.setFrameType(frame);
+    ASSERT_OK_PLC(plc.setManualProfile(slmp::PlcProfile::IqR, frame, slmp::CompatibilityMode::iQR));
     const char* frame_str = (frame == slmp::FrameType::Frame4E) ? "4E" : "3E";
     printf("--- Testing Frame Type: %s ---\n", frame_str);
 
@@ -252,8 +255,20 @@ void runMatrix(slmp::SlmpClient& plc, slmp::FrameType frame) {
 } // namespace
 
 int main(int argc, char** argv) {
-    const char* host = (argc > 1) ? argv[1] : "127.0.0.1";
-    uint16_t port = (argc > 2) ? (uint16_t)atoi(argv[2]) : 5511;
+    if (argc != 3 || argv[1][0] == '\0') {
+        std::fprintf(stderr, "usage: slmp_matrix_validation <host> <port>\n");
+        return 2;
+    }
+    char* port_end = nullptr;
+    errno = 0;
+    const unsigned long parsed_port = std::strtoul(argv[2], &port_end, 10);
+    if (errno != 0 || argv[2][0] == '\0' || port_end == nullptr || *port_end != '\0' ||
+        parsed_port == 0UL || parsed_port > 65535UL) {
+        std::fprintf(stderr, "port must be a decimal integer in range 1..65535\n");
+        return 2;
+    }
+    const char* host = argv[1];
+    const uint16_t port = static_cast<uint16_t>(parsed_port);
 
     printf("Starting SLMP 3E/4E Sync/Async Full Matrix Validation on %s:%u\n", host, port);
 

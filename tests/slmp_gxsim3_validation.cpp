@@ -253,8 +253,17 @@ void testStress(slmp::SlmpClient& plc) {
 } // namespace
 
 int main(int argc, char** argv) {
-    const char* host = (argc > 1) ? argv[1] : "127.0.0.1";
-    uint16_t port = (argc > 2) ? (uint16_t)atoi(argv[2]) : 1025;
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s <host> <port>\n", argv[0]);
+        return 2;
+    }
+    const char* host = argv[1];
+    const long parsed_port = strtol(argv[2], nullptr, 10);
+    if (parsed_port < 1 || parsed_port > 65535) {
+        fprintf(stderr, "port must be an integer in range 1..65535\n");
+        return 2;
+    }
+    const uint16_t port = static_cast<uint16_t>(parsed_port);
 
     printf("Starting GXSIM3 Thorough Validation on %s:%u\n", host, port);
 

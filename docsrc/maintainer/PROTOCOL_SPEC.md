@@ -4,8 +4,8 @@ Technical details of the SLMP implementation used in this library.
 
 ## 1. Frame Formats
 
-### 4E Binary Frame (Default)
-The library focuses on the **4E Binary Frame** due to its rich features and support for newer iQ-R/iQ-F series.
+### 4E Binary Frame
+The selected concrete PLC profile normally derives the frame. Verification tooling may select 4E only together with that explicit profile through `setManualProfile`.
 
 **Request Structure:**
 1. Subheader (`54 00`)
@@ -21,7 +21,7 @@ The library focuses on the **4E Binary Frame** due to its rich features and supp
 11. Request Data
 
 ### 3E Binary Frame
-Supported for compatibility with older Q-series PLCs. Enable via `setFrameType(FrameType::Frame3E)`.
+Supported where the selected concrete PLC profile derives 3E. Verification tooling may select 3E only through `setManualProfile(profile, FrameType::Frame3E, mode)`; frame selection never clears or replaces the profile.
 
 ## 2. Command Support
 
@@ -80,7 +80,9 @@ Remote command note:
 Profile selection note:
 
 - the current API does not ship automatic frame/profile probing
-- callers must select `FrameType` and `CompatibilityMode` explicitly before `connect()`
+- callers must construct the client with a concrete connection-selectable PLC profile; normal frame and compatibility values are derived from it
+- manual frame/compatibility verification must use `setManualProfile` and repeat the concrete PLC profile explicitly
+- independent frame or compatibility setters are intentionally absent because they could detach wire behavior from profile guards
 - user-facing high-level helpers sit on top of that explicit transport/profile setup
 
 ## 3. Device Encoding

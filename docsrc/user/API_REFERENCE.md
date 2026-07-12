@@ -464,6 +464,42 @@ const ReadPlan & slmp::highlevel::Poller::plan() const
 
 Return the currently stored compiled plan for inspection or reuse.
 
+### Class `slmp::DeviceAddress`
+
+Immutable, profile-bound device code and wire address.
+
+#### Member Functions
+
+#### `DeviceAddress`
+
+```cpp
+slmp::DeviceAddress::DeviceAddress(PlcProfile profile_value, DeviceCode code_value, uint32_t number_value)
+```
+
+#### `profile`
+
+```cpp
+PlcProfile slmp::DeviceAddress::profile() const noexcept
+```
+
+Canonical PLC profile used to interpret and format this address.
+
+#### `code`
+
+```cpp
+DeviceCode slmp::DeviceAddress::code() const noexcept
+```
+
+Device type code such as D, M, or X.
+
+#### `number`
+
+```cpp
+uint32_t slmp::DeviceAddress::number() const noexcept
+```
+
+Wire-level numeric address.
+
 ### Class `slmp::ITransport`
 
 Abstract interface for the underlying transport layer (TCP/UDP/Serial).
@@ -630,29 +666,13 @@ const TargetAddress & slmp::SlmpClient::target() const
 
 Get current target station routing.
 
-#### `setFrameType`
-
-```cpp
-void slmp::SlmpClient::setFrameType(FrameType frame_type)
-```
-
-Set frame format (3E/4E). Default is 4E.
-
 #### `frameType`
 
 ```cpp
 FrameType slmp::SlmpClient::frameType() const
 ```
 
-Get current frame format.
-
-#### `setCompatibilityMode`
-
-```cpp
-void slmp::SlmpClient::setCompatibilityMode(CompatibilityMode mode)
-```
-
-Set device access mode (iQ-R/Legacy). Default is iQR.
+Get the profile-derived or explicitly paired manual frame format.
 
 #### `compatibilityMode`
 
@@ -660,7 +680,7 @@ Set device access mode (iQ-R/Legacy). Default is iQR.
 CompatibilityMode slmp::SlmpClient::compatibilityMode() const
 ```
 
-Get current compatibility mode.
+Get the profile-derived or explicitly paired manual compatibility mode.
 
 #### `setPlcProfile`
 
@@ -670,9 +690,9 @@ Error slmp::SlmpClient::setPlcProfile(PlcProfile profile)
 
 Set a concrete PLC profile and apply its frame/compatibility defaults.
 
-Error::Ok on success, or Error::InvalidArgument when the profile is not connection-selectable. The existing configuration is kept when the profile is rejected.
+Error::Ok on success, or Error::InvalidArgument when the profile is not connection-selectable, or Error::Busy while a request is active. The existing configuration is kept when the change is rejected.
 
-Returns: Error::Ok on success, or Error::InvalidArgument when the profile is not connection-selectable. The existing configuration is kept when the profile is rejected.
+Returns: Error::Ok on success, or Error::InvalidArgument when the profile is not connection-selectable, or Error::Busy while a request is active. The existing configuration is kept when the change is rejected.
 
 #### `plcProfile`
 
@@ -680,7 +700,7 @@ Returns: Error::Ok on success, or Error::InvalidArgument when the profile is not
 PlcProfile slmp::SlmpClient::plcProfile() const
 ```
 
-Return the currently selected PLC profile, or Unspecified after manual low-level overrides.
+Return the concrete PLC profile retained by the client.
 
 #### `setManualProfile`
 
@@ -690,7 +710,7 @@ Error slmp::SlmpClient::setManualProfile(PlcProfile profile, FrameType frame_typ
 
 Set an explicit PLC profile while manually selecting frame and compatibility mode.
 
-This is intended for low-level verification and compatibility tooling that must emit a specific SLMP frame shape while still keeping profile-based guards active. Normal applications should prefer setPlcProfile.
+This is intended for low-level verification and compatibility tooling that must emit a specific SLMP frame shape while still keeping profile-based guards active. Unknown enum values and changes during an active request are rejected without changing the existing configuration. Normal applications should prefer setPlcProfile.
 
 #### `setBlockAccessEnabled`
 
@@ -2724,44 +2744,6 @@ const char* slmp::ProfileFeatureErrorInfo::evidence = nullptr
 ```
 
 Evidence or policy note from the embedded table
-
-### Struct `slmp::DeviceAddress`
-
-Represents a specific device and its numeric address.
-
-#### Fields
-
-#### `profile`
-
-```cpp
-PlcProfile slmp::DeviceAddress::profile
-```
-
-Canonical PLC profile used to interpret this address
-
-#### `code`
-
-```cpp
-DeviceCode slmp::DeviceAddress::code
-```
-
-Device type code (e.g. D, M, X)
-
-#### `number`
-
-```cpp
-uint32_t slmp::DeviceAddress::number
-```
-
-Numeric address (index). Use dev::dec or dev::hex
-
-#### Member Functions
-
-#### `DeviceAddress`
-
-```cpp
-slmp::DeviceAddress::DeviceAddress(PlcProfile profile_value, DeviceCode code_value, uint32_t number_value)
-```
 
 ### Struct `slmp::DeviceBlockRead`
 

@@ -207,6 +207,8 @@ def build_header(spec_dir: Path) -> str:
     lines.append("struct FrameVector {")
     lines.append("    const char* id;")
     lines.append("    const char* operation;")
+    lines.append("    slmp::PlcProfile plc_profile;")
+    lines.append("    const char* password;")
     lines.append("    const uint8_t* request;")
     lines.append("    size_t request_size;")
     lines.append("    const uint8_t* response_data;")
@@ -222,10 +224,21 @@ def build_header(spec_dir: Path) -> str:
         response_name = f"kFrameResponseData{index}"
         write_byte_array(lines, request_name, case["request_hex"])
         write_byte_array(lines, response_name, case.get("response_data_hex", ""))
+        profile_name = case.get("plc_profile", "melsec:iq-r")
+        profile_by_name = {
+            "melsec:iq-r": "slmp::PlcProfile::IqR",
+            "melsec:qnu:qj71e71-100": "slmp::PlcProfile::QnUQj71E71100",
+        }
+        if profile_name not in profile_by_name:
+            raise ValueError(f"unsupported shared frame PLC profile: {profile_name}")
+        profile = profile_by_name[profile_name]
+        password = case.get("args", {}).get("password", "")
         frame_entries.append(
             "{"
             f"\"{case['id']}\", "
             f"\"{case['operation']}\", "
+            f"{profile}, "
+            f"\"{password}\", "
             f"{request_name}, "
             f"sizeof({request_name}), "
             f"{response_name}, "

@@ -87,7 +87,7 @@ bool ensurePlc() {
 void readHighLevelValues() {
     slmp::highlevel::Value d100;
     // Named high-level addresses include the logical type explicitly.
-    const auto typedErr = slmp::highlevel::readTyped(g_plc, kPlcProfile, "D100:U", d100);
+    const auto typedErr = slmp::highlevel::readTyped(g_plc, "D100:U", d100);
     if (typedErr != slmp::Error::Ok) {
         Serial.printf("readTyped failed: %u\n", static_cast<unsigned>(typedErr));
         return;

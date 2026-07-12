@@ -205,7 +205,7 @@ bool ensurePlc() {
 
 void readD100() {
     slmp::highlevel::Value d100;
-    const auto err = slmp::highlevel::readTyped(g_plc, kPlcProfile, "D100:U", d100);
+    const auto err = slmp::highlevel::readTyped(g_plc, "D100:U", d100);
     if (err != slmp::Error::Ok) {
         if (retryable(err)) {
             scheduleReconnect("readTyped failed", err);

@@ -3,6 +3,23 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string>
+
+class String {
+  public:
+    String() = default;
+    String(const char* value) : value_(value == nullptr ? "" : value) {}
+
+    String& operator=(const char* value) {
+        value_ = value == nullptr ? "" : value;
+        return *this;
+    }
+
+    const char* c_str() const { return value_.c_str(); }
+
+  private:
+    std::string value_;
+};
 
 inline uint32_t millis() {
     static uint32_t now = 0U;

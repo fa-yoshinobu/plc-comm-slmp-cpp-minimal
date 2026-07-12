@@ -439,9 +439,8 @@ Error normalizeAddress(const char* address, PlcProfile family, char* out, size_t
  * slmp::highlevel::readTyped(plc, "D100", "U", value);
  * @endcode
  *
- * The overload without an explicit @ref PlcProfile uses the profile already
- * configured on @p client and returns @ref Error::InvalidArgument when the
- * client profile is unspecified.
+ * The operation derives its PLC profile from @p client and returns
+ * @ref Error::InvalidArgument when the client profile is unspecified.
  *
  * @param client Connected low-level client instance.
  * @param device Base device string such as `D100`.
@@ -450,7 +449,6 @@ Error normalizeAddress(const char* address, PlcProfile family, char* out, size_t
  * @return @ref Error::Ok on success.
  */
 Error readTyped(SlmpClient& client, const char* device, const char* dtype, Value& out);
-Error readTyped(SlmpClient& client, PlcProfile family, const char* device, const char* dtype, Value& out);
 
 /**
  * @brief Read one logical value using one address string such as `D100:U` or `D200:F`.
@@ -469,12 +467,10 @@ Error readTyped(SlmpClient& client, PlcProfile family, const char* device, const
  * @param out Receives the decoded logical value.
  * @return @ref Error::Ok on success.
  *
- * The overload without an explicit @ref PlcProfile uses the profile already
- * configured on @p client and returns @ref Error::InvalidArgument when the
- * client profile is unspecified.
+ * The operation derives its PLC profile from @p client and returns
+ * @ref Error::InvalidArgument when the client profile is unspecified.
  */
 Error readTyped(SlmpClient& client, const char* address, Value& out);
-Error readTyped(SlmpClient& client, PlcProfile family, const char* address, Value& out);
 
 /**
  * @brief Write one logical value by device string and explicit dtype.
@@ -491,12 +487,10 @@ Error readTyped(SlmpClient& client, PlcProfile family, const char* address, Valu
  * @param value Logical value to encode and write.
  * @return @ref Error::Ok on success.
  *
- * The overload without an explicit @ref PlcProfile uses the profile already
- * configured on @p client and returns @ref Error::InvalidArgument when the
- * client profile is unspecified.
+ * The operation derives its PLC profile from @p client and returns
+ * @ref Error::InvalidArgument when the client profile is unspecified.
  */
 Error writeTyped(SlmpClient& client, const char* device, const char* dtype, const Value& value);
-Error writeTyped(SlmpClient& client, PlcProfile family, const char* device, const char* dtype, const Value& value);
 
 /**
  * @brief Write one logical value using one address string such as `D100:U`, `D200:F`, or `D50.3`.
@@ -510,12 +504,10 @@ Error writeTyped(SlmpClient& client, PlcProfile family, const char* device, cons
  * @param value Logical value to encode and write.
  * @return @ref Error::Ok on success.
  *
- * The overload without an explicit @ref PlcProfile uses the profile already
- * configured on @p client and returns @ref Error::InvalidArgument when the
- * client profile is unspecified.
+ * The operation derives its PLC profile from @p client and returns
+ * @ref Error::InvalidArgument when the client profile is unspecified.
  */
 Error writeTyped(SlmpClient& client, const char* address, const Value& value);
-Error writeTyped(SlmpClient& client, PlcProfile family, const char* address, const Value& value);
 
 /**
  * @brief Update one bit inside a word device using read-modify-write.
@@ -531,12 +523,10 @@ Error writeTyped(SlmpClient& client, PlcProfile family, const char* address, con
  * @param value Bit state to write.
  * @return @ref Error::Ok on success.
  *
- * The overload without an explicit @ref PlcProfile uses the profile already
- * configured on @p client and returns @ref Error::InvalidArgument when the
- * client profile is unspecified.
+ * The operation derives its PLC profile from @p client and returns
+ * @ref Error::InvalidArgument when the client profile is unspecified.
  */
 Error writeBitInWord(SlmpClient& client, const char* device, int bit_index, bool value);
-Error writeBitInWord(SlmpClient& client, PlcProfile family, const char* device, int bit_index, bool value);
 
 /**
  * @brief Compile a reusable mixed read plan.
@@ -574,12 +564,10 @@ Error compileReadPlan(const std::vector<std::string>& addresses, PlcProfile fami
  * @param out Receives the logical values in caller order.
  * @return @ref Error::Ok on success.
  *
- * The overload without an explicit @ref PlcProfile uses the profile already
- * configured on @p client and returns @ref Error::InvalidArgument when the
- * client profile is unspecified.
+ * The operation derives its PLC profile from @p client and returns
+ * @ref Error::InvalidArgument when the client profile is unspecified.
  */
 Error readNamed(SlmpClient& client, const std::vector<std::string>& addresses, Snapshot& out);
-Error readNamed(SlmpClient& client, PlcProfile family, const std::vector<std::string>& addresses, Snapshot& out);
 
 /**
  * @brief Read a mixed logical snapshot using a previously compiled plan.
@@ -606,12 +594,10 @@ Error readNamed(SlmpClient& client, const ReadPlan& plan, Snapshot& out);
  * @param updates Ordered address/value pairs to write.
  * @return @ref Error::Ok on success.
  *
- * The overload without an explicit @ref PlcProfile uses the profile already
- * configured on @p client and returns @ref Error::InvalidArgument when the
- * client profile is unspecified.
+ * The operation derives its PLC profile from @p client and returns
+ * @ref Error::InvalidArgument when the client profile is unspecified.
  */
 Error writeNamed(SlmpClient& client, const Snapshot& updates);
-Error writeNamed(SlmpClient& client, PlcProfile family, const Snapshot& updates);
 
 /**
  * @class Poller
