@@ -219,11 +219,11 @@ Acceptance criteria:
 - [x] Host unit tests, Arduino transport tests, socket integration scenarios, generated API check, device-range parity, compile-only tools, and snapshot example passed.
 - [x] ESP32 low-level, high-level, and polling/reconnect builds passed; PlatformIO package archive creation and content inspection passed.
 - [ ] PlatformIO static analysis completed — `pio check` did not complete within 120 seconds in this environment; no result is inferred.
-- [ ] WIZnet W6300 Pico2 build completed — blocked because the installed Raspberry Pi platform does not define board ID `wiznet_6300_evb_pico2`.
+- [x] WIZnet W6300 Pico2 build completed — the configured PlatformIO environment built successfully and was uploaded through COM6 on 2026-07-12.
 - [x] Codex self-review completed against the approved contract and cross-language consistency requirements.
-- [x] Claude source review completed and findings recorded in `D:\APP\CLAUDE_SLMP_RESULT.txt` and the workspace disposition record.
+- [x] Claude source review completed and findings recorded in `D:\APP\Close\instructions\CLAUDE_SLMP_RESULT.txt` and the workspace disposition record.
 - [x] Codex accepted and resolved C++ findings 6/9/10/12/17/18/34/35/36 and reran the full release gate.
-- [ ] Required live-PLC checks passed, or each unavailable check has an explicit release disposition — no live checks executed in this overhaul pass.
+- [ ] Required live-PLC checks passed, or each unavailable check has an explicit release disposition — W6300 UDP passed and ESP32 UDP has an approved platform-specific release disposition; the separate ESP32 TCP keepalive live check remains open.
 - [x] Documentation, migration notes, changelog, examples, and generated API reference agree with implementation.
 - [ ] Final acceptance criteria verified and the item marked complete.
 
@@ -234,15 +234,15 @@ Acceptance criteria:
 - Compile-only: `high_level_snapshot`, `slmp_live_read_once`, `slmp_matrix_validation`, and `slmp_gxsim3_validation` built with `g++`; no live endpoint was contacted.
 - PlatformIO: `esp32-devkitc-low-level`, `esp32-devkitc-high-level`, and `esp32-devkitc-polling-reconnect` passed.
 - Installed ESP32 Arduino framework source was inspected on 2026-07-12: `WiFiUDP::begin(uint16_t)` delegates to the address overload, stores the supplied port in `sockaddr_in.sin_port`, and calls `bind`; therefore the library's `begin(0)` reaches the BSD socket bind unchanged and requests an ephemeral port. The current ESP32 wrapper does not expose the actual bound port, so runtime receipt remains unverified rather than being reported as a live pass.
-- No installed W6300 board package or EthernetUDP implementation was available to inspect, and the configured W6300 board ID is unavailable in the installed PlatformIO platform. W6300 remains build/runtime unverified and must not be listed as a verified platform from this evidence.
+- W6300 EVB Pico2 was built and uploaded through COM6 on 2026-07-12. With the iQ-R endpoint `192.168.250.100:1035` over UDP, local port `0` was assigned nonzero port `61845`; a one-word read of `D100` received the matching response and returned `0`. No write was performed, temporary probe code was removed, and the repository was clean after the test.
 - Package: `pio pkg pack` passed; archive contents contain the intended public sources, examples, metadata, license, README, security notice, and changelog.
 - `git diff --check`: no whitespace error; Git emitted only repository line-ending conversion warnings.
 
 ## Live-verification TODO
 
 - [ ] Profile: `melsec:iq-r`; platform: ESP32 WiFiClient; endpoint: `192.168.250.100:1025`; device: `D100`; intent: read only; purpose: verify TCP connection, ordinary read, and platform keepalive operation after more than 30 seconds idle; expected evidence: successful read plus packet/socket evidence showing keepalive starts after the approved idle; restoration: none.
-- [ ] Profile: `melsec:iq-r`; platform: ESP32 WiFiUDP; endpoint: `192.168.250.100:1035`; device: `D100`; intent: read only; purpose: verify local port `0` obtains an ephemeral port and receives the matching UDP response; expected evidence: assigned local port and successful read; restoration: none.
-- [ ] Profile: `melsec:iq-r`; platform: WIZnet W6300 EVB Pico2; endpoint: `192.168.250.100:1035`; device: `D100`; intent: read only; purpose: verify the currently unavailable board build/runtime and UDP ephemeral binding; expected evidence: successful board build, assigned local port, and read result; restoration: none.
+- [ ] Profile: `melsec:iq-r`; platform: ESP32 WiFiUDP; endpoint: `192.168.250.100:1035`; device: `D100`; intent: read only; purpose: verify local port `0` obtains an ephemeral port and receives the matching UDP response; expected evidence: assigned local port and successful read; restoration: none. Release disposition approved 2026-07-12 because no ESP32 hardware was available in this batch: keep this result `unverified`, do not describe it as a live pass, and permit release with this TODO open. Existing evidence is the fake-stack regression, successful ESP32 builds, framework-source bind inspection, and W6300 live pass. A platform difference could cause UDP connection or response-receive failure; it does not change the request route or perform a write. The explicit fixed-local-port API remains available as containment when required.
+- [x] Profile: `melsec:iq-r`; platform: WIZnet W6300 EVB Pico2; endpoint: `192.168.250.100:1035`; device: `D100`; intent: read only; result: PlatformIO build/upload passed, local port `61845` was assigned from `0`, and the matching response returned `D100=0`; restoration: none because no write was performed.
 
 No live PLC communication is authorized by this document.
 
