@@ -22,12 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Removed independent `setFrameType` and `setCompatibilityMode` controls. Normal clients derive both values from the required concrete PLC profile; controlled verification must use `setManualProfile(profile, frame, compatibility)` so manual wire selection cannot discard the profile.
 - Library: Removed high-level read/write overloads that accepted a second request-time `PlcProfile`. Typed, named, and bit-in-word operations now derive their only execution profile from the client; offline read-plan compilation remains explicitly profile-bound and execution rejects client/plan mismatch.
 - Library: Profile changes are rejected while an asynchronous request is active, and manual profile selection rejects unknown frame or compatibility enum values without altering the current decoder state.
+- Library: Every asynchronous `begin*` call now rejects Busy before touching the active frame or decode destination; close/reconnect discards in-flight state, and Remote RESET closes transport after transmission.
+- Library: `readNamed`, `Poller::readOnce`, and `writeNamed` now emit one random request or reject the complete operation before transport; fallback named reads, mixed write families, and bit-in-word read-modify-write are not hidden inside the helper.
 
 - Library: `SlmpClient` construction now requires a concrete `PlcProfile` and a complete `TargetAddress`; the route is fixed for the client lifetime.
 - Library: `DeviceAddress` and all `slmp::dev` factories now require and retain a concrete PLC profile. Its profile, device code, and wire number are private immutable state exposed through read-only accessors; passing an address to a client with a different profile is rejected before transport.
 - Library: Removed profileless `parseAddressSpec`, `formatAddressSpec`, `normalizeAddress`, and `compileReadPlan` overloads, the `plcProfileLabel` alias, and `configureClientForPlcProfile`.
 - Library: Removed `BlockWriteOptions` and `split_mixed_blocks`. Mixed block operations always use one protocol request.
-- Library: Remote RUN and PAUSE now require typed mode arguments; Remote RUN also requires `RemoteClearMode`. Remote RESET exposes no wire-level options and completes after transmission without waiting for a response.
+- Library: Remote RUN and PAUSE now require typed mode arguments; Remote RUN also requires `RemoteClearMode`. Remote RESET exposes no wire-level options, completes after transmission without waiting for a response, and closes the transport before another request.
 - Library: CPU-buffer helpers now require `CpuModule::Cpu1` through `Cpu4` instead of silently selecting CPU No.1.
 - Library: Long-timer and long-retentive-timer helpers reject negative heads, zero counts, one-request-limit overflow, and point-count truncation before transport.
 - Library: `ArduinoClientTransport` now requires a platform keepalive configurator and fails connection when the fixed 30-second TCP keepalive idle cannot be applied.
@@ -38,9 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Communication timeout remains omittable with a 3000 ms default; explicitly setting zero is rejected.
 - Library: Monitoring timer remains omittable with a four-second (`0x0010`) default.
 - Library: Named/random snapshot helpers reject oversized plans instead of splitting them into multiple requests.
-- Library: Arduino UDP local port zero now requests platform ephemeral-port assignment and is never replaced with the PLC remote port.
+- Library: Arduino UDP local port zero now requests platform ephemeral-port assignment and is never replaced with the PLC remote port. Incoming datagrams are accepted only from the configured numeric remote IP address and port.
 - Library: `ReconnectHelper` rejects a zero retry interval and retains the 3000 ms default when options are omitted.
-- Library: Random/block writes reject duplicate or overlapping destinations, and label operations validate abbreviation pointers and encoded data shape before transport.
+- Library: Random/block writes reject duplicate or overlapping destinations, including Extended Device route-aware spans, and label operations validate abbreviation pointers and encoded data shape before transport.
+- Library: Float32 direct APIs enforce the same profile-bound address guard as DWord APIs; Extended random APIs check the count-prefix buffer before writing; inconsistent hand-built read plans fail instead of synthesizing zero.
 - Docs: Updated examples, user guides, API reference, protocol notes, and migration guidance for the overhaul contract.
 - Tooling: The GXSIM3 validation executable now requires explicit host and port and rejects ports outside `1..65535` before creating its transport.
 - Tooling: The write-capable 3E/4E matrix validator now also requires explicit host and a strict decimal port in `1..65535`; it no longer selects a localhost endpoint when arguments are omitted.

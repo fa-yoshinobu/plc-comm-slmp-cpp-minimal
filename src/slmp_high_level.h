@@ -171,6 +171,8 @@ struct ReadPlanEntry {
  * `word_devices` and `dword_devices` vectors hold deduplicated batchable
  * devices in the order chosen by the compiler so the runtime can perform one
  * random-read request for many named addresses.
+ * Hand-built plans are validated at execution; an entry absent from its batch
+ * vector is rejected instead of being synthesized as value zero.
  */
 struct ReadPlan {
     PlcProfile profile = PlcProfile::Unspecified; ///< Profile used to compile every address in this plan.
@@ -192,8 +194,10 @@ struct NamedValue {
  * @brief Ordered list returned by @ref readNamed and consumed by @ref writeNamed.
  *
  * The order matches the caller-provided address order. This makes the
- * structure convenient both for result presentation and for deterministic
- * replay of write sequences.
+ * structure convenient for result presentation and for one-request named
+ * writes. Word and DWord values may share one random-write request; bit values
+ * use one random-bit request. Mixed command families and bit-in-word
+ * read-modify-write addresses are rejected before transport.
  */
 using Snapshot = std::vector<NamedValue>;
 
@@ -585,10 +589,10 @@ Error readNamed(SlmpClient& client, const ReadPlan& plan, Snapshot& out);
 /**
  * @brief Write a mixed logical snapshot.
  *
- * Each entry is written independently in snapshot order.
- *
- * @note The operation is not transactional. If one entry fails, earlier writes
- * may already have been applied on the PLC.
+ * The complete collection is encoded as one random-write request. Word and
+ * DWord values may share that request; bit values use the random-bit command.
+ * Mixed command families and bit-in-word read-modify-write are rejected before
+ * transport.
  *
  * @param client Connected low-level client instance.
  * @param updates Ordered address/value pairs to write.

@@ -36,7 +36,7 @@ Acceptance criteria:
 
 ## CPP-OH-003 — One call, one request
 
-Scope: named/random reads, continuous operations, and mixed block writes.
+Scope: named/random reads and writes, continuous operations, and mixed block writes.
 
 Target contract: no public chunked API, hidden chunk loop, split option, split fallback, or automatic retry may convert one library call into multiple SLMP requests. Oversized input is rejected before transport.
 
@@ -45,8 +45,9 @@ Compatibility impact: chunked helpers, `BlockWriteOptions`, and `split_mixed_blo
 Acceptance criteria:
 
 1. A mixed word/bit block write produces exactly one `1406` request.
-2. An oversized named/random plan produces zero requests and returns `InvalidArgument`.
-3. Source and user documentation contain no split or chunk API recommendation.
+2. Named read/write emits one random request or rejects the complete operation before transport.
+3. An oversized or fallback named/random plan produces zero requests and returns `InvalidArgument`.
+4. Source and user documentation contain no split or chunk API recommendation.
 
 ## CPP-OH-004 — Explicit remote-control intent
 
@@ -120,6 +121,98 @@ Acceptance criteria:
 3. Offline plans retain their profile and `readNamed(client, plan, ...)` rejects a mismatch before transport.
 4. Host, Arduino, socket-integration, example, and generated-API gates pass.
 
+## Claude finding remediation
+
+### SLMP-C06 — Send-only RESET invalidates transport
+
+- Scope: synchronous/asynchronous Remote RESET.
+- Target: close transport immediately after the fixed frame is fully transmitted so a delayed 3E response cannot satisfy another request.
+- Compatibility: callers reconnect explicitly before another operation.
+- Acceptance: RESET sends once, becomes Idle/Ok, reports disconnected, and a following begin call returns `NotConnected` without another write.
+- [x] Implementation completed.
+- [x] Regression test completed.
+- [x] Full release gate and generated documentation completed.
+
+### SLMP-C09 — Close/reconnect discards in-flight state
+
+- Scope: `close`, `connect`, reconnect helper interaction, asynchronous state.
+- Target: reset state, transferred-byte offset, and decode context; an interrupted operation records `TransportError`.
+- Compatibility: reconnect never resumes an old request on a new connection.
+- Acceptance: partial send followed by close/connect is not Busy, sends no old tail, and the next complete request succeeds.
+- [x] Implementation completed.
+- [x] Partial-send regression test completed.
+- [x] Full release gate and generated documentation completed.
+
+### SLMP-C10 — Busy rejection preserves active request ownership
+
+- Scope: every public `begin*` operation.
+- Target: return `Busy` before modifying `tx_buffer_` or `async_ctx_` while another request is Sending or Receiving.
+- Compatibility: invalid second-call arguments are not evaluated until the active operation is complete.
+- Acceptance: second begin calls during Sending and Receiving leave the frame/serial/output destination unchanged and the original exchange completes normally.
+- [x] Implementation completed through the common feature guard and explicit non-feature guards.
+- [x] Sending/Receiving regression test completed.
+- [x] Full release gate and generated documentation completed.
+
+### SLMP-C12 — Extended random writes reject overlap
+
+- Scope: Extended Device random word/DWord/bit writes.
+- Target: route identity plus device span determines duplicates and overlap; distinct module/link routes remain independent.
+- Compatibility: ambiguous last-writer-wins Extended requests are rejected.
+- Acceptance: duplicate word, word/DWord overlap, and duplicate bit destinations fail before write; equal device numbers on distinct routes remain valid.
+- [x] Implementation completed.
+- [x] Regression tests completed.
+- [x] Full release gate and generated documentation completed.
+
+### SLMP-C17 — Float32 paths enforce profile-bound addresses
+
+- Scope: `beginReadFloat32s` and `beginWriteFloat32s`.
+- Target: reuse the same read/write validation as DWord access, including profile equality and device policy.
+- Compatibility: a float address constructed for another profile is rejected before transport.
+- Acceptance: mismatched float read/write returns `InvalidArgument` and writes zero frames.
+- [x] Implementation completed.
+- [x] Regression test completed.
+- [x] Full release gate and generated documentation completed.
+
+### SLMP-C18 — Arduino UDP validates response source
+
+- Scope: `ArduinoUdpTransport::available` and numeric UDP endpoint selection.
+- Target: expose only datagrams from the configured remote IP and port; drain all others.
+- Compatibility: Arduino UDP host input must be a numeric IP address so source equality is deterministic.
+- Acceptance: wrong IP and wrong port packets return unavailable; the matching source is accepted.
+- [x] Implementation completed.
+- [x] Fake-UDP source tests completed.
+- [x] Full release gate and generated documentation completed.
+
+### SLMP-C34 — Extended random prefix buffer is bounds checked
+
+- Scope: Extended random read, word/DWord write, and bit write begin paths.
+- Target: require at least two TX bytes before writing count fields and before any capacity subtraction.
+- Compatibility: undersized caller buffers return `BufferTooSmall` without mutation.
+- Acceptance: a one-byte TX buffer returns `BufferTooSmall` for all three paths and retains its sentinel byte.
+- [x] Implementation completed.
+- [x] Regression test completed.
+- [x] Full release gate and generated documentation completed.
+
+### SLMP-C35 — Read plans cannot synthesize missing values
+
+- Scope: `highlevel::readNamed(client, plan, out)`.
+- Target: use checked map lookup for every plan entry and return `InvalidArgument` when its batch omitted the device.
+- Compatibility: malformed hand-built public plans no longer produce fabricated zero values.
+- Acceptance: an entry absent from its batch vector returns `InvalidArgument` with an empty snapshot and zero transport writes.
+- [x] Implementation completed.
+- [x] Regression test completed.
+- [x] Full release gate and generated documentation completed.
+
+### SLMP-C36 — UDP bind failure is pinned fail-closed
+
+- Scope: Arduino UDP connection tests.
+- Target: a failed `UDP::begin` leaves the transport disconnected and prevents sending.
+- Compatibility: none; this fixes missing evidence for existing behavior.
+- Acceptance: fake `begin_result=0` makes connect false and `writeAll` false.
+- [x] Existing implementation confirmed.
+- [x] Regression test added.
+- [x] Full release gate and generated documentation completed.
+
 ## Verification checklist
 
 - [x] Implementation completed for CPP-OH-001 through CPP-OH-007 in this repository.
@@ -130,8 +223,8 @@ Acceptance criteria:
 - [ ] WIZnet W6300 Pico2 build completed — blocked because the installed Raspberry Pi platform does not define board ID `wiznet_6300_evb_pico2`.
 - [ ] Shared cross-language vector function test completed — blocked because sibling repository `plc-comm-slmp-cross-verify` and its four required shared specs are absent.
 - [x] Codex self-review completed against the approved contract and cross-language consistency requirements.
-- [ ] Claude source review completed and findings recorded — pending user authorization; Claude has not been invoked.
-- [ ] Codex resolved or dispositioned every Claude finding and reran affected checks — pending Claude review.
+- [x] Claude source review completed and findings recorded in `D:\APP\CLAUDE_SLMP_RESULT.txt` and the workspace disposition record.
+- [x] Codex accepted and resolved C++ findings 6/9/10/12/17/18/34/35/36 and reran the full release gate.
 - [ ] Required live-PLC checks passed, or each unavailable check has an explicit release disposition — no live checks executed in this overhaul pass.
 - [x] Documentation, migration notes, changelog, examples, and generated API reference agree with implementation.
 - [ ] Final acceptance criteria verified and the item marked complete.
@@ -157,4 +250,4 @@ No live PLC communication is authorized by this document.
 
 ## Claude review status
 
-Pending user authorization. Before any Claude invocation, present the repository/diff scope, CPP-OH decisions, review purpose, supplied test evidence, and expected findings format, then wait for explicit authorization for that batch.
+`CLAUDE-SLMP-20260712-01` was run by the user through Claude CLI. Codex recorded the source result hash and accepted every C++ finding in the workspace disposition record. Findings 6/9/10/12/17/18/34/35/36 are implemented and reverified; no Claude rerun was invoked.

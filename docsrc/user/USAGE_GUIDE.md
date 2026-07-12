@@ -13,6 +13,8 @@ The high-level layer is optional. Include `slmp_high_level.h` explicitly when yo
 
 This complete TCP setup creates the transport, buffers, `slmp::SlmpClient`, and profile configuration.
 For UDP transport, keep the same host `192.168.250.100` and use UDP port `1035`.
+`ArduinoUdpTransport` requires a numeric remote IP address and discards every
+datagram whose source IP address or port differs from that configured endpoint.
 
 ```cpp
 #include <Arduino.h>
@@ -121,6 +123,14 @@ const slmp::ExtDeviceSpec wordDevices[] = {
 uint16_t values[2] = {};
 err = plc.readRandomExt(wordDevices, 2, values, 2, nullptr, 0, nullptr, 0);
 ```
+
+Extended random writes reject duplicate or overlapping destinations within one
+request. Module slot or link-network identity is part of the destination, so the
+same numeric device on two different qualified routes remains distinct.
+
+`remoteReset()` returns after the fixed RESET frame has been transmitted and
+then closes the transport. Reconnect explicitly before another request and
+verify PLC state when the application requires confirmation that RESET occurred.
 
 ## Strict profile
 
@@ -269,7 +279,14 @@ void loop() {
 
 ## Named snapshot
 
-`slmp::highlevel::readNamed` reads mixed addresses in caller order. `slmp::highlevel::writeNamed` writes an ordered list of address/value pairs.
+`slmp::highlevel::readNamed` reads mixed addresses in caller order using one
+random-read request. Plans containing fallback or long-timer routes are
+rejected before transport. `slmp::highlevel::writeNamed` sends one random
+word/DWord request or one random-bit request; mixed families and bit-in-word
+read-modify-write are rejected.
+Executing a hand-built `ReadPlan` verifies that every entry appears in the
+corresponding word or DWord batch. A missing batch key is an error; the library
+does not invent a zero value for a device that was not read.
 
 ```cpp
 #include <Arduino.h>
@@ -312,7 +329,7 @@ void loop() {
             {"D9004:L", slmp::highlevel::Value::s32Value(-123456)},
             {"D9008:F", slmp::highlevel::Value::float32Value(12.5f)}
         };
-        const slmp::Error writeErr = slmp::highlevel::writeNamed(plc, kProfile, updates);
+        const slmp::Error writeErr = slmp::highlevel::writeNamed(plc, updates);
         Serial.printf("writeNamed: %s\n", slmp::errorString(writeErr));
         wroteOnce = (writeErr == slmp::Error::Ok);
     }
@@ -326,7 +343,7 @@ void loop() {
     };
 
     slmp::highlevel::Snapshot snapshot;
-    const slmp::Error readErr = slmp::highlevel::readNamed(plc, kProfile, addresses, snapshot);
+    const slmp::Error readErr = slmp::highlevel::readNamed(plc, addresses, snapshot);
     if (readErr == slmp::Error::Ok && snapshot.size() == addresses.size()) {
         Serial.printf(
             "SM400:BIT=%u D100:U=%u D101:S=%d D200:F=%.3f D50.3=%u\n",

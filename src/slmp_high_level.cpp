@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include <string>
+#include <memory>
 #include <unordered_map>
 
 namespace slmp {
@@ -1845,6 +1846,17 @@ Error readNamed(SlmpClient& client, const ReadPlan& plan, Snapshot& out) {
         if (plan.entries[i].kind == BatchKind::None || plan.entries[i].kind == BatchKind::LongTimer) {
             return Error::InvalidArgument;
         }
+        const uint64_t expected_key = deviceKey(plan.entries[i].spec.device);
+        const std::vector<DeviceAddress>& batch =
+            plan.entries[i].kind == BatchKind::Dword ? plan.dword_devices : plan.word_devices;
+        bool found = false;
+        for (size_t j = 0; j < batch.size(); ++j) {
+            if (deviceKey(batch[j]) == expected_key) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) return Error::InvalidArgument;
     }
 
     out.clear();
@@ -1861,17 +1873,25 @@ Error readNamed(SlmpClient& client, const ReadPlan& plan, Snapshot& out) {
         item.address = entry.address;
 
         switch (entry.kind) {
-            case BatchKind::Word:
-                item.value = decodeWordValue(word_values[deviceKey(entry.spec.device)], entry.spec.type);
+            case BatchKind::Word: {
+                const auto found = word_values.find(deviceKey(entry.spec.device));
+                if (found == word_values.end()) return Error::InvalidArgument;
+                item.value = decodeWordValue(found->second, entry.spec.type);
                 break;
+            }
             case BatchKind::BitInWord: {
-                const uint16_t word = word_values[deviceKey(entry.spec.device)];
+                const auto found = word_values.find(deviceKey(entry.spec.device));
+                if (found == word_values.end()) return Error::InvalidArgument;
+                const uint16_t word = found->second;
                 item.value = Value::bitValue(((word >> entry.spec.bit_index) & 1U) != 0U);
                 break;
             }
-            case BatchKind::Dword:
-                item.value = decodeDwordValue(dword_values[deviceKey(entry.spec.device)], entry.spec.type);
+            case BatchKind::Dword: {
+                const auto found = dword_values.find(deviceKey(entry.spec.device));
+                if (found == dword_values.end()) return Error::InvalidArgument;
+                item.value = decodeDwordValue(found->second, entry.spec.type);
                 break;
+            }
             case BatchKind::LongTimer:
             case BatchKind::None:
             default:
@@ -1888,11 +1908,48 @@ Error writeNamed(SlmpClient& client, const Snapshot& updates) {
     PlcProfile family = PlcProfile::Unspecified;
     const Error profile_error = clientPlcProfile(client, family);
     if (profile_error != Error::Ok) return profile_error;
+
+    if (updates.empty()) return Error::InvalidArgument;
+    std::vector<DeviceAddress> word_devices;
+    std::vector<uint16_t> word_values;
+    std::vector<DeviceAddress> dword_devices;
+    std::vector<uint32_t> dword_values;
+    std::vector<DeviceAddress> bit_devices;
+    std::unique_ptr<bool[]> bit_values(new bool[updates.size()]);
+    size_t bit_count = 0U;
+
     for (size_t i = 0; i < updates.size(); ++i) {
-        const Error err = writeTypedImpl(client, &family, updates[i].address.c_str(), updates[i].value);
+        AddressSpec spec{};
+        const Error err = parseAddressSpecImpl(updates[i].address.c_str(), &family, spec);
         if (err != Error::Ok) return err;
+        if (spec.bit_index >= 0 || spec.type != updates[i].value.type) return Error::InvalidArgument;
+        (void)resolveWriteRoute(spec);
+
+        if (spec.type == ValueType::Bit) {
+            bit_devices.push_back(spec.device);
+            bit_values[bit_count++] = updates[i].value.bit;
+        } else if (valueTypeUsesDword(spec.type)) {
+            dword_devices.push_back(spec.device);
+            dword_values.push_back(encodeDwordValue(updates[i].value));
+        } else {
+            word_devices.push_back(spec.device);
+            word_values.push_back(encodeWordValue(updates[i].value));
+        }
     }
-    return Error::Ok;
+
+    if (bit_count != 0U && (!word_devices.empty() || !dword_devices.empty())) {
+        return Error::InvalidArgument;
+    }
+    if (bit_count != 0U) {
+        return client.writeRandomBits(bit_devices.data(), bit_values.get(), bit_count);
+    }
+    return client.writeRandomWords(
+        word_devices.empty() ? nullptr : word_devices.data(),
+        word_values.empty() ? nullptr : word_values.data(),
+        word_devices.size(),
+        dword_devices.empty() ? nullptr : dword_devices.data(),
+        dword_values.empty() ? nullptr : dword_values.data(),
+        dword_devices.size());
 }
 
 Error Poller::compile(const std::vector<std::string>& addresses, PlcProfile family) {

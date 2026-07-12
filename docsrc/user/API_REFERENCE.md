@@ -324,7 +324,7 @@ Check number of bytes available in the stream.
 
 Transport adapter for Arduino 'UDP' objects.
 
-Wraps classes like WiFiUDP or EthernetUDP. Manages remote endpoint (host/port) and packet framing for SLMP.
+Wraps classes like WiFiUDP or EthernetUDP. Manages remote endpoint (host/port) and packet framing for SLMP. Only datagrams whose source IP address and port match the configured numeric remote endpoint are exposed to the SLMP decoder; other datagrams are drained.
 
 UDP is connectionless; "connected" state in this class simply means that begin() has been called and remote endpoint is known.
 
@@ -351,7 +351,7 @@ udp Reference to UDP object. local_port Local port to bind to (0 = request an ep
 bool slmp::ArduinoUdpTransport::connect(const char *host, uint16_t port) override
 ```
 
-Set remote host and begin listening on local port.
+Set a numeric remote IP address and begin listening on the local port.
 
 #### `close`
 
@@ -1216,7 +1216,7 @@ Remote LATCH CLEAR command.
 Error slmp::SlmpClient::remoteReset()
 ```
 
-Remote RESET command. (Warning: Connection will likely be lost).
+Send Remote RESET, close the transport after transmission, and require reconnect before another request.
 
 #### `selfTestLoopback`
 
@@ -1470,7 +1470,7 @@ Start async RemoteLatchClear.
 Error slmp::SlmpClient::beginRemoteReset(uint32_t now_ms)
 ```
 
-Start async RemoteReset.
+Start async RemoteReset; successful transmission closes the transport.
 
 #### `beginSelfTestLoopback`
 
@@ -2329,7 +2329,7 @@ Batching strategy selected for this address
 
 Compiled snapshot plan reused by readNamed and Poller.
 
-The entries vector preserves caller order for user-facing results. The word_devices and dword_devices vectors hold deduplicated batchable devices in the order chosen by the compiler so the runtime can perform one random-read request for many named addresses.
+The entries vector preserves caller order for user-facing results. The word_devices and dword_devices vectors hold deduplicated batchable devices in the order chosen by the compiler so the runtime can perform one random-read request for many named addresses. Hand-built plans are validated at execution; an entry absent from its batch vector is rejected instead of being synthesized as value zero.
 
 #### Fields
 

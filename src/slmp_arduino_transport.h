@@ -151,6 +151,8 @@ class ArduinoClientTransport : public ITransport {
  * 
  * Wraps classes like `WiFiUDP` or `EthernetUDP`.
  * Manages remote endpoint (host/port) and packet framing for SLMP.
+ * Only datagrams whose source IP address and port match the configured numeric
+ * remote endpoint are exposed to the SLMP decoder; other datagrams are drained.
  * 
  * @note UDP is connectionless; "connected" state in this class simply means 
  *       that `begin()` has been called and remote endpoint is known.
@@ -165,13 +167,17 @@ class ArduinoUdpTransport : public ITransport {
     explicit ArduinoUdpTransport(::UDP& udp, uint16_t local_port = 0)
         : udp_(udp), local_port_(local_port) {}
 
-    /** @brief Set remote host and begin listening on local port. */
+    /** @brief Set a numeric remote IP address and begin listening on the local port. */
     bool connect(const char* host, uint16_t port) override {
         if (host == nullptr || port == 0U) {
             connected_ = false;
             return false;
         }
 
+        if (!remote_ip_.fromString(host)) {
+            connected_ = false;
+            return false;
+        }
         host_ = host;
         remote_port_ = port;
         connected_ = (udp_.begin(local_port_) == 1);
@@ -245,11 +251,22 @@ class ArduinoUdpTransport : public ITransport {
         if (!connected_) {
             return 0U;
         }
-        if (packet_available_ == 0U) {
+        while (packet_available_ == 0U) {
             const int packet_size = udp_.parsePacket();
-            if (packet_size > 0) {
-                packet_available_ = static_cast<size_t>(packet_size);
+            if (packet_size <= 0) return 0U;
+            const size_t packet_bytes = static_cast<size_t>(packet_size);
+            if (udp_.remoteIP() != remote_ip_ || udp_.remotePort() != remote_port_) {
+                uint8_t discard[32];
+                size_t remaining = packet_bytes;
+                while (remaining > 0U) {
+                    const size_t chunk = remaining < sizeof(discard) ? remaining : sizeof(discard);
+                    const int discarded = udp_.read(discard, chunk);
+                    if (discarded <= 0) return 0U;
+                    remaining -= static_cast<size_t>(discarded);
+                }
+                continue;
             }
+            packet_available_ = packet_bytes;
         }
         return packet_available_;
     }
@@ -273,6 +290,7 @@ class ArduinoUdpTransport : public ITransport {
 
     ::UDP& udp_;
     String host_;
+    IPAddress remote_ip_;
     uint16_t remote_port_ = 0;
     uint16_t local_port_ = 0;
     size_t packet_available_ = 0;

@@ -226,9 +226,10 @@ class MockTransport : public slmp::ITransport {
             connected_ = false;
             return 0;
         }
-        last_write_.assign(data, data + length);
+        const size_t written = length < max_write_size_ ? length : max_write_size_;
+        last_write_.assign(data, data + written);
         write_history_.push_back(last_write_);
-        return length;
+        return written;
     }
 
     size_t read(uint8_t* data, size_t length) override {
@@ -274,6 +275,10 @@ class MockTransport : public slmp::ITransport {
         fail_next_read_ = value;
     }
 
+    void setMaxWriteSize(size_t value) {
+        max_write_size_ = value;
+    }
+
     const std::vector<uint8_t>& lastWrite() const {
         return last_write_;
     }
@@ -303,6 +308,7 @@ class MockTransport : public slmp::ITransport {
     size_t read_offset_ = 0;
     bool fail_next_write_ = false;
     bool fail_next_read_ = false;
+    size_t max_write_size_ = static_cast<size_t>(-1);
 };
 
 struct DirectFunctionCase {
@@ -3694,6 +3700,187 @@ void testCpuOperationState() {
     }
 }
 
+void testHighLevelNamedWriteUsesOneRequestOrRejects() {
+    MockTransport transport;
+    uint8_t tx_buffer[256] = {};
+    uint8_t rx_buffer[128] = {};
+    slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+
+    slmp::highlevel::Snapshot numeric = {
+        {"D100:U", slmp::highlevel::Value::u16Value(0x1234U)},
+        {"D200:D", slmp::highlevel::Value::u32Value(0x12345678UL)},
+    };
+    transport.queueResponse(makeResponse(makeGenericRequest(0x1402U, 0x0002U), 0x0000U, {}));
+    assert(slmp::highlevel::writeNamed(plc, numeric) == slmp::Error::Ok);
+    assert(transport.writeHistory().size() == 1U);
+
+    slmp::highlevel::Snapshot mixed = {
+        {"D100:U", slmp::highlevel::Value::u16Value(1U)},
+        {"M100:BIT", slmp::highlevel::Value::bitValue(true)},
+    };
+    assert(slmp::highlevel::writeNamed(plc, mixed) == slmp::Error::InvalidArgument);
+    assert(transport.writeHistory().size() == 1U);
+
+    slmp::highlevel::Snapshot bit_in_word = {
+        {"D100.3", slmp::highlevel::Value::bitValue(true)},
+    };
+    assert(slmp::highlevel::writeNamed(plc, bit_in_word) == slmp::Error::InvalidArgument);
+    assert(transport.writeHistory().size() == 1U);
+}
+
+void testClaudeReviewRegressions() {
+    const slmp::TargetAddress target{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U};
+    const slmp::DeviceAddress d100 = slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100));
+    const slmp::DeviceAddress d101 = slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(101));
+
+    // Busy rejection must not mutate the active frame or decode destination.
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, target, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        uint16_t original_value = 0U;
+        uint16_t rejected_value = 0U;
+        assert(plc.beginReadWords(d100, 1U, &original_value, 1U, 1000U) == slmp::Error::Ok);
+        const std::vector<uint8_t> original_frame(tx_buffer, tx_buffer + plc.lastRequestFrameLength());
+        transport.queueResponse(makeResponse(original_frame, 0x0000U, {0x34U, 0x12U}));
+        assert(plc.beginReadWords(d101, 1U, &rejected_value, 1U, 1000U) == slmp::Error::Busy);
+        assert(std::vector<uint8_t>(tx_buffer, tx_buffer + original_frame.size()) == original_frame);
+        plc.update(1000U);
+        assert(plc.isBusy());
+        assert(plc.beginRemoteStop(1000U) == slmp::Error::Busy);
+        assert(std::vector<uint8_t>(tx_buffer, tx_buffer + original_frame.size()) == original_frame);
+        driveAsyncUntilIdle(plc, 1000U);
+        assert(original_value == 0x1234U);
+        assert(rejected_value == 0U);
+        assert(transport.writeHistory().size() == 1U);
+        assert(transport.writeHistory()[0] == original_frame);
+    }
+
+    // close/reconnect discards a partially transmitted operation; no tail bytes reach the new connection.
+    {
+        MockTransport transport;
+        transport.setMaxWriteSize(5U);
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, target, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        uint16_t abandoned = 0U;
+        assert(plc.beginReadWords(d100, 1U, &abandoned, 1U, 1000U) == slmp::Error::Ok);
+        plc.update(1000U);
+        assert(plc.isBusy());
+        assert(transport.writeHistory().size() == 1U);
+        assert(transport.writeHistory()[0].size() == 5U);
+        plc.close();
+        assert(!plc.isBusy());
+        assert(plc.lastError() == slmp::Error::TransportError);
+        transport.setMaxWriteSize(static_cast<size_t>(-1));
+        assert(plc.connect("127.0.0.1", 1025U));
+        uint16_t current = 0U;
+        assert(plc.beginReadWords(d101, 1U, &current, 1U, 1001U) == slmp::Error::Ok);
+        const std::vector<uint8_t> new_frame(tx_buffer, tx_buffer + plc.lastRequestFrameLength());
+        transport.queueResponse(makeResponse(new_frame, 0x0000U, {0x78U, 0x56U}));
+        driveAsyncUntilIdle(plc, 1001U);
+        assert(current == 0x5678U);
+        assert(transport.writeHistory().size() == 2U);
+        assert(transport.writeHistory()[1] == new_frame);
+        assert(new_frame[0] == 0x54U && new_frame[1] == 0x00U);
+    }
+
+    // Remote RESET is send-only and must invalidate the transport before another 3E/4E request.
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, target, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        assert(plc.remoteReset() == slmp::Error::Ok);
+        assert(!plc.connected());
+        assert(plc.beginClearError(1000U) == slmp::Error::NotConnected);
+        assert(transport.writeHistory().size() == 1U);
+    }
+
+    // Float APIs apply the same profile-bound address guard as DWord APIs.
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, target, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        const slmp::DeviceAddress wrong = slmp::dev::D(slmp::PlcProfile::IqF, slmp::dev::dec(100));
+        float value = 1.0F;
+        assert(plc.beginReadFloat32s(wrong, 1U, &value, 1U, 1000U) == slmp::Error::InvalidArgument);
+        assert(plc.beginWriteFloat32s(wrong, &value, 1U, 1000U) == slmp::Error::InvalidArgument);
+        assert(transport.writeHistory().empty());
+    }
+
+    // Extended random writes reject duplicates/overlap but keep distinct routes independent.
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[256] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, target, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        const slmp::ExtDeviceSpec words[] = {
+            slmp::ExtDeviceSpec::moduleBuf(1U, false, 100U),
+            slmp::ExtDeviceSpec::moduleBuf(1U, false, 100U),
+        };
+        const uint16_t word_values[] = {1U, 2U};
+        assert(plc.beginWriteRandomWordsExt(words, word_values, 2U, nullptr, nullptr, 0U, 1000U) == slmp::Error::InvalidArgument);
+        const slmp::ExtDeviceSpec overlap_word[] = {slmp::ExtDeviceSpec::moduleBuf(1U, false, 101U)};
+        const slmp::ExtDeviceSpec overlap_dword[] = {slmp::ExtDeviceSpec::moduleBuf(1U, false, 100U)};
+        const uint32_t dword_value[] = {3U};
+        assert(plc.beginWriteRandomWordsExt(overlap_word, word_values, 1U, overlap_dword, dword_value, 1U, 1000U) == slmp::Error::InvalidArgument);
+        const slmp::ExtDeviceSpec duplicate_bits[] = {
+            slmp::ExtDeviceSpec::linkDirect(1U, slmp::DeviceCode::B, 10U),
+            slmp::ExtDeviceSpec::linkDirect(1U, slmp::DeviceCode::B, 10U),
+        };
+        const bool bit_values[] = {true, false};
+        assert(plc.beginWriteRandomBitsExt(duplicate_bits, bit_values, 2U, 1000U) == slmp::Error::InvalidArgument);
+        assert(transport.writeHistory().empty());
+
+        const slmp::ExtDeviceSpec distinct_routes[] = {
+            slmp::ExtDeviceSpec::moduleBuf(1U, false, 100U),
+            slmp::ExtDeviceSpec::moduleBuf(2U, false, 100U),
+        };
+        assert(plc.beginWriteRandomWordsExt(distinct_routes, word_values, 2U, nullptr, nullptr, 0U, 1000U) == slmp::Error::Ok);
+        const std::vector<uint8_t> request(tx_buffer, tx_buffer + plc.lastRequestFrameLength());
+        transport.queueResponse(makeResponse(request, 0x0000U, {}));
+        driveAsyncUntilIdle(plc, 1000U);
+        assert(transport.writeHistory().size() == 1U);
+    }
+
+    // Every Extended random entry checks the fixed count prefix before touching the caller buffer.
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[1] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, target, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        const slmp::ExtDeviceSpec device = slmp::ExtDeviceSpec::moduleBuf(1U, false, 100U);
+        const slmp::ExtDeviceSpec bit_device = slmp::ExtDeviceSpec::linkDirect(1U, slmp::DeviceCode::B, 100U);
+        uint16_t word = 0U;
+        const bool bit = true;
+        assert(plc.beginReadRandomExt(&device, 1U, &word, 1U, nullptr, 0U, nullptr, 0U, 1000U) == slmp::Error::BufferTooSmall);
+        assert(plc.beginWriteRandomWordsExt(&device, &word, 1U, nullptr, nullptr, 0U, 1000U) == slmp::Error::BufferTooSmall);
+        assert(plc.beginWriteRandomBitsExt(&bit_device, &bit, 1U, 1000U) == slmp::Error::BufferTooSmall);
+        assert(tx_buffer[0] == 0U);
+    }
+
+    // A hand-built inconsistent read plan must not synthesize a zero for a missing device.
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, target, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        slmp::highlevel::AddressSpec spec{};
+        assert(slmp::highlevel::parseAddressSpec("D100:U", slmp::PlcProfile::IqR, spec) == slmp::Error::Ok);
+        slmp::highlevel::ReadPlan plan{};
+        plan.profile = slmp::PlcProfile::IqR;
+        plan.entries.push_back(slmp::highlevel::ReadPlanEntry{"D100:U", spec, slmp::highlevel::BatchKind::Word});
+        plan.word_devices.push_back(d101);
+        slmp::highlevel::Snapshot snapshot;
+        assert(slmp::highlevel::readNamed(plc, plan, snapshot) == slmp::Error::InvalidArgument);
+        assert(snapshot.empty());
+        assert(transport.writeHistory().empty());
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -3737,8 +3924,10 @@ int main() {
     testQSeriesBlockRouteGuard();
     testCapabilityProfileFixtureSnapshot();
     testUnspecifiedProfileDoesNotSend();
+    testHighLevelNamedWriteUsesOneRequestOrRejects();
     testCapabilityProfileGuards();
     testCpuOperationState();
+    testClaudeReviewRegressions();
     std::puts("slmp_minimal_tests: ok");
     return 0;
 }

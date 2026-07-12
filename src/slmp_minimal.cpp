@@ -1072,6 +1072,53 @@ inline Error validateExtRandomBitWriteDevices(const ExtDeviceSpec* bit_devices, 
     return Error::Ok;
 }
 
+inline bool extAddressRangesOverlap(const ExtDeviceSpec& left, uint32_t left_points,
+                                    const ExtDeviceSpec& right, uint32_t right_points) {
+    if (left.kind != right.kind || left_points == 0U || right_points == 0U) return false;
+    uint32_t left_start = 0U;
+    uint32_t right_start = 0U;
+    if (left.kind == ExtDeviceSpec::Kind::ModuleBuf) {
+        if (left.mod.slot != right.mod.slot || left.mod.use_hg != right.mod.use_hg) return false;
+        left_start = left.mod.dev_no;
+        right_start = right.mod.dev_no;
+    } else {
+        if (left.link.j_net != right.link.j_net || left.link.code != right.link.code) return false;
+        left_start = left.link.dev_no;
+        right_start = right.link.dev_no;
+    }
+    const uint64_t left_end = static_cast<uint64_t>(left_start) + left_points - 1U;
+    const uint64_t right_end = static_cast<uint64_t>(right_start) + right_points - 1U;
+    return static_cast<uint64_t>(left_start) <= right_end &&
+           static_cast<uint64_t>(right_start) <= left_end;
+}
+
+inline Error validateNoExtRandomWriteOverlap(const ExtDeviceSpec* word_devices, size_t word_count,
+                                             const ExtDeviceSpec* dword_devices, size_t dword_count) {
+    for (size_t i = 0; i < word_count; ++i) {
+        for (size_t j = i + 1U; j < word_count; ++j) {
+            if (extAddressRangesOverlap(word_devices[i], 1U, word_devices[j], 1U)) return Error::InvalidArgument;
+        }
+        for (size_t j = 0; j < dword_count; ++j) {
+            if (extAddressRangesOverlap(word_devices[i], 1U, dword_devices[j], 2U)) return Error::InvalidArgument;
+        }
+    }
+    for (size_t i = 0; i < dword_count; ++i) {
+        for (size_t j = i + 1U; j < dword_count; ++j) {
+            if (extAddressRangesOverlap(dword_devices[i], 2U, dword_devices[j], 2U)) return Error::InvalidArgument;
+        }
+    }
+    return Error::Ok;
+}
+
+inline Error validateNoExtBitWriteDuplicates(const ExtDeviceSpec* bit_devices, size_t bit_count) {
+    for (size_t i = 0; i < bit_count; ++i) {
+        for (size_t j = i + 1U; j < bit_count; ++j) {
+            if (extAddressRangesOverlap(bit_devices[i], 1U, bit_devices[j], 1U)) return Error::InvalidArgument;
+        }
+    }
+    return Error::Ok;
+}
+
 inline Error validateExtMonitorDevices(
     const ExtDeviceSpec* word_devices,
     size_t word_count,
@@ -1417,6 +1464,11 @@ bool SlmpClient::isBusy() const {
 }
 
 bool SlmpClient::connect(const char* host, uint16_t port) {
+    if (isBusy()) {
+        transport_.close();
+        resetAsyncState();
+        setError(Error::TransportError);
+    }
     if (host == nullptr || host[0] == '\0' || port == 0 ||
         !isConnectionSelectablePlcProfile(plc_profile_) ||
         tx_buffer_ == nullptr || rx_buffer_ == nullptr ||
@@ -1425,15 +1477,22 @@ bool SlmpClient::connect(const char* host, uint16_t port) {
         return false;
     }
     if (!transport_.connect(host, port)) {
+        resetAsyncState();
         setError(Error::TransportError);
         return false;
     }
+    resetAsyncState();
     setError(Error::Ok);
     return true;
 }
 
 void SlmpClient::close() {
+    const bool interrupted = isBusy();
     transport_.close();
+    resetAsyncState();
+    if (interrupted) {
+        setError(Error::TransportError);
+    }
 }
 
 bool SlmpClient::connected() const {
@@ -1801,6 +1860,16 @@ Error SlmpClient::startAsync(AsyncContext::Type type, size_t payload_length, uin
     return last_error_;
 }
 
+Error SlmpClient::ensureBeginIdle() const {
+    return isBusy() ? Error::Busy : Error::Ok;
+}
+
+void SlmpClient::resetAsyncState() {
+    state_ = State::Idle;
+    bytes_transferred_ = 0U;
+    async_ctx_ = AsyncContext{};
+}
+
 void SlmpClient::update(uint32_t now_ms) {
     if (state_ == State::Idle) return;
 
@@ -1820,7 +1889,8 @@ void SlmpClient::update(uint32_t now_ms) {
             last_activity_ms_ = now_ms;
             if (bytes_transferred_ == last_request_length_) {
                 if (async_ctx_.type == AsyncContext::Type::RemoteReset) {
-                    state_ = State::Idle;
+                    transport_.close();
+                    resetAsyncState();
                     setError(Error::Ok);
                     return;
                 }
@@ -2550,8 +2620,9 @@ Error SlmpClient::beginReadFloat32s(
         setError(Error::InvalidArgument);
         return last_error_;
     }
-    if (isUnsupportedDirectDevice(device.code())) {
-        setError(Error::UnsupportedDevice);
+    Error validate_error = validateDirectDWordReadDevice(device, plc_profile_);
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
         return last_error_;
     }
     if (tx_capacity_ < 8) {
@@ -2597,8 +2668,9 @@ Error SlmpClient::beginWriteFloat32s(
         setError(Error::InvalidArgument);
         return last_error_;
     }
-    if (isUnsupportedDirectDevice(device.code()) || isReadOnlyDevice(device.code(), plc_profile_)) {
-        setError(Error::UnsupportedDevice);
+    Error validate_error = validateDirectDWordWriteDevice(device, plc_profile_);
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
         return last_error_;
     }
 
@@ -3082,6 +3154,7 @@ Error SlmpClient::writeBitsLinkDirect(uint8_t j_net, DeviceCode code, uint32_t d
 // -----------------------------------------------------------------------
 
 Error SlmpClient::beginReadMemoryWords(uint32_t head_address, uint16_t word_length, uint16_t* out, size_t capacity, uint32_t now_ms) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     if (out == nullptr || capacity < word_length || validateMemoryWordLength(word_length) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -3105,6 +3178,7 @@ Error SlmpClient::readMemoryWords(uint32_t head_address, uint16_t word_length, u
 }
 
 Error SlmpClient::beginWriteMemoryWords(uint32_t head_address, const uint16_t* values, size_t count, uint32_t now_ms) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     if (values == nullptr || validateMemoryWordLength(count) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -3134,6 +3208,7 @@ Error SlmpClient::writeMemoryWords(uint32_t head_address, const uint16_t* values
 // -----------------------------------------------------------------------
 
 Error SlmpClient::beginReadExtendUnitBytes(uint32_t head_address, uint16_t byte_length, uint16_t module_no, uint8_t* out, size_t capacity, uint32_t now_ms) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     if (out == nullptr || capacity < byte_length || validateExtendUnitByteLength(byte_length) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -3174,6 +3249,7 @@ Error SlmpClient::readExtendUnitWords(uint32_t head_address, uint16_t word_lengt
 }
 
 Error SlmpClient::beginWriteExtendUnitBytes(uint32_t head_address, uint16_t module_no, const uint8_t* data, size_t byte_length, uint32_t now_ms) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     if (data == nullptr || validateExtendUnitByteLength(byte_length) != Error::Ok) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -3306,6 +3382,7 @@ Error SlmpClient::beginReadArrayLabels(
     const LabelName* abbrevs, size_t abbrev_count,
     uint32_t now_ms
 ) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     if (points == nullptr || point_count == 0 || point_count > 0xFFFFU ||
         out == nullptr || out_capacity < point_count || !isValidLabelList(abbrevs, abbrev_count)) {
         setError(Error::InvalidArgument);
@@ -3360,6 +3437,7 @@ Error SlmpClient::beginWriteArrayLabels(
     const LabelName* abbrevs, size_t abbrev_count,
     uint32_t now_ms
 ) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     if (points == nullptr || point_count == 0 || point_count > 0xFFFFU ||
         !isValidLabelList(abbrevs, abbrev_count)) {
         setError(Error::InvalidArgument);
@@ -3415,6 +3493,7 @@ Error SlmpClient::beginReadRandomLabels(
     const LabelName* abbrevs, size_t abbrev_count,
     uint32_t now_ms
 ) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     if (!isValidLabelList(labels, label_count) || label_count == 0U ||
         out == nullptr || out_capacity < label_count || !isValidLabelList(abbrevs, abbrev_count)) {
         setError(Error::InvalidArgument);
@@ -3463,6 +3542,7 @@ Error SlmpClient::beginWriteRandomLabels(
     const LabelName* abbrevs, size_t abbrev_count,
     uint32_t now_ms
 ) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     if (points == nullptr || point_count == 0 || point_count > 0xFFFFU ||
         !isValidLabelList(abbrevs, abbrev_count)) {
         setError(Error::InvalidArgument);
@@ -4049,6 +4129,7 @@ Error SlmpClient::writeBlock(
 }
 
 Error SlmpClient::beginRemoteRun(RemoteMode mode, RemoteClearMode clear_mode, uint32_t now_ms) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     if ((mode != RemoteMode::Normal && mode != RemoteMode::Force) ||
         (clear_mode != RemoteClearMode::NoClear &&
          clear_mode != RemoteClearMode::ClearExceptLatch &&
@@ -4083,6 +4164,7 @@ Error SlmpClient::remoteRun(RemoteMode mode, RemoteClearMode clear_mode) {
 }
 
 Error SlmpClient::beginRemoteStop(uint32_t now_ms) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     size_t payload_length = 0;
     Error encode_error = encodeRemoteModePayload(0x0001U, tx_buffer_, tx_capacity_, payload_length);
     if (encode_error != Error::Ok) {
@@ -4103,6 +4185,7 @@ Error SlmpClient::remoteStop() {
 }
 
 Error SlmpClient::beginRemotePause(RemoteMode mode, uint32_t now_ms) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     if (mode != RemoteMode::Normal && mode != RemoteMode::Force) {
         setError(Error::InvalidArgument);
         return last_error_;
@@ -4127,6 +4210,7 @@ Error SlmpClient::remotePause(RemoteMode mode) {
 }
 
 Error SlmpClient::beginRemoteLatchClear(uint32_t now_ms) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     size_t payload_length = 0;
     Error encode_error = encodeRemoteModePayload(0x0001U, tx_buffer_, tx_capacity_, payload_length);
     if (encode_error != Error::Ok) {
@@ -4147,6 +4231,7 @@ Error SlmpClient::remoteLatchClear() {
 }
 
 Error SlmpClient::beginRemoteReset(uint32_t now_ms) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     size_t payload_length = 0;
     Error encode_error = encodeRemoteModePayload(0x0001U, tx_buffer_, tx_capacity_, payload_length);
     if (encode_error != Error::Ok) {
@@ -4173,6 +4258,7 @@ Error SlmpClient::beginSelfTestLoopback(
     size_t* out_length,
     uint32_t now_ms
 ) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     size_t payload_length = 0;
     Error encode_error = encodeSelfTestPayload(data, data_length, tx_buffer_, tx_capacity_, payload_length);
     if (encode_error != Error::Ok) {
@@ -4206,6 +4292,7 @@ Error SlmpClient::selfTestLoopback(
 }
 
 Error SlmpClient::beginClearError(uint32_t now_ms) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     return startAsync(AsyncContext::Type::ClearError, 0, now_ms);
 }
 
@@ -4219,6 +4306,7 @@ Error SlmpClient::clearError() {
 }
 
 Error SlmpClient::beginRemotePasswordUnlock(const char* password, uint32_t now_ms) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     size_t payload_length = 0;
     Error encode_error = encodeRemotePasswordPayload(
         password,
@@ -4245,6 +4333,7 @@ Error SlmpClient::remotePasswordUnlock(const char* password) {
 }
 
 Error SlmpClient::beginRemotePasswordLock(const char* password, uint32_t now_ms) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     size_t payload_length = 0;
     Error encode_error = encodeRemotePasswordPayload(
         password,
@@ -4305,6 +4394,8 @@ void SlmpClient::setProfileFeatureError(ProfileFeatureKey feature_key, const cha
 }
 
 Error SlmpClient::ensureProfileFeatureAllowed(ProfileFeatureKey feature_key) {
+    const Error idle_error = ensureBeginIdle();
+    if (idle_error != Error::Ok) return idle_error;
     const FeatureEntry* feature = findFeatureEntry(plc_profile_, feature_key);
     if (feature == nullptr || !strict_profile_ || !isGuardedFeatureState(feature->state)) {
         return Error::Ok;
@@ -4423,6 +4514,7 @@ Error SlmpClient::beginReadRandomExt(
         if (guard_error != Error::Ok) return guard_error;
     }
 
+    if (tx_capacity_ < 2U) { setError(Error::BufferTooSmall); return last_error_; }
     tx_buffer_[0] = static_cast<uint8_t>(word_count);
     tx_buffer_[1] = static_cast<uint8_t>(dword_count);
     size_t offset = 2U;
@@ -4495,7 +4587,13 @@ Error SlmpClient::beginWriteRandomWordsExt(
             return last_error_;
         }
     }
+    validate_error = validateNoExtRandomWriteOverlap(word_devices, word_count, dword_devices, dword_count);
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
+        return last_error_;
+    }
 
+    if (tx_capacity_ < 2U) { setError(Error::BufferTooSmall); return last_error_; }
     tx_buffer_[0] = static_cast<uint8_t>(word_count);
     tx_buffer_[1] = static_cast<uint8_t>(dword_count);
     size_t offset = 2U;
@@ -4540,11 +4638,17 @@ Error SlmpClient::beginWriteRandomBitsExt(
         setError(validate_error);
         return last_error_;
     }
+    validate_error = validateNoExtBitWriteDuplicates(bit_devices, bit_count);
+    if (validate_error != Error::Ok) {
+        setError(validate_error);
+        return last_error_;
+    }
     for (size_t i = 0; i < bit_count; ++i) {
         guard_error = ensureExtProfileFeatureAllowed(bit_devices[i]);
         if (guard_error != Error::Ok) return guard_error;
     }
 
+    if (tx_capacity_ < 2U) { setError(Error::BufferTooSmall); return last_error_; }
     tx_buffer_[0] = static_cast<uint8_t>(bit_count);
     size_t offset = 1U;
     size_t val_size = (compatibility_mode_ == CompatibilityMode::Legacy) ? 1U : 2U;

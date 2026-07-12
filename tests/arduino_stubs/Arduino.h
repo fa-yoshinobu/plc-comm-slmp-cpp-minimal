@@ -21,6 +21,23 @@ class String {
     std::string value_;
 };
 
+class IPAddress {
+  public:
+    IPAddress() = default;
+    explicit IPAddress(const char* value) { fromString(value); }
+
+    bool fromString(const char* value) {
+        value_ = value == nullptr ? "" : value;
+        return !value_.empty();
+    }
+
+    bool operator==(const IPAddress& other) const { return value_ == other.value_; }
+    bool operator!=(const IPAddress& other) const { return !(*this == other); }
+
+  private:
+    std::string value_;
+};
+
 inline uint32_t millis() {
     static uint32_t now = 0U;
     return now++;

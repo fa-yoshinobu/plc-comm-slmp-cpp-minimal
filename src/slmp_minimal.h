@@ -986,7 +986,7 @@ class SlmpClient {
     Error remotePause(RemoteMode mode);
     /** @brief Remote LATCH CLEAR command. */
     Error remoteLatchClear();
-    /** @brief Remote RESET command. (Warning: Connection will likely be lost). */
+    /** @brief Send Remote RESET, close the transport after transmission, and require reconnect before another request. */
     Error remoteReset();
     
     /** 
@@ -1124,7 +1124,7 @@ class SlmpClient {
     Error beginRemotePause(RemoteMode mode, uint32_t now_ms);
     /** @brief Start async RemoteLatchClear. */
     Error beginRemoteLatchClear(uint32_t now_ms);
-    /** @brief Start async RemoteReset. */
+    /** @brief Start async RemoteReset; successful transmission closes the transport. */
     Error beginRemoteReset(uint32_t now_ms);
     /** @brief Start async SelfTestLoopback. */
     Error beginSelfTestLoopback(
@@ -1423,6 +1423,8 @@ class SlmpClient {
 
     Error startAsync(AsyncContext::Type type, size_t payload_length, uint32_t now_ms);
     void completeAsync();
+    Error ensureBeginIdle() const;
+    void resetAsyncState();
 
     Error request(
         uint16_t command,
