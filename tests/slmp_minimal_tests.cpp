@@ -3651,6 +3651,41 @@ void testClaudeReviewRegressions() {
     const slmp::DeviceAddress d100 = slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100));
     const slmp::DeviceAddress d101 = slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(101));
 
+    // Repository-owned RD boundary vectors pin both compatibility encodings.
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, target, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        uint16_t values[2] = {};
+        const slmp::DeviceAddress rd = slmp::dev::RD(slmp::PlcProfile::IqR, slmp::dev::dec(524286));
+        assert(plc.beginReadWords(rd, 2U, values, 2U, 1000U) == slmp::Error::Ok);
+        const std::vector<uint8_t> expected = {
+            0x54U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0xFFU, 0xFFU, 0x03U, 0x00U,
+            0x0EU, 0x00U, 0x10U, 0x00U, 0x01U, 0x04U, 0x02U, 0x00U,
+            0xFEU, 0xFFU, 0x07U, 0x00U, 0x2CU, 0x00U, 0x02U, 0x00U,
+        };
+        assert(std::vector<uint8_t>(tx_buffer, tx_buffer + plc.lastRequestFrameLength()) == expected);
+        plc.close();
+    }
+    for (const uint32_t number : {0UL, 524287UL}) {
+        MockTransport transport;
+        uint8_t tx_buffer[64] = {};
+        uint8_t rx_buffer[64] = {};
+        const slmp::PlcProfile profile = slmp::PlcProfile::QnUQj71E71100;
+        slmp::SlmpClient plc(transport, profile, target, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        uint16_t value = 0U;
+        const slmp::DeviceAddress rd = slmp::dev::RD(profile, slmp::dev::dec(number));
+        assert(plc.beginReadWords(rd, 1U, &value, 1U, 1000U) == slmp::Error::Ok);
+        assert(plc.lastRequestFrameLength() == 25U);
+        assert(tx_buffer[19] == static_cast<uint8_t>(number & 0xFFU));
+        assert(tx_buffer[20] == static_cast<uint8_t>((number >> 8U) & 0xFFU));
+        assert(tx_buffer[21] == static_cast<uint8_t>((number >> 16U) & 0xFFU));
+        assert(tx_buffer[22] == static_cast<uint8_t>(slmp::DeviceCode::RD));
+        assert(readLe16(tx_buffer + 23U) == 1U);
+        plc.close();
+    }
+
     // Busy rejection must not mutate the active frame or decode destination.
     {
         MockTransport transport;
@@ -3777,7 +3812,28 @@ void testClaudeReviewRegressions() {
         assert(plc.beginReadRandomExt(&device, 1U, &word, 1U, nullptr, 0U, nullptr, 0U, 1000U) == slmp::Error::BufferTooSmall);
         assert(plc.beginWriteRandomWordsExt(&device, &word, 1U, nullptr, nullptr, 0U, 1000U) == slmp::Error::BufferTooSmall);
         assert(plc.beginWriteRandomBitsExt(&bit_device, &bit, 1U, 1000U) == slmp::Error::BufferTooSmall);
+        assert(plc.beginRegisterMonitorDevicesExt(&device, 1U, nullptr, 0U, 1000U) == slmp::Error::BufferTooSmall);
         assert(tx_buffer[0] == 0U);
+    }
+
+    // Busy always wins over a block-disabled profile and does not replace the active operation error state.
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(transport, slmp::PlcProfile::LCpu, target, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+        const slmp::DeviceAddress d = slmp::dev::D(slmp::PlcProfile::LCpu, slmp::dev::dec(100));
+        uint16_t value = 0U;
+        assert(plc.beginReadWords(d, 1U, &value, 1U, 1000U) == slmp::Error::Ok);
+        const slmp::Error active_error = plc.lastError();
+        const slmp::DeviceBlockRead read_block[] = {slmp::dev::blockRead(d, 1U)};
+        const uint16_t write_value[] = {0x1234U};
+        const slmp::DeviceBlockWrite write_block[] = {slmp::dev::blockWrite(d, write_value, 1U)};
+        assert(plc.beginReadBlock(read_block, 1U, nullptr, 0U, &value, 1U, nullptr, 0U, 1000U) == slmp::Error::Busy);
+        assert(plc.lastError() == active_error);
+        assert(plc.beginWriteBlock(write_block, 1U, nullptr, 0U, 1000U) == slmp::Error::Busy);
+        assert(plc.lastError() == active_error);
+        plc.close();
     }
 
     // A hand-built inconsistent read plan must not synthesize a zero for a missing device.

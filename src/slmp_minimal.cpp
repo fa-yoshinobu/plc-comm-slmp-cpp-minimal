@@ -3871,6 +3871,7 @@ Error SlmpClient::beginReadBlock(
     size_t bit_value_capacity,
     uint32_t now_ms
 ) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     if (profileDisablesBlockAccess(plc_profile_) || !block_access_enabled_) {
         setError(Error::UnsupportedDevice);
         return last_error_;
@@ -3984,6 +3985,7 @@ Error SlmpClient::beginWriteBlock(
     size_t bit_block_count,
     uint32_t now_ms
 ) {
+    if (ensureBeginIdle() != Error::Ok) return Error::Busy;
     if (profileDisablesBlockAccess(plc_profile_) || !block_access_enabled_) {
         setError(Error::UnsupportedDevice);
         return last_error_;
@@ -4719,6 +4721,7 @@ Error SlmpClient::beginRegisterMonitorDevicesExt(
         if (guard_error != Error::Ok) return guard_error;
     }
 
+    if (tx_capacity_ < 2U) { setError(Error::BufferTooSmall); return last_error_; }
     tx_buffer_[0] = static_cast<uint8_t>(word_count);
     tx_buffer_[1] = static_cast<uint8_t>(dword_count);
     size_t offset = 2U;
