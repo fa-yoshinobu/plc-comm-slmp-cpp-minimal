@@ -281,3 +281,21 @@ No live PLC communication is authorized by this document.
 - [x] New public-API verification completed: D-128/D-129/D-131 live regressions and D-132 physical-area classification passed; D-130 is a deterministic local result-key contract requiring no new PLC communication.
 - [x] D-132 Extend Unit versus HG physical-area classification completed: independent values remained stable through immediate, 50 ms, 250 ms, and 1 s cross-reads.
 - [x] Removed the misleading CPU-buffer aliases and alias-only enum; retained distinct Extend Unit and qualified HG surfaces.
+
+## NR-006: Lifetime traffic statistics
+
+Scope: `SlmpClient::trafficStats()`, next release.
+
+Target contract: the method returns a client-lifetime value snapshot. A request and its full frame
+bytes count only after the asynchronous transport state has sent the complete frame. A complete
+TCP response counts after assembly in the selected frame format, before serial, end-code, or payload
+validation. Unrecognized subheaders, partial sends/receives, and pre-send failures do not count.
+Close/reconnect does not reset counters; no reset API is exposed.
+
+Acceptance criteria:
+
+- [x] Implementation and deterministic boundary tests completed.
+- [x] Generated API reference, usage guide, and Unreleased changelog agree.
+- [x] Live PLC verification is unnecessary because deterministic transports observe every boundary.
+- [ ] Claude source review completed and findings recorded for the next release batch.
+- [ ] Final next-release package and cross-language API comparison completed.

@@ -12,8 +12,12 @@ Audience: library maintainers and release work.
 8. Confirm `README.md` examples, install steps, and size table still match the code.
 9. Confirm `scripts/size_baseline.json` still matches the intended baseline.
 10. Run Arduino library lint in strict submission mode if you plan to submit or update Arduino Library Manager.
-11. Run `.\run_ci.bat --with-platformio` only when you intentionally validate embedded examples, PlatformIO metadata, or registry packaging.
+11. Run `.\run_ci.bat --with-platformio` before every PlatformIO Registry release. It may be omitted only for an explicitly scoped host-only development check.
 12. Confirm all intended source, test, example, and workflow files are tracked in Git before tagging. The release archive is built from `git archive HEAD`, so untracked files will not ship.
 13. Check GitHub repository metadata manually: description, website, topics, and pinned release.
 14. Run `python scripts/release_notes.py --changelog CHANGELOG.md --version <version> --output release-notes.md` if you want to preview the release body locally.
 15. Tag the release. `.github/workflows/release.yml` will publish the GitHub release artifacts from that tag.
+16. Enumerate every unchecked repository TODO and maintainer checkbox. Each must be passed, explicitly not required, or have an item-by-item release disposition in the active release GOAL.
+17. Build the shared docs site in a fresh virtual environment, verify installed Python package versions/symbols, and require `mkdocs build --strict` before final publication.
+18. After registry publication, compare the extracted PlatformIO package with the GitHub `.tar.gz`; require identical file sets and normalized contents.
+19. Confirm the final release summary lists every permitted `unverified` platform/hardware scope, the GitHub Release state and assets are correct, no release PR remains open, and the working tree is clean.

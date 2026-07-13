@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Library: Added immutable lifetime traffic snapshots through `SlmpClient::trafficStats()`.
+
 ## [3.1.0] - 2026-07-13
 
 - Library: Self-test loopback now rejects declared-length, actual-length, trailing-data, and echo mismatches for synchronous and asynchronous calls.

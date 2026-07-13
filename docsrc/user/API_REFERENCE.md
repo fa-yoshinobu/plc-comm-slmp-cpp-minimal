@@ -840,6 +840,14 @@ size_t slmp::SlmpClient::lastResponseFrameLength() const
 
 Get the actual length of the last response frame.
 
+#### `trafficStats`
+
+```cpp
+TrafficStats slmp::SlmpClient::trafficStats() const
+```
+
+Return cumulative traffic counters for this client lifetime.
+
 #### `readTypeName`
 
 ```cpp
@@ -2556,6 +2564,36 @@ std::vector<DeviceRangeEntry> slmp::highlevel::DeviceRangeCatalog::entries
 ```
 
 Device rows in stable output order
+
+### Struct `slmp::TrafficStats`
+
+Immutable lifetime traffic-counter snapshot for one client.
+
+#### Fields
+
+#### `request_count`
+
+```cpp
+uint64_t slmp::TrafficStats::request_count
+```
+
+Complete request frames accepted by the transport
+
+#### `tx_bytes`
+
+```cpp
+uint64_t slmp::TrafficStats::tx_bytes
+```
+
+Bytes in complete request frames accepted by the transport
+
+#### `rx_bytes`
+
+```cpp
+uint64_t slmp::TrafficStats::rx_bytes
+```
+
+Bytes in complete response frames received
 
 ### Struct `slmp::SlmpErrorInfo`
 

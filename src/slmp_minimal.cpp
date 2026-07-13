@@ -1408,6 +1408,9 @@ SlmpClient::SlmpClient(
       last_profile_feature_error_info_(),
       last_request_length_(0),
       last_response_length_(0),
+      request_count_(0),
+      tx_bytes_(0),
+      rx_bytes_(0),
       state_(State::Idle),
       bytes_transferred_(0),
       last_activity_ms_(0),
@@ -1615,6 +1618,10 @@ const uint8_t* SlmpClient::lastResponseFrame() const {
 
 size_t SlmpClient::lastResponseFrameLength() const {
     return last_response_length_;
+}
+
+TrafficStats SlmpClient::trafficStats() const {
+    return TrafficStats{request_count_, tx_bytes_, rx_bytes_};
 }
 
 Error SlmpClient::startAsync(AsyncContext::Type type, size_t payload_length, uint32_t now_ms) {
@@ -1888,6 +1895,8 @@ void SlmpClient::update(uint32_t now_ms) {
             bytes_transferred_ += written;
             last_activity_ms_ = now_ms;
             if (bytes_transferred_ == last_request_length_) {
+                ++request_count_;
+                tx_bytes_ += static_cast<uint64_t>(last_request_length_);
                 if (async_ctx_.type == AsyncContext::Type::RemoteReset) {
                     transport_.close();
                     resetAsyncState();
@@ -1907,13 +1916,6 @@ void SlmpClient::update(uint32_t now_ms) {
                 uint16_t response_data_length = 0;
                 if (frame_type_ == FrameType::Frame4E) {
                     if (rx_buffer_[0] != kResponseSubheader4E0 || rx_buffer_[1] != kResponseSubheader4E1) {
-                        transport_.close();
-                        setError(Error::ProtocolError);
-                        state_ = State::Idle;
-                        return;
-                    }
-                    uint16_t serial = (frame_type_ == FrameType::Frame4E) ? readLe16(tx_buffer_ + 2) : 0;
-                    if (readLe16(rx_buffer_ + 2) != serial) {
                         transport_.close();
                         setError(Error::ProtocolError);
                         state_ = State::Idle;
@@ -1955,6 +1957,7 @@ void SlmpClient::update(uint32_t now_ms) {
             last_activity_ms_ = now_ms;
             if (response_prefix_size + bytes_transferred_ == last_response_length_) {
                 state_ = State::Idle;
+                rx_bytes_ += static_cast<uint64_t>(last_response_length_);
                 completeAsync();
             }
         }
@@ -1963,6 +1966,13 @@ void SlmpClient::update(uint32_t now_ms) {
 
 void SlmpClient::completeAsync() {
     size_t response_prefix_size = (frame_type_ == FrameType::Frame4E) ? kResponsePrefixSize4E : kResponsePrefixSize3E;
+    if (frame_type_ == FrameType::Frame4E) {
+        if (readLe16(rx_buffer_ + 2) != readLe16(tx_buffer_ + 2)) {
+            transport_.close();
+            setError(Error::ProtocolError);
+            return;
+        }
+    }
     uint16_t end_code = readLe16(rx_buffer_ + response_prefix_size);
     if (end_code != 0) {
         const uint8_t* error_data = rx_buffer_ + response_prefix_size + 2U;

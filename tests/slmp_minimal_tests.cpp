@@ -473,10 +473,35 @@ void testReadWordsAndFrames() {
     assert(readLe16(transport.lastWrite().data() + 17) == 0x0002U);
     assert(plc.lastRequestFrame() == tx_buffer);
     assert(plc.lastResponseFrame() == rx_buffer);
+    const slmp::TrafficStats stats = plc.trafficStats();
+    assert(stats.request_count == 1U);
+    assert(stats.tx_bytes == plc.lastRequestFrameLength());
+    assert(stats.rx_bytes == plc.lastResponseFrameLength());
+    plc.close();
+    assert(plc.trafficStats().request_count == stats.request_count);
 
     char hex[64] = {};
     assert(slmp::formatHexBytes(transport.lastWrite().data(), 4, hex, sizeof(hex)) == 11U);
     assert(std::string(hex) == "54 00 00 00");
+}
+
+void testTrafficStatsPreSendFailure() {
+    MockTransport transport;
+    uint8_t tx_buffer[128] = {};
+    uint8_t rx_buffer[128] = {};
+    slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    uint16_t value = 0U;
+    assert(plc.readWords(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(0)), 0U, &value, 1U) == slmp::Error::InvalidArgument);
+    const slmp::TrafficStats stats = plc.trafficStats();
+    assert(stats.request_count == 0U && stats.tx_bytes == 0U && stats.rx_bytes == 0U);
+
+    assert(plc.beginReadWords(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(0)), 1U, &value, 1U, 1000U) == slmp::Error::Ok);
+    plc.update(1000U);
+    assert(plc.trafficStats().request_count == 1U);
+    assert(plc.trafficStats().tx_bytes == plc.lastRequestFrameLength());
+    assert(plc.trafficStats().rx_bytes == 0U);
+    plc.update(5000U);
+    assert(plc.lastError() == slmp::Error::TransportError);
 }
 
 void testAllDirectDeviceFamilies() {
@@ -1405,6 +1430,8 @@ void testWriteBlockOptions() {
         transport.queueResponse(makeResponse(response_request, 0xC05B, {}));
         assert(plc.writeBlock(word_blocks, 1, bit_blocks, 1) == slmp::Error::PlcError);
         assert(plc.lastEndCode() == 0xC05BU);
+        assert(plc.trafficStats().request_count == 1U);
+        assert(plc.trafficStats().rx_bytes == plc.lastResponseFrameLength());
         assert(transport.writeHistory().size() == 1U);
         assert(transport.writeHistory()[0][19] == 1U);
         assert(transport.writeHistory()[0][20] == 1U);
@@ -1521,6 +1548,8 @@ void testAsyncRemoteControl() {
     assert(readLe16(reset_transport.lastWrite().data() + 15) == 0x1006U);
     assert(readLe16(reset_transport.lastWrite().data() + 17) == 0x0000U);
     assert(readLe16(reset_transport.lastWrite().data() + 19) == 0x0001U);
+    assert(reset_plc.trafficStats().request_count == 1U);
+    assert(reset_plc.trafficStats().rx_bytes == 0U);
 }
 
 void testAsyncSelfTestAndClearError() {
@@ -3859,6 +3888,7 @@ void testClaudeReviewRegressions() {
 
 int main() {
     testReadWordsAndFrames();
+    testTrafficStatsPreSendFailure();
     testAdditionalDeviceHelpers();
     testAsyncApi();
     testAsyncFloat32Api();

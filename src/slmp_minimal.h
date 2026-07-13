@@ -27,6 +27,13 @@
  */
 namespace slmp {
 
+/** @brief Immutable lifetime traffic-counter snapshot for one client. */
+struct TrafficStats {
+    uint64_t request_count;  ///< Complete request frames accepted by the transport.
+    uint64_t tx_bytes;       ///< Bytes in complete request frames accepted by the transport.
+    uint64_t rx_bytes;       ///< Bytes in complete response frames received.
+};
+
 /**
  * @defgroup SLMP_Core Core API
  * @brief Essential SLMP client and types.
@@ -758,6 +765,8 @@ class SlmpClient {
     const uint8_t* lastResponseFrame() const;
     /** @brief Get the actual length of the last response frame. */
     size_t lastResponseFrameLength() const;
+    /** @brief Return cumulative traffic counters for this client lifetime. */
+    TrafficStats trafficStats() const;
 
     // --- Synchronous (Blocking) API ---
 
@@ -1444,6 +1453,9 @@ class SlmpClient {
     ProfileFeatureErrorInfo last_profile_feature_error_info_;
     size_t last_request_length_;
     size_t last_response_length_;
+    uint64_t request_count_;
+    uint64_t tx_bytes_;
+    uint64_t rx_bytes_;
 
     State state_;
     size_t bytes_transferred_;

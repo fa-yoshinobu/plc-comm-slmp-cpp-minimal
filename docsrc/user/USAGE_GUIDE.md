@@ -524,3 +524,8 @@ void loop() {
 | `.n` | One bit inside a word device, where `n` is hexadecimal `0` through `F`. | `D50.3` |
 
 Named addresses used with `readTyped(address)`, `readNamed`, `writeNamed`, and `Poller` must include the intended type, for example `D100:U` or `M1000:BIT`.
+## Traffic statistics
+
+Call `client.trafficStats()` for a `TrafficStats` client-lifetime snapshot containing
+`request_count`, `tx_bytes`, and `rx_bytes`. Complete sends and complete received frames are
+counted; close and reconnect do not reset the snapshot.
