@@ -17,12 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-07-13
+
 - Library: Self-test loopback now rejects declared-length, actual-length, trailing-data, and echo mismatches for synchronous and asynchronous calls.
 - Library: Monitor cycle expected counts must total at least one and stay within the selected profile's monitor-registration limit.
 - Docs: Clarified explicit monitor counts and that `U3En\HG` never changes or retries the fixed user-selected request target.
 
 ### BREAKING
-
 - Library: Removed independent `setFrameType` and `setCompatibilityMode` controls. Normal clients derive both values from the required concrete PLC profile; controlled verification must use `setManualProfile(profile, frame, compatibility)` so manual wire selection cannot discard the profile.
 - Library: Removed high-level read/write overloads that accepted a second request-time `PlcProfile`. Typed, named, and bit-in-word operations now derive their only execution profile from the client; offline read-plan compilation remains explicitly profile-bound and execution rejects client/plan mismatch.
 - Library: Profile changes are rejected while an asynchronous request is active, and manual profile selection rejects unknown frame or compatibility enum values without altering the current decoder state.
@@ -39,8 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: `ArduinoClientTransport` now requires a platform keepalive configurator and fails connection when the fixed 30-second TCP keepalive idle cannot be applied.
 - Library: Removed localized end-code message compatibility hooks and language selection. Numeric end codes and stable `slmp_end_code_xxxx` keys remain.
 
-### Changed
+### Added
+- Library: Added `PlcProfileDescriptor` and `slmp::highlevel::plcProfileDescriptors()` for canonical SLMP profile metadata.
 
+### Changed
 - Tests: Removed the external cross-repository vector generator, copied generated header, and helper entry point. Cross-implementation verification is owned and executed independently of this library repository.
 - Library: Communication timeout remains omittable with a 3000 ms default; explicitly setting zero is rejected.
 - Library: Monitoring timer remains omittable with a four-second (`0x0010`) default.
@@ -53,12 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tooling: The GXSIM3 validation executable now requires explicit host and port and rejects ports outside `1..65535` before creating its transport.
 - Tooling: The write-capable 3E/4E matrix validator now also requires explicit host and a strict decimal port in `1..65535`; it no longer selects a localhost endpoint when arguments are omitted.
 
-## [3.1.0] - 2026-07-10
 
-### Added
-- Library: Added `PlcProfileDescriptor` and `slmp::highlevel::plcProfileDescriptors()` for canonical SLMP profile metadata.
-
-### Changed
 - Release: Bumped `library.json` and synchronized `library.properties` metadata to `3.1.0`.
 - Tooling: Pinned canonical SLMP profile imports to published profile tag `v2.0.0`.
 - Samples: Replaced deprecated `plcProfileLabel()` use with `plcProfileCanonicalName()` in the ESP32 high-level example.
