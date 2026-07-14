@@ -45,6 +45,8 @@ static PlcProfileDefaults plcProfileDefaultsImpl(PlcProfile family) {
             return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::MxF, PlcProfile::MxF};
         case PlcProfile::MxR:
             return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::MxR, PlcProfile::MxR};
+        case PlcProfile::MxRRj71En71:
+            return {FrameType::Frame4E, CompatibilityMode::iQR, PlcProfile::MxR, PlcProfile::MxRRj71En71};
         case PlcProfile::QCpu:
             return {FrameType::Frame3E, CompatibilityMode::Legacy, PlcProfile::QCpu, PlcProfile::QCpu};
         case PlcProfile::QCpuQj71E71100:
@@ -73,6 +75,7 @@ static bool isSpecifiedPlcProfile(PlcProfile family) {
         case PlcProfile::IqL:
         case PlcProfile::MxF:
         case PlcProfile::MxR:
+        case PlcProfile::MxRRj71En71:
         case PlcProfile::QCpu:
         case PlcProfile::QCpuQj71E71100:
         case PlcProfile::LCpu:
@@ -1010,6 +1013,7 @@ static const char* deviceRangeProfileLabelImpl(PlcProfile profile) {
         case PlcProfile::IqL: return "iQ-L";
         case PlcProfile::MxF: return "MX-F";
         case PlcProfile::MxR: return "MX-R";
+        case PlcProfile::MxRRj71En71: return "MX-R via RJ71EN71";
         case PlcProfile::IqF: return "IQ-F";
         case PlcProfile::QCpu: return "QCPU";
         case PlcProfile::QCpuQj71E71100: return "QCPU via QJ71E71-100";
@@ -1251,6 +1255,7 @@ const char* plcProfileCanonicalName(PlcProfile family) {
         case PlcProfile::IqL: return "melsec:iq-l";
         case PlcProfile::MxF: return "melsec:mx-f";
         case PlcProfile::MxR: return "melsec:mx-r";
+        case PlcProfile::MxRRj71En71: return "melsec:mx-r:rj71en71";
         case PlcProfile::QCpu: return "melsec:qcpu";
         case PlcProfile::QCpuQj71E71100: return "melsec:qcpu:qj71e71-100";
         case PlcProfile::LCpu: return "melsec:lcpu";
@@ -1274,6 +1279,7 @@ Error parsePlcProfile(const char* text, PlcProfile& out_profile) {
         PlcProfile::IqL,
         PlcProfile::MxF,
         PlcProfile::MxR,
+        PlcProfile::MxRRj71En71,
         PlcProfile::QCpu,
         PlcProfile::QCpuQj71E71100,
         PlcProfile::LCpu,
@@ -1300,6 +1306,7 @@ const PlcProfile* availablePlcProfiles(size_t& count) {
         PlcProfile::IqL,
         PlcProfile::MxF,
         PlcProfile::MxR,
+        PlcProfile::MxRRj71En71,
         PlcProfile::QCpuQj71E71100,
         PlcProfile::LCpu,
         PlcProfile::LCpuLj71E71100,
@@ -1320,6 +1327,7 @@ const PlcProfileDescriptor* plcProfileDescriptors(size_t& count) {
         {"melsec:iq-l", "MELSEC iQ-L (built-in)", true, nullptr},
         {"melsec:mx-f", "MELSEC MX-F (built-in)", true, "melsec:iq-r"},
         {"melsec:mx-r", "MELSEC MX-R (built-in)", true, "melsec:iq-r"},
+        {"melsec:mx-r:rj71en71", "MELSEC MX-R (RJ71EN71)", true, "melsec:mx-r"},
         {"melsec:qcpu", "MELSEC-Q (base profile)", false, "melsec:qnu"},
         {"melsec:qcpu:qj71e71-100", "MELSEC-Q (QJ71E71-100)", true, "melsec:qcpu"},
         {"melsec:lcpu", "MELSEC-L (built-in)", true, nullptr},
@@ -1341,6 +1349,7 @@ const char* plcProfileDisplayName(PlcProfile family) {
         case PlcProfile::IqL: return "MELSEC iQ-L (built-in)";
         case PlcProfile::MxF: return "MELSEC MX-F (built-in)";
         case PlcProfile::MxR: return "MELSEC MX-R (built-in)";
+        case PlcProfile::MxRRj71En71: return "MELSEC MX-R (RJ71EN71)";
         case PlcProfile::QCpu: return "MELSEC-Q (base profile)";
         case PlcProfile::QCpuQj71E71100: return "MELSEC-Q (QJ71E71-100)";
         case PlcProfile::LCpu: return "MELSEC-L (built-in)";

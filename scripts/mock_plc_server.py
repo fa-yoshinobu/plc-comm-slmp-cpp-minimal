@@ -13,8 +13,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
-REQUEST_SUBHEADER = b"\x54\x00"
-RESPONSE_SUBHEADER = b"\xD4\x00"
+REQUEST_SUBHEADER_4E = b"\x54\x00"
+RESPONSE_SUBHEADER_4E = b"\xD4\x00"
+REQUEST_SUBHEADER_3E = b"\x50\x00"
+RESPONSE_SUBHEADER_3E = b"\xD0\x00"
 
 CMD_READ_TYPE_NAME = 0x0101
 CMD_DEVICE_READ = 0x0401
@@ -205,6 +207,7 @@ class PlcState:
 
 @dataclass
 class RequestFrame:
+    frame4e: bool
     serial: int
     target: bytes
     monitoring_timer: int
@@ -221,11 +224,17 @@ class FaultConfig:
     inject_once: bool = True
     malformed_command: int | None = None
     malformed_once: bool = True
+    foreign_identity_command: int | None = None
+    foreign_identity_once: bool = True
+    foreign_flood_command: int | None = None
+    foreign_flood_duration_ms: int = 0
     disconnect_after_requests: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
     request_count: int = 0
     inject_used: bool = False
     malformed_used: bool = False
+    foreign_identity_used: bool = False
+    foreign_flood_used: bool = False
 
     def next_request_index(self) -> int:
         with self.lock:
@@ -257,28 +266,64 @@ class FaultConfig:
             self.malformed_used = True
             return True
 
+    def match_foreign_identity(self, command: int) -> bool:
+        if self.foreign_identity_command is None or self.foreign_identity_command != command:
+            return False
+        with self.lock:
+            if self.foreign_identity_once and self.foreign_identity_used:
+                return False
+            self.foreign_identity_used = True
+            return True
+
+    def match_foreign_flood(self, command: int) -> bool:
+        if self.foreign_flood_command is None or self.foreign_flood_command != command:
+            return False
+        with self.lock:
+            if self.foreign_flood_used:
+                return False
+            self.foreign_flood_used = True
+            return True
+
 
 def decode_request(frame: bytes) -> RequestFrame:
-    if len(frame) < 19 or frame[:2] != REQUEST_SUBHEADER:
-        raise ValueError("invalid 4E request")
-    serial = read_u16(frame, 2)
-    target = frame[6:11]
-    data_length = read_u16(frame, 11)
-    if len(frame) != 13 + data_length or data_length < 6:
-        raise ValueError("request length mismatch")
-    return RequestFrame(
-        serial=serial,
-        target=target,
-        monitoring_timer=read_u16(frame, 13),
-        command=read_u16(frame, 15),
-        subcommand=read_u16(frame, 17),
-        payload=frame[19:],
-    )
+    if frame[:2] == REQUEST_SUBHEADER_4E:
+        if len(frame) < 19:
+            raise ValueError("invalid 4E request")
+        data_length = read_u16(frame, 11)
+        if len(frame) != 13 + data_length or data_length < 6:
+            raise ValueError("4E request length mismatch")
+        return RequestFrame(
+            frame4e=True,
+            serial=read_u16(frame, 2),
+            target=frame[6:11],
+            monitoring_timer=read_u16(frame, 13),
+            command=read_u16(frame, 15),
+            subcommand=read_u16(frame, 17),
+            payload=frame[19:],
+        )
+    if frame[:2] == REQUEST_SUBHEADER_3E:
+        if len(frame) < 15:
+            raise ValueError("invalid 3E request")
+        data_length = read_u16(frame, 7)
+        if len(frame) != 9 + data_length or data_length < 6:
+            raise ValueError("3E request length mismatch")
+        return RequestFrame(
+            frame4e=False,
+            serial=0,
+            target=frame[2:7],
+            monitoring_timer=read_u16(frame, 9),
+            command=read_u16(frame, 11),
+            subcommand=read_u16(frame, 13),
+            payload=frame[15:],
+        )
+    raise ValueError("invalid request subheader")
 
 
 def encode_response(req: RequestFrame, end_code: int, payload: bytes = b"") -> bytes:
     body = write_u16(end_code) + payload
-    return RESPONSE_SUBHEADER + write_u16(req.serial) + b"\x00\x00" + req.target + write_u16(len(body)) + body
+    if req.frame4e:
+        return RESPONSE_SUBHEADER_4E + write_u16(req.serial) + b"\x00\x00" + req.target + write_u16(len(body)) + body
+    return RESPONSE_SUBHEADER_3E + req.target + write_u16(len(body)) + body
 
 
 def decode_device_spec(payload: bytes, offset: int) -> tuple[tuple[str, int], int]:
@@ -298,12 +343,21 @@ class MockPlcHandler(socketserver.BaseRequestHandler):
 
     def handle(self) -> None:
         while True:
-            header = self._recv_exact(13)
-            if not header:
+            subheader = self._recv_exact(2)
+            if not subheader:
                 return
-            if header[:2] != REQUEST_SUBHEADER:
+            if subheader == REQUEST_SUBHEADER_4E:
+                header_tail = self._recv_exact(11)
+                length_offset = 11
+            elif subheader == REQUEST_SUBHEADER_3E:
+                header_tail = self._recv_exact(7)
+                length_offset = 7
+            else:
                 return
-            data_length = read_u16(header, 11)
+            if header_tail is None:
+                return
+            header = subheader + header_tail
+            data_length = read_u16(header, length_offset)
             rest = self._recv_exact(data_length)
             if rest is None:
                 return
@@ -314,10 +368,40 @@ class MockPlcHandler(socketserver.BaseRequestHandler):
                 response = self.dispatch(req, request_index)
             except Exception:
                 # generic rejected path
-                req = RequestFrame(serial=read_u16(frame, 2), target=frame[6:11], monitoring_timer=0, command=0, subcommand=0, payload=b"")
+                frame4e = frame[:2] == REQUEST_SUBHEADER_4E
+                req = RequestFrame(
+                    frame4e=frame4e,
+                    serial=read_u16(frame, 2) if frame4e else 0,
+                    target=frame[6:11] if frame4e else frame[2:7],
+                    monitoring_timer=0,
+                    command=0,
+                    subcommand=0,
+                    payload=b"",
+                )
                 response = encode_response(req, 0xC059)
             if response is None:
                 return
+            if self.server.faults.match_foreign_flood(req.command):
+                foreign = bytearray(response)
+                foreign[7 if req.frame4e else 3] ^= 0x01
+                chunk = bytes(foreign) * 128
+                flood_deadline = time.monotonic() + (self.server.faults.foreign_flood_duration_ms / 1000.0)
+                try:
+                    while time.monotonic() < flood_deadline:
+                        self.request.sendall(chunk)
+                except OSError:
+                    return
+                return
+            if self.server.faults.match_foreign_identity(req.command):
+                matching = response
+                foreign_route = bytearray(response)
+                foreign_route[7 if req.frame4e else 3] ^= 0x01
+                if req.frame4e:
+                    wrong_serial = bytearray(matching)
+                    wrong_serial[2] ^= 0x01
+                    response = bytes(foreign_route) + bytes(wrong_serial) + matching
+                else:
+                    response = bytes(foreign_route) + matching
             try:
                 self.request.sendall(response)
             except OSError:
@@ -543,6 +627,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--inject-repeat", action="store_true")
     parser.add_argument("--malformed-command", choices=tuple(COMMAND_NAME_TO_VALUE.keys()))
     parser.add_argument("--malformed-repeat", action="store_true")
+    parser.add_argument(
+        "--foreign-identity-command",
+        choices=tuple(name for name in COMMAND_NAME_TO_VALUE if name != "any"),
+    )
+    parser.add_argument("--foreign-identity-repeat", action="store_true")
+    parser.add_argument(
+        "--foreign-flood-command",
+        choices=tuple(name for name in COMMAND_NAME_TO_VALUE if name != "any"),
+    )
+    parser.add_argument("--foreign-flood-duration-ms", type=int, default=1000)
     parser.add_argument("--disconnect-after-requests", type=int, default=0)
     parser.add_argument("--verbose", action="store_true")
     return parser.parse_args()
@@ -563,6 +657,16 @@ def main() -> int:
         inject_once=not args.inject_repeat,
         malformed_command=COMMAND_NAME_TO_VALUE[args.malformed_command] if args.malformed_command else None,
         malformed_once=not args.malformed_repeat,
+        foreign_identity_command=(
+            COMMAND_NAME_TO_VALUE[args.foreign_identity_command]
+            if args.foreign_identity_command else None
+        ),
+        foreign_identity_once=not args.foreign_identity_repeat,
+        foreign_flood_command=(
+            COMMAND_NAME_TO_VALUE[args.foreign_flood_command]
+            if args.foreign_flood_command else None
+        ),
+        foreign_flood_duration_ms=max(1, args.foreign_flood_duration_ms),
         disconnect_after_requests=max(0, args.disconnect_after_requests),
     )
 
@@ -575,6 +679,13 @@ def main() -> int:
         print(f"mock-plc: inject_end_code=0x{faults.inject_end_code:04X} inject_command={args.inject_command}")
     if args.malformed_command:
         print(f"mock-plc: malformed_command={args.malformed_command}")
+    if args.foreign_identity_command:
+        print(f"mock-plc: foreign_identity_command={args.foreign_identity_command}")
+    if args.foreign_flood_command:
+        print(
+            f"mock-plc: foreign_flood_command={args.foreign_flood_command} "
+            f"duration_ms={faults.foreign_flood_duration_ms}"
+        )
     if faults.disconnect_after_requests > 0:
         print(f"mock-plc: disconnect_after_requests={faults.disconnect_after_requests}")
     try:

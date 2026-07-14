@@ -17,6 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Library: Added immutable lifetime traffic snapshots through `SlmpClient::trafficStats()`.
+- Library: Added the `melsec:mx-r:rj71en71` connection profile and `PlcProfile::MxRRj71En71` selector.
+- Library: Added the required `ITransport::currentDatagramBytesRemaining` transport-framing contract; the Arduino UDP adapter reports its packet boundary so declared SLMP lengths cannot consume bytes from a later datagram.
+- Tooling: Pinned canonical SLMP profile synchronization to `v2.1.0` and refreshed the matching fixtures and range-parity coverage.
+
+### BREAKING
+
+- Library: Custom `ITransport` implementations must explicitly report whether a current datagram boundary is available through `currentDatagramBytesRemaining` (stream transports return `false`).
+- Library: Responses now have to match all four request-route fields; well-formed foreign-route frames, including frames larger than the receive buffer, are drained in bounded chunks while the request remains pending.
+- Library: A UDP response that ends before its SLMP prefix or whose declared length differs from its datagram boundary now returns `ProtocolError`, invalidates the transport, and cannot be completed with bytes from a later datagram.
+- Library: The request timeout is now one absolute send-to-matching-response deadline, and well-formed 4E responses with another serial are discarded without restarting it.
+
 ## [3.1.0] - 2026-07-13
 
 - Library: Self-test loopback now rejects declared-length, actual-length, trailing-data, and echo mismatches for synchronous and asynchronous calls.

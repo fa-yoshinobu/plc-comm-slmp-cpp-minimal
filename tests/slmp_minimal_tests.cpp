@@ -159,6 +159,19 @@ std::vector<uint8_t> makeResponse3E(const std::vector<uint8_t>& request, uint16_
     return out;
 }
 
+std::vector<uint8_t> makeResponseForRequest(
+    const std::vector<uint8_t>& request,
+    uint16_t end_code,
+    const std::vector<uint8_t>& data
+) {
+    assert(request.size() >= 2U);
+    if (request[0] == 0x50U && request[1] == 0x00U) {
+        return makeResponse3E(request, end_code, data);
+    }
+    assert(request[0] == 0x54U && request[1] == 0x00U);
+    return makeResponse(request, end_code, data);
+}
+
 void driveAsyncUntilIdle(slmp::SlmpClient& plc, uint32_t now_ms, int max_steps = 32) {
     for (int i = 0; i < max_steps && plc.isBusy(); ++i) {
         plc.update(now_ms);
@@ -238,6 +251,7 @@ class MockTransport : public slmp::ITransport {
         }
         size_t avail = queued_responses_.front().size() - read_offset_;
         size_t to_read = (length < avail) ? length : avail;
+        if (to_read > max_read_size_) to_read = max_read_size_;
         memcpy(data, queued_responses_.front().data() + read_offset_, to_read);
         read_offset_ += to_read;
         normalizeQueuedResponses();
@@ -250,6 +264,11 @@ class MockTransport : public slmp::ITransport {
             return 0;
         }
         return queued_responses_.front().size() - read_offset_;
+    }
+
+    bool currentDatagramBytesRemaining(size_t& bytes) const override {
+        (void)bytes;
+        return false;
     }
 
     void queueConnectResult(bool result) {
@@ -271,6 +290,10 @@ class MockTransport : public slmp::ITransport {
 
     void setMaxWriteSize(size_t value) {
         max_write_size_ = value;
+    }
+
+    void setMaxReadSize(size_t value) {
+        max_read_size_ = value;
     }
 
     const std::vector<uint8_t>& lastWrite() const {
@@ -303,6 +326,7 @@ class MockTransport : public slmp::ITransport {
     bool fail_next_write_ = false;
     bool fail_next_read_ = false;
     size_t max_write_size_ = static_cast<size_t>(-1);
+    size_t max_read_size_ = static_cast<size_t>(-1);
 };
 
 struct DirectFunctionCase {
@@ -473,10 +497,49 @@ void testReadWordsAndFrames() {
     assert(readLe16(transport.lastWrite().data() + 17) == 0x0002U);
     assert(plc.lastRequestFrame() == tx_buffer);
     assert(plc.lastResponseFrame() == rx_buffer);
+    const slmp::TrafficStats stats = plc.trafficStats();
+    assert(stats.request_count == 1U);
+    assert(stats.tx_bytes == plc.lastRequestFrameLength());
+    assert(stats.rx_bytes == plc.lastResponseFrameLength());
+    plc.close();
+    assert(plc.trafficStats().request_count == stats.request_count);
 
     char hex[64] = {};
     assert(slmp::formatHexBytes(transport.lastWrite().data(), 4, hex, sizeof(hex)) == 11U);
     assert(std::string(hex) == "54 00 00 00");
+}
+
+std::vector<uint8_t> makeGenericRequestForTarget(
+    uint16_t command,
+    uint16_t subcommand,
+    const slmp::TargetAddress& target
+) {
+    std::vector<uint8_t> request = makeGenericRequest(command, subcommand);
+    request[6] = target.network;
+    request[7] = target.station;
+    request[8] = static_cast<uint8_t>(target.module_io & 0xFFU);
+    request[9] = static_cast<uint8_t>((target.module_io >> 8) & 0xFFU);
+    request[10] = target.multidrop;
+    return request;
+}
+
+void testTrafficStatsPreSendFailure() {
+    MockTransport transport;
+    uint8_t tx_buffer[128] = {};
+    uint8_t rx_buffer[128] = {};
+    slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    uint16_t value = 0U;
+    assert(plc.readWords(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(0)), 0U, &value, 1U) == slmp::Error::InvalidArgument);
+    const slmp::TrafficStats stats = plc.trafficStats();
+    assert(stats.request_count == 0U && stats.tx_bytes == 0U && stats.rx_bytes == 0U);
+
+    assert(plc.beginReadWords(slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(0)), 1U, &value, 1U, 1000U) == slmp::Error::Ok);
+    plc.update(1000U);
+    assert(plc.trafficStats().request_count == 1U);
+    assert(plc.trafficStats().tx_bytes == plc.lastRequestFrameLength());
+    assert(plc.trafficStats().rx_bytes == 0U);
+    plc.update(5000U);
+    assert(plc.lastError() == slmp::Error::TransportError);
 }
 
 void testAllDirectDeviceFamilies() {
@@ -1115,7 +1178,7 @@ void testTargetAndMonitoringTimerHeaders() {
     assert(plc.monitoringTimer() == 0x4321U);
     assert(plc.timeoutMs() == 987U);
 
-    transport.queueResponse(makeResponse(makeGenericRequest(0x0101, 0x0000), 0x0000, {
+    transport.queueResponse(makeResponse(makeGenericRequestForTarget(0x0101, 0x0000, target), 0x0000, {
         'Q', '0', '3', 'U', 'D', 'V', 'C', 'P', 'U', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 0x34, 0x12
     }));
 
@@ -1135,7 +1198,7 @@ void testHgQualifiedDeviceNeverChangesUserSelectedRequestTarget() {
         uint8_t rx_buffer[128] = {};
         const slmp::TargetAddress target{0x00U, 0xFFU, target_module_io, 0x00U};
         slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, target, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
-        transport.queueResponse(makeResponse(makeGenericRequest(0x1401, 0x0082), 0x0000, {}));
+        transport.queueResponse(makeResponse(makeGenericRequestForTarget(0x1401, 0x0082, target), 0x0000, {}));
         const uint16_t value[] = {0x1234U};
 
         assert(plc.writeWordsModuleBuf(0x03E1U, true, 100U, value, 1U) == slmp::Error::Ok);
@@ -1405,6 +1468,8 @@ void testWriteBlockOptions() {
         transport.queueResponse(makeResponse(response_request, 0xC05B, {}));
         assert(plc.writeBlock(word_blocks, 1, bit_blocks, 1) == slmp::Error::PlcError);
         assert(plc.lastEndCode() == 0xC05BU);
+        assert(plc.trafficStats().request_count == 1U);
+        assert(plc.trafficStats().rx_bytes == plc.lastResponseFrameLength());
         assert(transport.writeHistory().size() == 1U);
         assert(transport.writeHistory()[0][19] == 1U);
         assert(transport.writeHistory()[0][20] == 1U);
@@ -1521,6 +1586,8 @@ void testAsyncRemoteControl() {
     assert(readLe16(reset_transport.lastWrite().data() + 15) == 0x1006U);
     assert(readLe16(reset_transport.lastWrite().data() + 17) == 0x0000U);
     assert(readLe16(reset_transport.lastWrite().data() + 19) == 0x0001U);
+    assert(reset_plc.trafficStats().request_count == 1U);
+    assert(reset_plc.trafficStats().rx_bytes == 0U);
 }
 
 void testAsyncSelfTestAndClearError() {
@@ -1953,6 +2020,7 @@ void testProtocolFailures() {
         });
         slmp::TypeNameInfo type_name = {};
         assert(plc.readTypeName(type_name) == slmp::Error::ProtocolError);
+        assert(!plc.connected());
     }
 
     {
@@ -1965,8 +2033,12 @@ void testProtocolFailures() {
         transport.queueResponse({
             0xD4, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x02, 0x00, 0x00, 0x00
         });
+        transport.queueResponse({
+            0xD4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x02, 0x00, 0x00, 0x00
+        });
         slmp::TypeNameInfo type_name = {};
-        assert(plc.readTypeName(type_name) == slmp::Error::ProtocolError);
+        assert(plc.readTypeName(type_name) == slmp::Error::Ok);
+        assert(plc.connected());
     }
 
     {
@@ -1981,6 +2053,7 @@ void testProtocolFailures() {
         });
         slmp::TypeNameInfo type_name = {};
         assert(plc.readTypeName(type_name) == slmp::Error::ProtocolError);
+        assert(!plc.connected());
     }
 
     {
@@ -2008,6 +2081,349 @@ void testProtocolFailures() {
         slmp::TypeNameInfo type_name = {};
         assert(plc.readTypeName(type_name) == slmp::Error::TransportError);
     }
+}
+
+void testResponseIdentityAndAbsoluteDeadline() {
+    struct FrameCase {
+        slmp::PlcProfile profile;
+        slmp::FrameType frame;
+    };
+    const FrameCase frames[] = {
+        {slmp::PlcProfile::IqR, slmp::FrameType::Frame4E},
+        {slmp::PlcProfile::IqF, slmp::FrameType::Frame3E},
+    };
+    const slmp::TargetAddress target{0x12U, 0x34U, 0x5678U, 0x9AU};
+
+    for (const FrameCase& frame_case : frames) {
+        for (size_t route_field = 0U; route_field < 4U; ++route_field) {
+            MockTransport transport;
+            uint8_t tx_buffer[128] = {};
+            uint8_t rx_buffer[128] = {};
+            slmp::SlmpClient plc(
+                transport,
+                frame_case.profile,
+                target,
+                tx_buffer,
+                sizeof(tx_buffer),
+                rx_buffer,
+                sizeof(rx_buffer)
+            );
+            assert(plc.frameType() == frame_case.frame);
+
+            uint16_t value = 0U;
+            const uint32_t started_at = 1000U;
+            assert(plc.beginReadWords(
+                       slmp::dev::D(frame_case.profile, slmp::dev::dec(100)),
+                       1U,
+                       &value,
+                       1U,
+                       started_at) == slmp::Error::Ok);
+            plc.update(started_at);
+            const std::vector<uint8_t> request = transport.lastWrite();
+            const std::vector<uint8_t> matching = makeResponseForRequest(request, 0x0000U, {0x34U, 0x12U});
+            std::vector<uint8_t> foreign = matching;
+            const size_t route_offset = frame_case.frame == slmp::FrameType::Frame4E ? 6U : 2U;
+            switch (route_field) {
+                case 0U: foreign[route_offset] ^= 0x01U; break;
+                case 1U: foreign[route_offset + 1U] ^= 0x01U; break;
+                case 2U: foreign[route_offset + 2U] ^= 0x01U; break;
+                case 3U: foreign[route_offset + 4U] ^= 0x01U; break;
+                default: assert(false); break;
+            }
+            transport.queueResponse(foreign);
+            transport.queueResponse(matching);
+            driveAsyncUntilIdle(plc, started_at);
+
+            assert(plc.lastError() == slmp::Error::Ok);
+            assert(value == 0x1234U);
+            assert(plc.connected());
+            assert(plc.trafficStats().rx_bytes == foreign.size() + matching.size());
+        }
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(
+            transport,
+            slmp::PlcProfile::IqR,
+            target,
+            tx_buffer,
+            sizeof(tx_buffer),
+            rx_buffer,
+            sizeof(rx_buffer)
+        );
+        uint16_t value = 0U;
+        const uint32_t started_at = 2000U;
+        assert(plc.beginReadWords(
+                   slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)),
+                   1U,
+                   &value,
+                   1U,
+                   started_at) == slmp::Error::Ok);
+        plc.update(started_at);
+        const std::vector<uint8_t> request = transport.lastWrite();
+        const std::vector<uint8_t> matching = makeResponse(request, 0x0000U, {0x78U, 0x56U});
+        std::vector<uint8_t> wrong_serial = matching;
+        wrong_serial[2] ^= 0x01U;
+        transport.queueResponse(wrong_serial);
+        transport.queueResponse(matching);
+        driveAsyncUntilIdle(plc, started_at);
+        assert(plc.lastError() == slmp::Error::Ok);
+        assert(value == 0x5678U);
+        assert(plc.trafficStats().rx_bytes == wrong_serial.size() + matching.size());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(
+            transport,
+            slmp::PlcProfile::IqR,
+            target,
+            tx_buffer,
+            sizeof(tx_buffer),
+            rx_buffer,
+            sizeof(rx_buffer)
+        );
+        uint16_t value = 0U;
+        const uint32_t started_at = 2500U;
+        assert(plc.beginReadWords(
+                   slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)),
+                   1U,
+                   &value,
+                   1U,
+                   started_at) == slmp::Error::Ok);
+        plc.update(started_at);
+        const std::vector<uint8_t> request = transport.lastWrite();
+        const std::vector<uint8_t> matching = makeResponse(request, 0x0000U, {0x34U, 0x12U});
+        std::vector<uint8_t> oversized_foreign = makeResponse(
+            request,
+            0x0000U,
+            std::vector<uint8_t>(256U, 0xA5U)
+        );
+        oversized_foreign[7] ^= 0x01U;
+        assert(oversized_foreign.size() > sizeof(rx_buffer));
+        transport.queueResponse(oversized_foreign);
+        transport.queueResponse(matching);
+        driveAsyncUntilIdle(plc, started_at);
+        assert(plc.lastError() == slmp::Error::Ok);
+        assert(plc.connected());
+        assert(value == 0x1234U);
+        assert(plc.lastResponseFrameLength() == matching.size());
+        assert(plc.trafficStats().rx_bytes == oversized_foreign.size() + matching.size());
+    }
+
+    {
+        MockTransport transport;
+        transport.setMaxReadSize(1U);
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(
+            transport,
+            slmp::PlcProfile::IqR,
+            target,
+            tx_buffer,
+            sizeof(tx_buffer),
+            rx_buffer,
+            sizeof(rx_buffer)
+        );
+        assert(plc.setTimeoutMs(100U) == slmp::Error::Ok);
+        uint16_t value = 0U;
+        const uint32_t started_at = 2700U;
+        assert(plc.beginReadWords(
+                   slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)),
+                   1U,
+                   &value,
+                   1U,
+                   started_at) == slmp::Error::Ok);
+        plc.update(started_at);
+        const std::vector<uint8_t> request = transport.lastWrite();
+        const std::vector<uint8_t> matching = makeResponse(request, 0x0000U, {0x78U, 0x56U});
+        std::vector<uint8_t> foreign = matching;
+        foreign[6] ^= 0x01U;
+        transport.queueResponse(foreign);
+        transport.queueResponse(matching);
+        for (uint32_t elapsed = 1U; elapsed < 100U && plc.isBusy(); ++elapsed) {
+            plc.update(started_at + elapsed);
+        }
+        assert(!plc.isBusy());
+        assert(plc.lastError() == slmp::Error::Ok);
+        assert(value == 0x5678U);
+        assert(plc.trafficStats().rx_bytes == foreign.size() + matching.size());
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(
+            transport,
+            slmp::PlcProfile::IqR,
+            target,
+            tx_buffer,
+            sizeof(tx_buffer),
+            rx_buffer,
+            sizeof(rx_buffer)
+        );
+        assert(plc.setTimeoutMs(10U) == slmp::Error::Ok);
+        uint16_t value = 0U;
+        const uint32_t started_at = 3000U;
+        assert(plc.beginReadWords(
+                   slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)),
+                   1U,
+                   &value,
+                   1U,
+                   started_at) == slmp::Error::Ok);
+        plc.update(started_at);
+        const std::vector<uint8_t> request = transport.lastWrite();
+        std::vector<uint8_t> wrong_serial = makeResponse(request, 0x0000U, {0x34U, 0x12U});
+        wrong_serial[2] ^= 0x01U;
+        for (size_t index = 0U; index < 20U; ++index) {
+            transport.queueResponse(wrong_serial);
+        }
+        for (uint32_t elapsed = 1U; elapsed <= 10U && plc.isBusy(); ++elapsed) {
+            plc.update(started_at + elapsed);
+        }
+        assert(!plc.isBusy());
+        assert(plc.lastError() == slmp::Error::TransportError);
+        assert(!plc.connected());
+        assert(value == 0U);
+        assert(plc.trafficStats().rx_bytes > 0U);
+        assert(plc.trafficStats().rx_bytes < wrong_serial.size() * 20U);
+    }
+
+    {
+        MockTransport transport;
+        transport.setMaxWriteSize(1U);
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(
+            transport,
+            slmp::PlcProfile::IqR,
+            target,
+            tx_buffer,
+            sizeof(tx_buffer),
+            rx_buffer,
+            sizeof(rx_buffer)
+        );
+        assert(plc.setTimeoutMs(5U) == slmp::Error::Ok);
+        uint16_t value = 0U;
+        const uint32_t started_at = 4000U;
+        assert(plc.beginReadWords(
+                   slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)),
+                   1U,
+                   &value,
+                   1U,
+                   started_at) == slmp::Error::Ok);
+        for (uint32_t elapsed = 0U; elapsed <= 5U && plc.isBusy(); ++elapsed) {
+            plc.update(started_at + elapsed);
+        }
+        assert(!plc.isBusy());
+        assert(plc.lastError() == slmp::Error::TransportError);
+        assert(!plc.connected());
+        assert(plc.trafficStats().request_count == 0U);
+        assert(plc.trafficStats().tx_bytes == 0U);
+    }
+
+    {
+        MockTransport transport;
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        slmp::SlmpClient plc(
+            transport,
+            slmp::PlcProfile::IqR,
+            target,
+            tx_buffer,
+            sizeof(tx_buffer),
+            rx_buffer,
+            sizeof(rx_buffer)
+        );
+        assert(plc.setTimeoutMs(10U) == slmp::Error::Ok);
+        uint16_t value = 0U;
+        const uint32_t started_at = 0xFFFFFFFCU;
+        assert(plc.beginReadWords(
+                   slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)),
+                   1U,
+                   &value,
+                   1U,
+                   started_at) == slmp::Error::Ok);
+        plc.update(started_at);
+        plc.update(3U);
+        assert(plc.isBusy());
+        plc.update(6U);
+        assert(!plc.isBusy());
+        assert(plc.lastError() == slmp::Error::TransportError);
+        assert(!plc.connected());
+    }
+}
+
+void testForeignResponseThenMalformedResponseInvalidatesSession() {
+    MockTransport transport;
+    uint8_t tx_buffer[128] = {};
+    uint8_t rx_buffer[128] = {};
+    const slmp::TargetAddress target{0x12U, 0x34U, 0x5678U, 0x9AU};
+    slmp::SlmpClient plc(
+        transport,
+        slmp::PlcProfile::IqR,
+        target,
+        tx_buffer,
+        sizeof(tx_buffer),
+        rx_buffer,
+        sizeof(rx_buffer)
+    );
+
+    uint16_t value = 0U;
+    const uint32_t started_at = 5000U;
+    assert(plc.beginReadWords(
+               slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)),
+               1U,
+               &value,
+               1U,
+               started_at) == slmp::Error::Ok);
+    plc.update(started_at);
+    const std::vector<uint8_t> request = transport.lastWrite();
+    const std::vector<uint8_t> matching = makeResponse(request, 0x0000U, {0x34U, 0x12U});
+    std::vector<uint8_t> foreign = matching;
+    foreign[7] ^= 0x01U;
+    std::vector<uint8_t> malformed = matching;
+    malformed[4] = 0x01U;
+    transport.queueResponse(foreign);
+    transport.queueResponse(malformed);
+    transport.queueResponse(matching);
+    driveAsyncUntilIdle(plc, started_at);
+
+    assert(plc.lastError() == slmp::Error::ProtocolError);
+    assert(!plc.connected());
+    assert(value == 0U);
+    assert(plc.trafficStats().rx_bytes == foreign.size());
+
+    MockTransport payload_transport;
+    uint8_t payload_tx[128] = {};
+    uint8_t payload_rx[128] = {};
+    slmp::SlmpClient payload_plc(
+        payload_transport,
+        slmp::PlcProfile::IqR,
+        target,
+        payload_tx,
+        sizeof(payload_tx),
+        payload_rx,
+        sizeof(payload_rx)
+    );
+    uint16_t payload_value = 0U;
+    assert(payload_plc.beginReadWords(
+               slmp::dev::D(slmp::PlcProfile::IqR, slmp::dev::dec(100)),
+               1U,
+               &payload_value,
+               1U,
+               started_at) == slmp::Error::Ok);
+    payload_plc.update(started_at);
+    payload_transport.queueResponse(makeResponse(payload_transport.lastWrite(), 0x0000U, {}));
+    driveAsyncUntilIdle(payload_plc, started_at);
+    assert(payload_plc.lastError() == slmp::Error::ProtocolError);
+    assert(!payload_plc.connected());
 }
 
 void testPayloadValidationFailures() {
@@ -2791,7 +3207,11 @@ void testHighLevelDeviceRangeCatalog() {
         assert(d->address_range == "D0-D65587");
     }
 
-    for (slmp::highlevel::PlcProfile profile : {slmp::highlevel::PlcProfile::MxF, slmp::highlevel::PlcProfile::MxR}) {
+    for (slmp::highlevel::PlcProfile profile : {
+             slmp::highlevel::PlcProfile::MxF,
+             slmp::highlevel::PlcProfile::MxR,
+             slmp::highlevel::PlcProfile::MxRRj71En71,
+         }) {
         MockTransport transport;
         uint8_t tx_buffer[256] = {};
         uint8_t rx_buffer[256] = {};
@@ -2807,6 +3227,12 @@ void testHighLevelDeviceRangeCatalog() {
 
         slmp::highlevel::DeviceRangeCatalog catalog;
         assert(slmp::highlevel::readDeviceRangeCatalogForPlcProfile(plc, profile, catalog) == slmp::Error::Ok);
+        assert(catalog.plc_profile == profile);
+        assert(catalog.model == (
+            profile == slmp::highlevel::PlcProfile::MxRRj71En71
+                ? "MX-R via RJ71EN71"
+                : (profile == slmp::highlevel::PlcProfile::MxR ? "MX-R" : "MX-F")
+        ));
 
         const slmp::highlevel::DeviceRangeEntry* s = findDeviceRangeEntry(catalog, "S");
         assert(s != nullptr);
@@ -2997,6 +3423,36 @@ void testHighLevelplcProfileDefaults() {
         assert(defaults.range_profile == slmp::highlevel::PlcProfile::IqRRj71En71);
         assert(std::string(slmp::highlevel::plcProfileCanonicalName(slmp::highlevel::PlcProfile::IqRRj71En71)) ==
                "melsec:iq-r:rj71en71");
+    }
+
+    {
+        const slmp::highlevel::PlcProfile profile = slmp::highlevel::PlcProfile::MxRRj71En71;
+        const slmp::highlevel::PlcProfileDefaults defaults =
+            slmp::highlevel::plcProfileDefaults(profile);
+        assert(defaults.frame_type == slmp::FrameType::Frame4E);
+        assert(defaults.compatibility_mode == slmp::CompatibilityMode::iQR);
+        assert(defaults.address_profile == slmp::highlevel::PlcProfile::MxR);
+        assert(defaults.range_profile == profile);
+        assert(std::string(slmp::highlevel::plcProfileCanonicalName(profile)) ==
+               "melsec:mx-r:rj71en71");
+        assert(std::string(slmp::highlevel::plcProfileDisplayName(profile)) ==
+               "MELSEC MX-R (RJ71EN71)");
+
+        MockTransport transport;
+        uint8_t tx_buffer[64] = {};
+        uint8_t rx_buffer[64] = {};
+        slmp::SlmpClient plc(
+            transport,
+            profile,
+            slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U},
+            tx_buffer,
+            sizeof(tx_buffer),
+            rx_buffer,
+            sizeof(rx_buffer)
+        );
+        assert(plc.plcProfile() == profile);
+        assert(plc.frameType() == slmp::FrameType::Frame4E);
+        assert(plc.compatibilityMode() == slmp::CompatibilityMode::iQR);
     }
 
     {
@@ -3532,7 +3988,7 @@ void testCapabilityProfileGuards() {
         uint8_t rx_buffer[128] = {};
         slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
         plc.setPlcProfile(slmp::PlcProfile::IqF);
-        transport.queueResponse(makeResponse3E(makeGenericRequest(0x1401U, 0x0001U), 0x0000U, {}));
+        transport.queueResponse(makeResponse3E(makeGenericRequest3E(0x1401U, 0x0001U), 0x0000U, {}));
         bool bits[1] = {true};
         assert(plc.writeBits(slmp::dev::S(slmp::PlcProfile::IqF, slmp::dev::dec(0)), bits, 1) == slmp::Error::Ok);
         assert(!transport.lastWrite().empty());
@@ -3573,7 +4029,7 @@ void testPlcProfileDescriptors() {
         assert(descriptors[i].connectable == (profile_block.find("\"role\": \"base\"") == std::string::npos));
     }
 
-    const slmp::highlevel::PlcProfileDescriptor& qcpu = descriptors[6];
+    const slmp::highlevel::PlcProfileDescriptor& qcpu = descriptors[7];
     assert(!qcpu.connectable);
     assert(std::string(qcpu.base_profile) == "melsec:qnu");
     assert(descriptors[2].connectable);
@@ -3859,6 +4315,7 @@ void testClaudeReviewRegressions() {
 
 int main() {
     testReadWordsAndFrames();
+    testTrafficStatsPreSendFailure();
     testAdditionalDeviceHelpers();
     testAsyncApi();
     testAsyncFloat32Api();
@@ -3885,6 +4342,8 @@ int main() {
     testOverhaulContractGuards();
     testLabelAbbreviationContract();
     testProtocolFailures();
+    testResponseIdentityAndAbsoluteDeadline();
+    testForeignResponseThenMalformedResponseInvalidatesSession();
     testPayloadValidationFailures();
     testAsyncRemoteControl();
     testAsyncSelfTestAndClearError();

@@ -264,6 +264,11 @@ class SocketTransport : public slmp::ITransport {
         return 0;
     }
 
+    bool currentDatagramBytesRemaining(size_t& bytes) const override {
+        (void)bytes;
+        return false;
+    }
+
   private:
     bool waitReadable(uint32_t timeout_ms) const {
         fd_set read_set;
@@ -477,6 +482,55 @@ void testMalformedResponse(const char* host, uint16_t port) {
     slmp::TypeNameInfo type_name = {};
     require(plc.readTypeName(type_name) == slmp::Error::ProtocolError);
     require(plc.lastError() == slmp::Error::ProtocolError);
+    require(!plc.connected());
+    plc.close();
+}
+
+void testForeignIdentityResponses(
+    const char* host,
+    uint16_t port,
+    slmp::PlcProfile profile,
+    uint64_t expected_response_count
+) {
+    SocketTransport transport;
+    uint8_t tx_buffer[128] = {};
+    uint8_t rx_buffer[128] = {};
+    slmp::SlmpClient plc(transport, profile, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    plc.setTimeoutMs(1000U);
+
+    require(plc.connect(host, port));
+    slmp::TypeNameInfo type_name = {};
+    require(plc.readTypeName(type_name) == slmp::Error::Ok);
+    require(std::string(type_name.model) == "Q03UDVCPU");
+    require(plc.connected());
+    require(plc.trafficStats().request_count == 1U);
+    require(plc.trafficStats().rx_bytes == plc.lastResponseFrameLength() * expected_response_count);
+    plc.close();
+}
+
+void testForeignIdentityFloodDeadline(const char* host, uint16_t port) {
+    SocketTransport transport;
+    uint8_t tx_buffer[128] = {};
+    uint8_t rx_buffer[128] = {};
+    slmp::SlmpClient plc(transport, slmp::PlcProfile::IqR, slmp::TargetAddress{0x00U, 0xFFU, slmp::module_io::OwnStation, 0x00U}, tx_buffer, sizeof(tx_buffer), rx_buffer, sizeof(rx_buffer));
+    plc.setTimeoutMs(100U);
+
+    require(plc.connect(host, port));
+    slmp::TypeNameInfo type_name = {};
+    const auto started_at = std::chrono::steady_clock::now();
+    require(plc.readTypeName(type_name) == slmp::Error::TransportError);
+    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started_at
+    ).count();
+    require(elapsed_ms >= 70);
+    require(elapsed_ms < 500);
+    require(!plc.connected());
+    require(plc.trafficStats().rx_bytes > 0U);
+
+    require(plc.connect(host, port));
+    require(plc.readTypeName(type_name) == slmp::Error::Ok);
+    require(std::string(type_name.model) == "Q03UDVCPU");
+    require(plc.connected());
     plc.close();
 }
 
@@ -498,6 +552,12 @@ int main() {
         testDelayedTimeout(host, port);
     } else if (std::strcmp(scenario, "malformed") == 0) {
         testMalformedResponse(host, port);
+    } else if (std::strcmp(scenario, "foreign_identity") == 0) {
+        testForeignIdentityResponses(host, port, slmp::PlcProfile::IqR, 3U);
+    } else if (std::strcmp(scenario, "foreign_identity_3e") == 0) {
+        testForeignIdentityResponses(host, port, slmp::PlcProfile::IqF, 2U);
+    } else if (std::strcmp(scenario, "foreign_flood") == 0) {
+        testForeignIdentityFloodDeadline(host, port);
     } else {
         std::fprintf(stderr, "unknown scenario: %s\n", scenario);
         return 2;

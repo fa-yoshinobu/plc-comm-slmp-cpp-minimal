@@ -39,7 +39,7 @@ call "%CXX_EXE%" -std=c++17 -Wall -Wextra -Isrc tests/slmp_minimal_tests.cpp src
 if errorlevel 1 goto fail
 
 echo [2/9] Building Arduino transport tests...
-call "%CXX_EXE%" -std=c++17 -Wall -Wextra -Itests\arduino_stubs -Isrc tests\slmp_arduino_transport_tests.cpp -o "%ARDUINO_TRANSPORT_TEST_EXE%"
+call "%CXX_EXE%" -std=c++17 -Wall -Wextra -Itests\arduino_stubs -Isrc tests\slmp_arduino_transport_tests.cpp src\slmp_minimal.cpp -o "%ARDUINO_TRANSPORT_TEST_EXE%"
 if errorlevel 1 goto fail
 
 echo [3/9] Running Arduino transport tests...

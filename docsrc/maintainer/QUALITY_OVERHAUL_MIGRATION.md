@@ -281,3 +281,197 @@ No live PLC communication is authorized by this document.
 - [x] New public-API verification completed: D-128/D-129/D-131 live regressions and D-132 physical-area classification passed; D-130 is a deterministic local result-key contract requiring no new PLC communication.
 - [x] D-132 Extend Unit versus HG physical-area classification completed: independent values remained stable through immediate, 50 ms, 250 ms, and 1 s cross-reads.
 - [x] Removed the misleading CPU-buffer aliases and alias-only enum; retained distinct Extend Unit and qualified HG surfaces.
+
+## NR-006: Lifetime traffic statistics
+
+Scope: `SlmpClient::trafficStats()`, next release.
+
+Target contract: the method returns a client-lifetime value snapshot. A request and its full frame
+bytes count only after the asynchronous transport state has sent the complete frame. A complete
+TCP response counts after assembly in the selected frame format, before serial, end-code, or payload
+validation. Unrecognized subheaders, partial sends/receives, and pre-send failures do not count.
+Close/reconnect does not reset counters; no reset API is exposed.
+
+Acceptance criteria:
+
+- [x] Implementation and deterministic boundary tests completed.
+- [x] Generated API reference, usage guide, and Unreleased changelog agree.
+- [x] Live PLC verification is unnecessary because deterministic transports observe every boundary.
+- [ ] Final next-release package and cross-language API comparison completed.
+
+## QREV-20260714-002 — Exact response-route correlation
+
+Implementation scope: `SlmpClient` 3E/4E response assembly, transport-neutral host tests,
+real TCP socket integration, Arduino UDP adapter integration, generated API documentation,
+and next-release notes.
+
+Target contract: a response belongs to the active request only when its network, station,
+module I/O, and multidrop fields exactly match the route encoded in that request. A
+well-formed frame for another route is consumed in full and discarded while the same
+request remains pending. A malformed frame is a protocol error and invalidates the
+transport session.
+
+Compatibility impact: a structurally valid wrong-route response is no longer exposed as
+the operation result. It is ignored until a matching response arrives or the request's
+absolute deadline expires. `ITransport` now requires an explicit datagram-boundary query:
+stream transports return false, packet transports report the current datagram remainder, and
+the distributed Arduino UDP adapter does so. Custom transport implementations require a source
+update. A declared/actual UDP packet-length mismatch now fails closed instead of reading across
+packets.
+
+Acceptance criteria:
+
+1. Deterministic tests independently alter network, station, module I/O, and multidrop for
+   both 3E and 4E and prove that none can complete the request.
+2. A matching response following each foreign-route frame completes once with the expected
+   value; received-byte statistics include both complete frames.
+3. Real TCP and Arduino UDP integration tests prove that foreign frames are consumed without
+   desynchronizing the following matching frame.
+4. Invalid subheaders, reserved fields, frame lengths, and operation payload shapes return
+   `ProtocolError` and leave the client disconnected; a queued later frame cannot complete
+   that operation.
+5. A structurally valid foreign frame larger than the caller-provided receive buffer is
+   drained with bounded storage, counted once, and cannot turn the matching request into
+   `BufferTooSmall`.
+6. For a transport with known datagram boundaries, the response prefix must fit in one
+   datagram and the declared body length must exactly equal its unread bytes. A truncated
+   foreign datagram returns
+   `ProtocolError`, leaves its output untouched, invalidates the transport, and cannot consume
+   a queued response; an explicitly reconnected session completes cleanly.
+
+- [x] C++ implementation completed.
+- [x] Tests added or updated for every acceptance criterion.
+- [x] Host, Arduino, eight-scenario socket integration, and generated-API checks passed in `run_ci.bat`; ESP32 builds and all six PlatformIO static-analysis environments passed in `run_ci.bat --with-platformio`; `release_check.bat` and `pio pkg pack` passed.
+- [x] Codex self-review completed: the actual diff, the required `ITransport` datagram-boundary API change, structural-validation-before-identity order, error/session behavior, state transitions, timeout/cancellation behavior, traffic statistics, tests, generated API, packaging, and cross-language target contract were inspected.
+- [x] Claude source review completed; findings are recorded in `D:\APP\claude_review_findings_20260714.md`.
+- [x] Codex resolved or dispositioned every Claude finding and reran affected checks; classifications are recorded under `CLAUDE-20260714-CPP`.
+- [x] No live-PLC check is required; deterministic injected responses are the direct evidence for correlation and malformed-frame behavior.
+- [x] Documentation, migration note, changelog, and generated API reference agree with the implementation.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+## PROFILE-20260714-MX-R-RJ71EN71 — MX-R Ethernet-unit profile
+
+Implementation scope: public profile enum and parsing, profile defaults, capability lookup,
+device-range lookup and model labeling, canonical fixtures and synchronization pin, parity
+tooling, profile documentation, generated API documentation, tests, and release notes.
+
+Target contract: `melsec:mx-r:rj71en71` is a connectable 4E/iQ-R-compatible profile whose
+base/address/range rules are inherited from `melsec:mx-r`. Its public display name is
+`MELSEC MX-R (RJ71EN71)` and its device-range model label is `MX-R via RJ71EN71`. Canonical
+fixtures and drift checks are pinned to profile release `v2.1.0`.
+
+Compatibility impact: `PlcProfile::MxRRj71En71` is a new public enum value. Existing enum
+numeric values and existing profile defaults are unchanged.
+
+Acceptance criteria:
+
+1. Exact canonical parsing, connection selection, frame, compatibility, address profile,
+   range profile, display name, and base-profile metadata are directly tested.
+2. Device-range catalog reads use the MX-R rule table while retaining the Ethernet-unit
+   model label and selected profile identity.
+3. The synchronization script's default `v2.1.0` import leaves both fixtures unchanged with
+   `-FailIfChanged`, and the parity script validates every canonical profile without an
+   exception or unmapped profile.
+4. `PROFILES.md`, generated API documentation, and the Unreleased changelog expose the same
+   supported profile contract.
+
+- [x] C++ implementation completed.
+- [x] Direct defaults, construction, parsing/descriptor, range-catalog, fixture, and parity tests added or updated.
+- [x] Host, Arduino, eight-scenario socket, generated-document, PlatformIO, release-gate, and package checks passed after Claude remediation.
+- [x] Codex self-review completed against the canonical `v2.1.0` fixtures and cross-language profile contract.
+- [x] Claude source review completed; findings are recorded in `D:\APP\claude_review_findings_20260714.md`.
+- [x] Codex resolved or dispositioned every applicable Claude finding and reran affected checks.
+- [x] No additional live-PLC check is required for this code synchronization item; canonical profile evidence owns the hardware facts.
+- [x] Documentation, migration note, changelog, and generated API reference agree with the implementation.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+## CLAUDE-20260714-CPP — Finding disposition
+
+Review input: `D:\APP\claude_review_findings_20260714.md`. Codex examined the cited source,
+reproduced the release-gate failures, and classified the C++ findings as follows.
+
+- **F-X1 — accepted.** The default canonical-profile Ref now uses `v2.1.0`; a root-level
+  `-FailIfChanged` run must leave both fixtures unchanged. **C-2 is a duplicate of F-X1.**
+- **F-X2 — accepted.** `PROFILES.md` now contains the MX-R RJ71EN71 row with its public
+  selector, 4E frame, iQ-R compatibility, and MX-R inheritance. **C-5 is a duplicate of F-X2.**
+- **F-X5 — accepted.** The Unreleased changelog records the new public connection profile as
+  a Library change and the pinned canonical import as Tooling. **C-9 is a duplicate of F-X5.**
+- **C-1 — accepted.** `PROFILE_ARRAYS` maps the new canonical profile to `kMxRRangeRules`;
+  missing or stale future mappings now produce explicit parity errors instead of `KeyError`.
+- **C-3 — accepted.** Once a valid prefix identifies a foreign response, a response larger
+  than `rx_capacity_` enters a bounded discard state. Only matching oversized responses
+  return `BufferTooSmall`; complete discarded frames still contribute to `rx_bytes`.
+- **C-4 — accepted.** The range-catalog model label is `MX-R via RJ71EN71` and is directly
+  asserted by a catalog test.
+- **C-6 — accepted with transport-specific scope.** Added a no-gap real-time foreign-route
+  TCP flood followed by a clean reconnect, real TCP 3E correlation, one-byte prefix/body
+  progression with advancing time, and direct Arduino UDP 3E/4E tests including oversized
+  foreign datagrams. An OS UDP test is not added because this package distributes no host
+  UDP adapter; inventing a non-product transport would not add coverage beyond the shared
+  state machine and the distributed Arduino UDP adapter.
+- **C-7 — accepted.** Removed the duplicate unreachable return.
+- **C-8 — accepted.** Removed the unreachable alias row; MX-R RJ71EN71 resolves through its
+  declared MX-R address profile, matching the existing iQ-R Ethernet-unit inheritance pattern.
+- **C-10 — accepted.** Added direct defaults, construction, display/canonical name, range
+  catalog identity, and model-label assertions for `MxRRj71En71`.
+- **C-11 — rejected as a defect.** `TransportError` is the approved public error category for
+  request-deadline expiry in this C++ API. Adding a second timeout error code is unrelated to
+  QREV-20260714-003 and would create an unapproved cross-language API change.
+- **C-12 — accepted after Codex self-review.** The original informational classification was
+  unsafe: a truncated datagram containing a zero end code could previously obtain its payload
+  from the next datagram and complete successfully. `ITransport` now requires a
+  current-datagram remainder query, `ArduinoUdpTransport` implements it, and the decoder
+  requires the declared body to equal that remainder before identity or payload processing.
+  Direct 3E/4E tests cover both a short prefix and a truncated declared body, proving
+  fail-closed rejection, unchanged output, no byte-stat credit, and a clean explicitly
+  reconnected session. Every `ITransport` implementation must now explicitly return false for
+  a stream or expose a packet remainder for a datagram transport.
+- **C-13 — rejected as an implementation defect.** Unsequenced 3E cannot distinguish a
+  same-route delayed duplicate from the current request. No retry or response fallback is
+  added, and no redundant user-facing caution is introduced.
+
+Verification evidence: `run_ci.bat --with-platformio` passed host and Arduino tests, all eight
+socket scenarios, generated-API validation, both ESP32 builds, and all six static-analysis
+environments. `release_check.bat` passed canonical `v2.1.0` drift/parity and the repository
+gate. Because publication and commits are not authorized, its tracked archive step necessarily
+uses `HEAD`; `pio pkg pack` separately packaged the current working tree successfully.
+
+## QREV-20260714-003 — One absolute request deadline
+
+Implementation scope: request state timing, 4E serial correlation, partial send/receive
+progress, foreign-response discard behavior, deterministic host tests, and TCP/Arduino UDP
+integration coverage.
+
+Target contract: one deadline starts when the request enters `Sending` and ends only when a
+matching response is completely assembled. Partial sends, partial receives, foreign-route
+frames, and well-formed 4E frames with another serial never restart or extend that deadline.
+A matching response may still complete within the remaining time.
+
+Compatibility impact: `timeoutMs()` no longer represents an inactivity window. Slow progress
+or repeated unrelated responses cannot keep an operation alive beyond the configured request
+timeout. A well-formed wrong-serial response is discarded instead of immediately producing
+`ProtocolError`.
+
+Acceptance criteria:
+
+1. A wrong-serial 4E frame followed by the matching serial completes successfully over the
+   transport-neutral state machine and Arduino UDP; TCP socket integration covers a combined
+   foreign-route/wrong-serial sequence.
+2. A wrong-serial flood with continued complete-frame progress still ends at the original
+   deadline with `TransportError` and a disconnected transport.
+3. One-byte-at-a-time send progress cannot extend the deadline, and an incomplete request is
+   never counted as sent.
+4. The deadline comparison remains correct across `uint32_t` millisecond wraparound.
+5. Malformed frames remain protocol errors and are never treated as discardable identity
+   mismatches.
+
+- [x] C++ implementation completed.
+- [x] Tests added or updated for acceptance criteria 1–3 and 5.
+- [x] Explicit millisecond-wrap regression test added.
+- [x] Host, Arduino, eight-scenario socket integration, and generated-API checks passed in `run_ci.bat`; ESP32 builds and all six PlatformIO static-analysis environments passed in `run_ci.bat --with-platformio`; `release_check.bat` and `pio pkg pack` passed.
+- [x] Codex self-review completed: the actual diff, the required `ITransport` datagram-boundary API change, structural-validation-before-identity order, error/session behavior, state transitions, timeout/cancellation behavior, traffic statistics, tests, generated API, packaging, and cross-language target contract were inspected.
+- [x] Claude source review completed; findings are recorded in `D:\APP\claude_review_findings_20260714.md`.
+- [x] Codex resolved or dispositioned every Claude finding and reran affected checks; classifications are recorded under `CLAUDE-20260714-CPP`.
+- [x] No live-PLC check is required; deterministic timing and injected candidate frames are the direct evidence.
+- [x] Documentation, migration note, changelog, and generated API reference agree with the implementation.
+- [x] Final acceptance criteria verified and the item marked complete.
