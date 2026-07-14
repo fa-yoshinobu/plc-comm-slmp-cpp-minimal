@@ -320,6 +320,14 @@ size_t slmp::ArduinoClientTransport::available() override
 
 Check number of bytes available in the stream.
 
+#### `currentDatagramBytesRemaining`
+
+```cpp
+bool slmp::ArduinoClientTransport::currentDatagramBytesRemaining(size_t &bytes) const override
+```
+
+TCP is stream-oriented and has no datagram boundary.
+
 ### Class `slmp::ArduinoUdpTransport`
 
 Transport adapter for Arduino 'UDP' objects.
@@ -408,6 +416,14 @@ size_t slmp::ArduinoUdpTransport::available() override
 ```
 
 Check if a new packet has arrived and return its size.
+
+#### `currentDatagramBytesRemaining`
+
+```cpp
+bool slmp::ArduinoUdpTransport::currentDatagramBytesRemaining(size_t &bytes) const override
+```
+
+Report the unread bytes in the currently parsed UDP datagram.
 
 ### Class `slmp::highlevel::Poller`
 
@@ -577,6 +593,16 @@ virtual size_t slmp::ITransport::available()=0
 ```
 
 Check pending read data length.
+
+#### `currentDatagramBytesRemaining`
+
+```cpp
+virtual bool slmp::ITransport::currentDatagramBytesRemaining(size_t &bytes) const =0
+```
+
+Report bytes remaining in the datagram currently being read.
+
+Datagram transports return true after assigning bytes. Stream transports return false. The SLMP decoder uses a known datagram boundary to reject truncated or concatenated response packets before their payload is interpreted.
 
 ### Class `slmp::SlmpClient`
 
@@ -750,7 +776,9 @@ Get current monitoring timer value.
 Error slmp::SlmpClient::setTimeoutMs(uint32_t timeout_ms)
 ```
 
-Set internal transport timeout in milliseconds. Zero is rejected.
+Set the absolute request timeout in milliseconds. Zero is rejected.
+
+The deadline starts when a request enters the sending state and is not extended by partial I/O or by discarded responses for another route or 4E serial number.
 
 #### `timeoutMs`
 

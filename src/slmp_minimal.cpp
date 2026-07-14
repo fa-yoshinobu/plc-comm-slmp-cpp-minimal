@@ -106,6 +106,7 @@ inline bool isSpecifiedPlcProfile(PlcProfile profile) {
         case PlcProfile::IqL:
         case PlcProfile::MxF:
         case PlcProfile::MxR:
+        case PlcProfile::MxRRj71En71:
         case PlcProfile::QCpu:
         case PlcProfile::QCpuQj71E71100:
         case PlcProfile::LCpu:
@@ -407,6 +408,7 @@ static const CapabilityProfile kCapabilityProfiles[] = {
     {PlcProfile::IqRRj71En71, kIqRFeatures, sizeof(kIqRFeatures) / sizeof(kIqRFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
     {PlcProfile::IqL, kIqLFeatures, sizeof(kIqLFeatures) / sizeof(kIqLFeatures[0]), kIqLLimits, sizeof(kIqLLimits) / sizeof(kIqLLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
     {PlcProfile::MxR, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
+    {PlcProfile::MxRRj71En71, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
     {PlcProfile::MxF, kMxFeatures, sizeof(kMxFeatures) / sizeof(kMxFeatures[0]), kIqRLimits, sizeof(kIqRLimits) / sizeof(kIqRLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
     {PlcProfile::IqF, kIqFFeatures, sizeof(kIqFFeatures) / sizeof(kIqFFeatures[0]), kIqFLimits, sizeof(kIqFLimits) / sizeof(kIqFLimits[0]), nullptr, 0U},
     {PlcProfile::QCpu, kQnUDVFeatures, sizeof(kQnUDVFeatures) / sizeof(kQnUDVFeatures[0]), kQLUnitQCpuLimits, sizeof(kQLUnitQCpuLimits) / sizeof(kQLUnitQCpuLimits[0]), kSWritePolicy, sizeof(kSWritePolicy) / sizeof(kSWritePolicy[0])},
@@ -427,6 +429,7 @@ static const char* profileLabel(PlcProfile profile) {
         case PlcProfile::IqL: return "melsec:iq-l";
         case PlcProfile::MxF: return "melsec:mx-f";
         case PlcProfile::MxR: return "melsec:mx-r";
+        case PlcProfile::MxRRj71En71: return "melsec:mx-r:rj71en71";
         case PlcProfile::QCpu: return "melsec:qcpu";
         case PlcProfile::QCpuQj71E71100: return "melsec:qcpu:qj71e71-100";
         case PlcProfile::LCpu: return "melsec:lcpu";
@@ -523,6 +526,7 @@ inline FrameType frameTypeForPlcProfile(PlcProfile profile) {
         case PlcProfile::IqL:
         case PlcProfile::MxF:
         case PlcProfile::MxR:
+        case PlcProfile::MxRRj71En71:
         case PlcProfile::QCpuQj71E71100:
         case PlcProfile::LCpuLj71E71100:
         case PlcProfile::QnUQj71E71100:
@@ -546,6 +550,7 @@ inline CompatibilityMode compatibilityModeForPlcProfile(PlcProfile profile) {
         case PlcProfile::IqL:
         case PlcProfile::MxF:
         case PlcProfile::MxR:
+        case PlcProfile::MxRRj71En71:
             return CompatibilityMode::iQR;
         case PlcProfile::IqF:
         case PlcProfile::QCpu:
@@ -1408,12 +1413,14 @@ SlmpClient::SlmpClient(
       last_profile_feature_error_info_(),
       last_request_length_(0),
       last_response_length_(0),
+      current_response_length_(0),
+      current_response_matches_request_(false),
       request_count_(0),
       tx_bytes_(0),
       rx_bytes_(0),
       state_(State::Idle),
       bytes_transferred_(0),
-      last_activity_ms_(0),
+      request_started_ms_(0),
       async_ctx_{} {
     if (!isConnectionSelectablePlcProfile(profile)) {
         setError(Error::InvalidArgument);
@@ -1860,7 +1867,7 @@ Error SlmpClient::startAsync(AsyncContext::Type type, size_t payload_length, uin
     last_request_length_ = request_header_size + payload_length;
     state_ = State::Sending;
     bytes_transferred_ = 0;
-    last_activity_ms_ = now_ms;
+    request_started_ms_ = now_ms;
     async_ctx_.type = type;
 
     setError(Error::Ok);
@@ -1874,13 +1881,15 @@ Error SlmpClient::ensureBeginIdle() const {
 void SlmpClient::resetAsyncState() {
     state_ = State::Idle;
     bytes_transferred_ = 0U;
+    current_response_length_ = 0U;
+    current_response_matches_request_ = false;
     async_ctx_ = AsyncContext{};
 }
 
 void SlmpClient::update(uint32_t now_ms) {
     if (state_ == State::Idle) return;
 
-    if (now_ms - last_activity_ms_ >= timeout_ms_) {
+    if (now_ms - request_started_ms_ >= timeout_ms_) {
         transport_.close();
         setError(Error::TransportError);
         state_ = State::Idle;
@@ -1893,7 +1902,6 @@ void SlmpClient::update(uint32_t now_ms) {
         size_t written = transport_.write(tx_buffer_ + bytes_transferred_, last_request_length_ - bytes_transferred_);
         if (written > 0) {
             bytes_transferred_ += written;
-            last_activity_ms_ = now_ms;
             if (bytes_transferred_ == last_request_length_) {
                 ++request_count_;
                 tx_bytes_ += static_cast<uint64_t>(last_request_length_);
@@ -1911,11 +1919,20 @@ void SlmpClient::update(uint32_t now_ms) {
         size_t read = transport_.read(rx_buffer_ + bytes_transferred_, response_prefix_size - bytes_transferred_);
         if (read > 0) {
             bytes_transferred_ += read;
-            last_activity_ms_ = now_ms;
+            size_t datagram_bytes_remaining = 0U;
+            if (bytes_transferred_ < response_prefix_size &&
+                transport_.currentDatagramBytesRemaining(datagram_bytes_remaining) &&
+                datagram_bytes_remaining == 0U) {
+                transport_.close();
+                setError(Error::ProtocolError);
+                state_ = State::Idle;
+                return;
+            }
             if (bytes_transferred_ == response_prefix_size) {
                 uint16_t response_data_length = 0;
                 if (frame_type_ == FrameType::Frame4E) {
-                    if (rx_buffer_[0] != kResponseSubheader4E0 || rx_buffer_[1] != kResponseSubheader4E1) {
+                    if (rx_buffer_[0] != kResponseSubheader4E0 || rx_buffer_[1] != kResponseSubheader4E1 ||
+                        rx_buffer_[4] != 0x00U || rx_buffer_[5] != 0x00U) {
                         transport_.close();
                         setError(Error::ProtocolError);
                         state_ = State::Idle;
@@ -1938,8 +1955,23 @@ void SlmpClient::update(uint32_t now_ms) {
                     state_ = State::Idle;
                     return;
                 }
-                last_response_length_ = response_prefix_size + response_data_length;
-                if (rx_capacity_ < last_response_length_) {
+                datagram_bytes_remaining = 0U;
+                if (transport_.currentDatagramBytesRemaining(datagram_bytes_remaining) &&
+                    datagram_bytes_remaining != static_cast<size_t>(response_data_length)) {
+                    transport_.close();
+                    setError(Error::ProtocolError);
+                    state_ = State::Idle;
+                    return;
+                }
+                current_response_length_ = response_prefix_size + response_data_length;
+                current_response_matches_request_ = responseIdentityMatchesRequest();
+                if (!current_response_matches_request_ && rx_capacity_ < current_response_length_) {
+                    state_ = State::DiscardingBody;
+                    bytes_transferred_ = 0U;
+                    return;
+                }
+                last_response_length_ = current_response_length_;
+                if (rx_capacity_ < current_response_length_) {
                     transport_.close();
                     setError(Error::BufferTooSmall);
                     state_ = State::Idle;
@@ -1954,25 +1986,49 @@ void SlmpClient::update(uint32_t now_ms) {
         size_t read = transport_.read(rx_buffer_ + response_prefix_size + bytes_transferred_, to_read);
         if (read > 0) {
             bytes_transferred_ += read;
-            last_activity_ms_ = now_ms;
             if (response_prefix_size + bytes_transferred_ == last_response_length_) {
-                state_ = State::Idle;
                 rx_bytes_ += static_cast<uint64_t>(last_response_length_);
+                if (!current_response_matches_request_) {
+                    state_ = State::ReceivingPrefix;
+                    bytes_transferred_ = 0U;
+                    current_response_length_ = 0U;
+                    return;
+                }
+                state_ = State::Idle;
                 completeAsync();
+                if (last_error_ == Error::ProtocolError) {
+                    transport_.close();
+                }
+            }
+        }
+    } else if (state_ == State::DiscardingBody) {
+        const size_t body_length = current_response_length_ - response_prefix_size;
+        const size_t remaining = body_length - bytes_transferred_;
+        const size_t to_read = remaining < rx_capacity_ ? remaining : rx_capacity_;
+        const size_t read = transport_.read(rx_buffer_, to_read);
+        if (read > 0U) {
+            bytes_transferred_ += read;
+            if (bytes_transferred_ == body_length) {
+                rx_bytes_ += static_cast<uint64_t>(current_response_length_);
+                state_ = State::ReceivingPrefix;
+                bytes_transferred_ = 0U;
+                current_response_length_ = 0U;
+                current_response_matches_request_ = false;
             }
         }
     }
 }
 
+bool SlmpClient::responseIdentityMatchesRequest() const {
+    if (frame_type_ == FrameType::Frame4E) {
+        return readLe16(rx_buffer_ + 2U) == readLe16(tx_buffer_ + 2U) &&
+               memcmp(rx_buffer_ + 6U, tx_buffer_ + 6U, 5U) == 0;
+    }
+    return memcmp(rx_buffer_ + 2U, tx_buffer_ + 2U, 5U) == 0;
+}
+
 void SlmpClient::completeAsync() {
     size_t response_prefix_size = (frame_type_ == FrameType::Frame4E) ? kResponsePrefixSize4E : kResponsePrefixSize3E;
-    if (frame_type_ == FrameType::Frame4E) {
-        if (readLe16(rx_buffer_ + 2) != readLe16(tx_buffer_ + 2)) {
-            transport_.close();
-            setError(Error::ProtocolError);
-            return;
-        }
-    }
     uint16_t end_code = readLe16(rx_buffer_ + response_prefix_size);
     if (end_code != 0) {
         const uint8_t* error_data = rx_buffer_ + response_prefix_size + 2U;

@@ -30,6 +30,7 @@ compatibility settings do not imply a PLC model.
 | `melsec:iq-l` | MELSEC iQ-L (built-in) | `slmp::highlevel::PlcProfile::IqL` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for MELSEC iQ-L targets. |
 | `melsec:mx-f` | MELSEC MX-F (built-in) | `slmp::highlevel::PlcProfile::MxF` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for MELSEC MX-F targets. |
 | `melsec:mx-r` | MELSEC MX-R (built-in) | `slmp::highlevel::PlcProfile::MxR` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Use for MELSEC MX-R targets. |
+| `melsec:mx-r:rj71en71` | MELSEC MX-R (RJ71EN71) | `slmp::highlevel::PlcProfile::MxRRj71En71` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::iQR` | Ethernet-unit profile using MX-R compatibility and `melsec:mx-r` address/range rules. |
 | `melsec:lcpu` | MELSEC-L (built-in) | `slmp::highlevel::PlcProfile::LCpu` | `slmp::FrameType::Frame3E` | `slmp::CompatibilityMode::Legacy` | Legacy L CPU profile. |
 | `melsec:lcpu:lj71e71-100` | MELSEC-L (LJ71E71-100) | `slmp::highlevel::PlcProfile::LCpuLj71E71100` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::Legacy` | Ethernet unit profile using Q/L compatibility. |
 | `melsec:qcpu:qj71e71-100` | MELSEC-Q (QJ71E71-100) | `slmp::highlevel::PlcProfile::QCpuQj71E71100` | `slmp::FrameType::Frame4E` | `slmp::CompatibilityMode::Legacy` | Ethernet unit profile for QCPU connections. |
@@ -65,6 +66,10 @@ class NoopTransport final : public slmp::ITransport {
     size_t write(const uint8_t*, size_t) override { return 0U; }
     size_t read(uint8_t*, size_t) override { return 0U; }
     size_t available() override { return 0U; }
+    bool currentDatagramBytesRemaining(size_t& bytes) const override {
+        (void)bytes;
+        return false;
+    }
 };
 
 int main() {

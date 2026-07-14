@@ -124,6 +124,7 @@ enum class PlcProfile : uint8_t {
     IqL = 3,
     MxF = 4,
     MxR = 5,
+    MxRRj71En71 = 15,
     QCpu = 6,
     LCpu = 7,
     QnU = 8,
@@ -626,6 +627,16 @@ class ITransport {
     virtual size_t read(uint8_t* data, size_t length) = 0;
     /** @brief Check pending read data length. */
     virtual size_t available() = 0;
+
+    /**
+     * @brief Report bytes remaining in the datagram currently being read.
+     *
+     * Datagram transports return true after assigning @p bytes. Stream
+     * transports return false.
+     * The SLMP decoder uses a known datagram boundary to reject truncated or
+     * concatenated response packets before their payload is interpreted.
+     */
+    virtual bool currentDatagramBytesRemaining(size_t& bytes) const = 0;
 };
 
 /** @} */ // end of SLMP_Transport
@@ -739,7 +750,13 @@ class SlmpClient {
     /** @brief Get current monitoring timer value. */
     uint16_t monitoringTimer() const;
 
-    /** @brief Set internal transport timeout in milliseconds. Zero is rejected. */
+    /**
+     * @brief Set the absolute request timeout in milliseconds. Zero is rejected.
+     *
+     * The deadline starts when a request enters the sending state and is not
+     * extended by partial I/O or by discarded responses for another route or
+     * 4E serial number.
+     */
     Error setTimeoutMs(uint32_t timeout_ms);
     /** @brief Get current timeout value. */
     uint32_t timeoutMs() const;
@@ -1355,6 +1372,7 @@ class SlmpClient {
         Sending,
         ReceivingPrefix,
         ReceivingBody,
+        DiscardingBody,
     };
 
     struct AsyncContext {
@@ -1415,6 +1433,7 @@ class SlmpClient {
 
     Error startAsync(AsyncContext::Type type, size_t payload_length, uint32_t now_ms);
     void completeAsync();
+    bool responseIdentityMatchesRequest() const;
     Error ensureBeginIdle() const;
     void resetAsyncState();
 
@@ -1453,13 +1472,15 @@ class SlmpClient {
     ProfileFeatureErrorInfo last_profile_feature_error_info_;
     size_t last_request_length_;
     size_t last_response_length_;
+    size_t current_response_length_;
+    bool current_response_matches_request_;
     uint64_t request_count_;
     uint64_t tx_bytes_;
     uint64_t rx_bytes_;
 
     State state_;
     size_t bytes_transferred_;
-    uint32_t last_activity_ms_;
+    uint32_t request_started_ms_;
     AsyncContext async_ctx_;
 };
 

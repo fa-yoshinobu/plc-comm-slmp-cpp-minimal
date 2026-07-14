@@ -141,6 +141,10 @@ public:
 #endif
         return (size_t)arg;
     }
+    bool currentDatagramBytesRemaining(size_t& bytes) const override {
+        (void)bytes;
+        return false;
+    }
 private:
     SocketHandle socket_ = kInvalidSocket;
     bool connected_ = false;

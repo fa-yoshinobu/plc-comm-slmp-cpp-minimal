@@ -248,6 +248,11 @@ class SocketTransport : public slmp::ITransport {
         return 0;
     }
 
+    bool currentDatagramBytesRemaining(size_t& bytes) const override {
+        (void)bytes;
+        return false;
+    }
+
   private:
     bool waitReadable(uint32_t timeout_ms) const {
         fd_set read_set;

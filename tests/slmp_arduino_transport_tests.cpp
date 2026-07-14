@@ -44,7 +44,10 @@ class FakeUdp final : public UDP {
         return begin_packet_result_;
     }
     int endPacket() override { return end_packet_result_; }
-    size_t write(const uint8_t*, size_t length) override { return length; }
+    size_t write(const uint8_t* data, size_t length) override {
+        outgoing_data_.assign(data, data + length);
+        return length;
+    }
     int parsePacket() override {
         if (incoming_offset_ < incoming_data_.size()) return static_cast<int>(incoming_data_.size() - incoming_offset_);
         return 0;
@@ -67,6 +70,13 @@ class FakeUdp final : public UDP {
         incoming_offset_ = 0U;
     }
 
+    void queuePacket(const char* ip, uint16_t port, const std::vector<uint8_t>& data) {
+        incoming_ip_.fromString(ip);
+        incoming_port_ = port;
+        incoming_data_ = data;
+        incoming_offset_ = 0U;
+    }
+
     static uint16_t next_ephemeral_port_;
     uint16_t requested_local_port_ = 0U;
     uint16_t assigned_local_port_ = 0U;
@@ -79,6 +89,7 @@ class FakeUdp final : public UDP {
     IPAddress incoming_ip_;
     uint16_t incoming_port_ = 0U;
     std::vector<uint8_t> incoming_data_;
+    std::vector<uint8_t> outgoing_data_;
     size_t incoming_offset_ = 0U;
 };
 
@@ -94,6 +105,40 @@ bool acceptKeepAlive(Client&, uint32_t idle_seconds) {
 bool rejectKeepAlive(Client&, uint32_t idle_seconds) {
     g_idle_seconds = idle_seconds;
     return false;
+}
+
+void appendLe16(std::vector<uint8_t>& out, uint16_t value) {
+    out.push_back(static_cast<uint8_t>(value & 0xFFU));
+    out.push_back(static_cast<uint8_t>((value >> 8) & 0xFFU));
+}
+
+std::vector<uint8_t> makeResponseWithPayload(
+    const std::vector<uint8_t>& request,
+    const std::vector<uint8_t>& payload
+) {
+    std::vector<uint8_t> response;
+    const bool frame4e = request.size() >= 2U && request[0] == 0x54U && request[1] == 0x00U;
+    if (frame4e) {
+        response = {0xD4U, 0x00U, request[2], request[3], 0x00U, 0x00U,
+                    request[6], request[7], request[8], request[9], request[10]};
+    } else {
+        assert(request.size() >= 7U && request[0] == 0x50U && request[1] == 0x00U);
+        response = {0xD0U, 0x00U, request[2], request[3], request[4], request[5], request[6]};
+    }
+    appendLe16(response, static_cast<uint16_t>(2U + payload.size()));
+    appendLe16(response, 0U);
+    response.insert(response.end(), payload.begin(), payload.end());
+    return response;
+}
+
+std::vector<uint8_t> makeResponse(const std::vector<uint8_t>& request, uint16_t word_value) {
+    return makeResponseWithPayload(
+        request,
+        {
+            static_cast<uint8_t>(word_value & 0xFFU),
+            static_cast<uint8_t>((word_value >> 8) & 0xFFU),
+        }
+    );
 }
 
 }  // namespace
@@ -166,6 +211,132 @@ int main() {
         assert(transport.available() == 0U);
         udp.queuePacket("192.0.2.40", 1035U, {0xD0U, 0x00U, 0x01U});
         assert(transport.available() == 3U);
+    }
+    for (const slmp::PlcProfile profile : {slmp::PlcProfile::IqR, slmp::PlcProfile::IqF}) {
+        FakeUdp udp;
+        slmp::ArduinoUdpTransport transport(udp);
+        uint8_t tx_buffer[128] = {};
+        uint8_t rx_buffer[128] = {};
+        const slmp::TargetAddress target{0x12U, 0x34U, 0x5678U, 0x9AU};
+        slmp::SlmpClient plc(
+            transport,
+            profile,
+            target,
+            tx_buffer,
+            sizeof(tx_buffer),
+            rx_buffer,
+            sizeof(rx_buffer)
+        );
+        assert(plc.connect("192.0.2.50", 1035U));
+
+        uint16_t value = 0U;
+        const uint32_t started_at = 1000U;
+        assert(plc.beginReadWords(
+                   slmp::dev::D(profile, slmp::dev::dec(100)),
+                   1U,
+                   &value,
+                   1U,
+                   started_at) == slmp::Error::Ok);
+        plc.update(started_at);
+        assert(!udp.outgoing_data_.empty());
+
+        const std::vector<uint8_t> matching = makeResponse(udp.outgoing_data_, 0x1234U);
+        std::vector<uint8_t> oversized_foreign = makeResponseWithPayload(
+            udp.outgoing_data_,
+            std::vector<uint8_t>(256U, 0xA5U)
+        );
+        std::vector<uint8_t> foreign_route = matching;
+        const size_t station_offset = profile == slmp::PlcProfile::IqR ? 7U : 3U;
+        oversized_foreign[station_offset] ^= 0x01U;
+        foreign_route[station_offset] ^= 0x01U;
+        assert(oversized_foreign.size() > sizeof(rx_buffer));
+        udp.queuePacket("192.0.2.50", 1035U, oversized_foreign);
+        for (size_t step = 0U; step < 8U; ++step) plc.update(started_at);
+        assert(plc.isBusy());
+
+        udp.queuePacket("192.0.2.50", 1035U, foreign_route);
+        plc.update(started_at);
+        plc.update(started_at);
+        assert(plc.isBusy());
+
+        if (profile == slmp::PlcProfile::IqR) {
+            std::vector<uint8_t> wrong_serial = matching;
+            wrong_serial[2] ^= 0x01U;
+            udp.queuePacket("192.0.2.50", 1035U, wrong_serial);
+            plc.update(started_at);
+            plc.update(started_at);
+            assert(plc.isBusy());
+        }
+
+        udp.queuePacket("192.0.2.50", 1035U, matching);
+        plc.update(started_at);
+        plc.update(started_at);
+        assert(!plc.isBusy());
+        assert(plc.lastError() == slmp::Error::Ok);
+        assert(plc.connected());
+        assert(value == 0x1234U);
+        const uint64_t expected_frames = profile == slmp::PlcProfile::IqR ? 3U : 2U;
+        assert(plc.trafficStats().rx_bytes ==
+               oversized_foreign.size() + (matching.size() * expected_frames));
+
+        const uint64_t rx_before_truncated = plc.trafficStats().rx_bytes;
+        value = 0x7777U;
+        assert(plc.beginReadWords(
+                   slmp::dev::D(profile, slmp::dev::dec(101)),
+                   1U,
+                   &value,
+                   1U,
+                   started_at + 1U) == slmp::Error::Ok);
+        plc.update(started_at + 1U);
+        std::vector<uint8_t> truncated_foreign = makeResponse(udp.outgoing_data_, 0xBEEFU);
+        truncated_foreign[station_offset] ^= 0x01U;
+        truncated_foreign.resize(truncated_foreign.size() - 2U);
+        udp.queuePacket("192.0.2.50", 1035U, truncated_foreign);
+        plc.update(started_at + 1U);
+        assert(!plc.isBusy());
+        assert(plc.lastError() == slmp::Error::ProtocolError);
+        assert(!plc.connected());
+        assert(value == 0x7777U);
+        assert(plc.trafficStats().rx_bytes == rx_before_truncated);
+
+        assert(plc.connect("192.0.2.50", 1035U));
+        assert(plc.beginReadWords(
+                   slmp::dev::D(profile, slmp::dev::dec(102)),
+                   1U,
+                   &value,
+                   1U,
+                   started_at + 2U) == slmp::Error::Ok);
+        plc.update(started_at + 2U);
+        const std::vector<uint8_t> clean_after_truncated = makeResponse(udp.outgoing_data_, 0xCAFEU);
+        udp.queuePacket("192.0.2.50", 1035U, clean_after_truncated);
+        plc.update(started_at + 2U);
+        plc.update(started_at + 2U);
+        assert(!plc.isBusy());
+        assert(plc.lastError() == slmp::Error::Ok);
+        assert(plc.connected());
+        assert(value == 0xCAFEU);
+        assert(plc.trafficStats().rx_bytes == rx_before_truncated + clean_after_truncated.size());
+
+        const uint64_t rx_before_short_prefix = plc.trafficStats().rx_bytes;
+        value = 0x6666U;
+        assert(plc.beginReadWords(
+                   slmp::dev::D(profile, slmp::dev::dec(103)),
+                   1U,
+                   &value,
+                   1U,
+                   started_at + 3U) == slmp::Error::Ok);
+        plc.update(started_at + 3U);
+        std::vector<uint8_t> short_foreign_prefix = makeResponse(udp.outgoing_data_, 0xABCDU);
+        short_foreign_prefix[station_offset] ^= 0x01U;
+        const size_t response_prefix_size = profile == slmp::PlcProfile::IqR ? 13U : 9U;
+        short_foreign_prefix.resize(response_prefix_size - 1U);
+        udp.queuePacket("192.0.2.50", 1035U, short_foreign_prefix);
+        plc.update(started_at + 3U);
+        assert(!plc.isBusy());
+        assert(plc.lastError() == slmp::Error::ProtocolError);
+        assert(!plc.connected());
+        assert(value == 0x6666U);
+        assert(plc.trafficStats().rx_bytes == rx_before_short_prefix);
     }
     return 0;
 }

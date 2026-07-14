@@ -136,6 +136,12 @@ class ArduinoClientTransport : public ITransport {
         return client_.available();
     }
 
+    /** @brief TCP is stream-oriented and has no datagram boundary. */
+    bool currentDatagramBytesRemaining(size_t& bytes) const override {
+        (void)bytes;
+        return false;
+    }
+
   private:
     static constexpr uint32_t kKeepAliveIdleSeconds = 30U;
     ::Client& client_;
@@ -269,6 +275,12 @@ class ArduinoUdpTransport : public ITransport {
             packet_available_ = packet_bytes;
         }
         return packet_available_;
+    }
+
+    /** @brief Report the unread bytes in the currently parsed UDP datagram. */
+    bool currentDatagramBytesRemaining(size_t& bytes) const override {
+        bytes = packet_available_;
+        return connected_;
     }
 
   private:

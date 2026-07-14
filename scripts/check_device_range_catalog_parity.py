@@ -19,6 +19,7 @@ PROFILE_ARRAYS = {
     "melsec:iq-l": "kIqLRangeRules",
     "melsec:mx-f": "kMxFRangeRules",
     "melsec:mx-r": "kMxRRangeRules",
+    "melsec:mx-r:rj71en71": "kMxRRangeRules",
     "melsec:iq-f": "kIqFRangeRules",
     "melsec:qcpu": "kQCpuRangeRules",
     "melsec:qcpu:qj71e71-100": "kQCpuRangeRules",
@@ -105,7 +106,10 @@ def main() -> int:
     errors: list[str] = []
 
     for profile, profile_payload in payload["profiles"].items():
-        array_name = PROFILE_ARRAYS[profile]
+        array_name = PROFILE_ARRAYS.get(profile)
+        if array_name is None:
+            errors.append(f"{profile}: missing PROFILE_ARRAYS mapping")
+            continue
         entries = parse_entries(extract_array(source, array_name))
         for item, rule in profile_payload["rules"].items():
             actual = entries.get(item)
@@ -113,6 +117,9 @@ def main() -> int:
                 errors.append(f"{profile} {item}: missing rule")
                 continue
             errors.extend(check_rule(profile, item, rule, actual))
+
+    for profile in sorted(set(PROFILE_ARRAYS) - set(payload["profiles"])):
+        errors.append(f"{profile}: stale PROFILE_ARRAYS mapping")
 
     if errors:
         print("device-range-catalog-parity-failed:", file=sys.stderr)

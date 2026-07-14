@@ -21,7 +21,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--password", default="123456")
     parser.add_argument(
         "--scenario",
-        choices=("all", "normal", "plc_error", "disconnect", "delay", "malformed"),
+        choices=(
+            "all",
+            "normal",
+            "plc_error",
+            "disconnect",
+            "delay",
+            "malformed",
+            "foreign_identity",
+            "foreign_identity_3e",
+            "foreign_flood",
+        ),
         default="all",
     )
     parser.add_argument("--verbose-server", action="store_true")
@@ -74,6 +84,15 @@ def run_scenario(
         server_cmd += ["--response-delay-ms", "250"]
     elif scenario == "malformed":
         server_cmd += ["--malformed-command", "read_type_name"]
+    elif scenario in {"foreign_identity", "foreign_identity_3e"}:
+        server_cmd += ["--foreign-identity-command", "read_type_name"]
+    elif scenario == "foreign_flood":
+        server_cmd += [
+            "--foreign-flood-command",
+            "read_type_name",
+            "--foreign-flood-duration-ms",
+            "1000",
+        ]
     else:
         raise ValueError(f"unsupported scenario: {scenario}")
 
@@ -124,7 +143,16 @@ def main() -> int:
 
     subprocess.check_call(build_cmd, cwd=project_dir)
 
-    scenarios = ["normal", "plc_error", "disconnect", "delay", "malformed"] if args.scenario == "all" else [args.scenario]
+    scenarios = [
+        "normal",
+        "plc_error",
+        "disconnect",
+        "delay",
+        "malformed",
+        "foreign_identity",
+        "foreign_identity_3e",
+        "foreign_flood",
+    ] if args.scenario == "all" else [args.scenario]
     for index, scenario in enumerate(scenarios):
         scenario_port = port + index if args.port != 0 else choose_free_port(args.host)
         run_scenario(project_dir, output_path, args.host, scenario_port, scenario, args.password, args.verbose_server)
