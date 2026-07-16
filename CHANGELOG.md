@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-07-17
+
+- Release: Bumped PlatformIO and Arduino library metadata and version-pinned install examples to `4.0.0`.
+
 - Library: Added immutable lifetime traffic snapshots through `SlmpClient::trafficStats()`.
 - Library: Added the `melsec:mx-r:rj71en71` connection profile and `PlcProfile::MxRRj71En71` selector.
 - Library: Added the required `ITransport::currentDatagramBytesRemaining` transport-framing contract; the Arduino UDP adapter reports its packet boundary so declared SLMP lengths cannot consume bytes from a later datagram.
