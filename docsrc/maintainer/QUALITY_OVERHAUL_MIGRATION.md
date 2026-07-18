@@ -221,7 +221,7 @@ Acceptance criteria:
 - [x] PlatformIO static analysis completed — every environment has an explicit owner-source `check_src_filters` list, dependency packages are excluded, and all six environments passed Cppcheck with zero medium/high defects.
 - [x] WIZnet W6300 Pico2 build completed — the configured PlatformIO environment built successfully and was uploaded through COM6 on 2026-07-12.
 - [x] Codex self-review completed against the approved contract and cross-language consistency requirements.
-- [x] Claude source review completed and findings recorded in `D:\APP\Close\instructions\CLAUDE_SLMP_RESULT.txt` and the workspace disposition record.
+- [x] Claude source review completed and findings preserved in the archived workspace record `CLAUDE_SLMP_RESULT.txt` and the workspace disposition record.
 - [x] Codex accepted and resolved C++ findings 6/9/10/12/17/18/34/35/36 and reran the full release gate.
 - [x] Required live-PLC checks passed — W6300 UDP and the ESP32 TCP keepalive and UDP ephemeral-binding checks passed; the earlier ESP32-only `unverified` release disposition was superseded by the 2026-07-17 StampPLC evidence below.
 - [x] Documentation, migration notes, changelog, examples, and generated API reference agree with implementation.
@@ -251,7 +251,7 @@ No live PLC communication is authorized by this document.
 
 ## Claude review status
 
-`CLAUDE-SLMP-20260712-01` and the post-review delta `CLAUDE-SLMP-20260712-02` were run by the user through Claude CLI. Codex recorded and accepted every finding, corrected the affected implementations and documentation, and reran the repository release gates. Results are preserved under `D:\APP\Close\instructions`.
+`CLAUDE-SLMP-20260712-01` and the post-review delta `CLAUDE-SLMP-20260712-02` were run by the user through Claude CLI. Codex recorded and accepted every finding, corrected the affected implementations and documentation, and reran the repository release gates. Results are preserved in the archived workspace instruction records.
 
 ## 2026-07-12 D-128, D-129, and D-132 delta
 
@@ -299,7 +299,10 @@ Acceptance criteria:
 - [x] Implementation and deterministic boundary tests completed.
 - [x] Generated API reference, usage guide, and Unreleased changelog agree.
 - [x] Live PLC verification is unnecessary because deterministic transports observe every boundary.
-- [ ] Final next-release package and cross-language API comparison completed.
+- [x] Final next-release package and cross-language API comparison completed. Evidence: the `v4.0.0`
+  tag equals repository HEAD, the GitHub Release and PlatformIO
+  `fa-yoshinobu/slmp-connect-cpp-minimal` `4.0.0` package are public, tag-commit checks passed, and
+  the final five-implementation source/API comparison was completed on 2026-07-18.
 
 ## QREV-20260714-002 — Exact response-route correlation
 
@@ -345,7 +348,7 @@ Acceptance criteria:
 - [x] Tests added or updated for every acceptance criterion.
 - [x] Host, Arduino, eight-scenario socket integration, and generated-API checks passed in `run_ci.bat`; ESP32 builds and all six PlatformIO static-analysis environments passed in `run_ci.bat --with-platformio`; `release_check.bat` and `pio pkg pack` passed.
 - [x] Codex self-review completed: the actual diff, the required `ITransport` datagram-boundary API change, structural-validation-before-identity order, error/session behavior, state transitions, timeout/cancellation behavior, traffic statistics, tests, generated API, packaging, and cross-language target contract were inspected.
-- [x] Claude source review completed; findings are recorded in `D:\APP\claude_review_findings_20260714.md`.
+- [x] Claude source review completed; findings are preserved in the archived workspace record `claude_review_findings_20260714.md`.
 - [x] Codex resolved or dispositioned every Claude finding and reran affected checks; classifications are recorded under `CLAUDE-20260714-CPP`.
 - [x] No live-PLC check is required; deterministic injected responses are the direct evidence for correlation and malformed-frame behavior.
 - [x] Documentation, migration note, changelog, and generated API reference agree with the implementation.
@@ -381,7 +384,7 @@ Acceptance criteria:
 - [x] Direct defaults, construction, parsing/descriptor, range-catalog, fixture, and parity tests added or updated.
 - [x] Host, Arduino, eight-scenario socket, generated-document, PlatformIO, release-gate, and package checks passed after Claude remediation.
 - [x] Codex self-review completed against the canonical `v2.1.0` fixtures and cross-language profile contract.
-- [x] Claude source review completed; findings are recorded in `D:\APP\claude_review_findings_20260714.md`.
+- [x] Claude source review completed; findings are preserved in the archived workspace record `claude_review_findings_20260714.md`.
 - [x] Codex resolved or dispositioned every applicable Claude finding and reran affected checks.
 - [x] No additional live-PLC check is required for this code synchronization item; canonical profile evidence owns the hardware facts.
 - [x] Documentation, migration note, changelog, and generated API reference agree with the implementation.
@@ -389,7 +392,7 @@ Acceptance criteria:
 
 ## CLAUDE-20260714-CPP — Finding disposition
 
-Review input: `D:\APP\claude_review_findings_20260714.md`. Codex examined the cited source,
+Review input: archived workspace record `claude_review_findings_20260714.md`. Codex examined the cited source,
 reproduced the release-gate failures, and classified the C++ findings as follows.
 
 - **F-X1 — accepted.** The default canonical-profile Ref now uses `v2.1.0`; a root-level
@@ -472,7 +475,7 @@ Acceptance criteria:
 - [x] Explicit millisecond-wrap regression test added.
 - [x] Host, Arduino, eight-scenario socket integration, and generated-API checks passed in `run_ci.bat`; ESP32 builds and all six PlatformIO static-analysis environments passed in `run_ci.bat --with-platformio`; `release_check.bat` and `pio pkg pack` passed.
 - [x] Codex self-review completed: the actual diff, the required `ITransport` datagram-boundary API change, structural-validation-before-identity order, error/session behavior, state transitions, timeout/cancellation behavior, traffic statistics, tests, generated API, packaging, and cross-language target contract were inspected.
-- [x] Claude source review completed; findings are recorded in `D:\APP\claude_review_findings_20260714.md`.
+- [x] Claude source review completed; findings are preserved in the archived workspace record `claude_review_findings_20260714.md`.
 - [x] Codex resolved or dispositioned every Claude finding and reran affected checks; classifications are recorded under `CLAUDE-20260714-CPP`.
 - [x] No live-PLC check is required; deterministic timing and injected candidate frames are the direct evidence.
 - [x] Documentation, migration note, changelog, and generated API reference agree with the implementation.
